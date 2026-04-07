@@ -26,7 +26,6 @@
 | תור | Bull (@nestjs/bull) + Redis 7 |
 | סקרייפר | `israeli-bank-scrapers` (build מ-GitHub בתוך Dockerfile) + Chromium באלפין |
 | פריסה | Docker Compose (nginx מקדים, frontend static, backend) |
-| סביבת יעד מתועדת | Proxmox LXC (למשל CT **115**), נתיב אפליקציה `/opt/finance-app` |
 
 ## מסמכים
 
@@ -34,19 +33,15 @@
 |------|--------|
 | [FEATURES.md](./FEATURES.md) | רשימת תכונות המערכת |
 | [CHANGELOG.md](./CHANGELOG.md) | יומן גרסאות |
-| [INSTALLATION.md](./INSTALLATION.md) | דרישות, LXC, Docker, הרצה ראשונה |
+| [INSTALLATION.md](./INSTALLATION.md) | דרישות, Docker, הרצה ראשונה |
 | [CONFIGURATION.md](./CONFIGURATION.md) | `.env`, Compose, Prisma, שירותים |
 | [API.md](./API.md) | נקודות קצה עיקריות ו-prefix |
 | [DATABASE.md](./DATABASE.md) | ERD, טבלאות, שדות חשובים |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | אריזה, SCP, `pct push`, build, מיגרציות |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | פריסה על שרת, עדכון גרסה |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | תרשים זרימה, מודולים, מוסדות נתמכים |
 | [SECURITY.md](./SECURITY.md) | JWT, 2FA, הצפנה, throttling |
 | [PENDING_TRANSACTIONS.md](./PENDING_TRANSACTIONS.md) | Pending מול Completed, התאמות, הגדרות |
 | [SALARY_SETTINGS.md](./SALARY_SETTINGS.md) | טווח משכורת, `effectiveDate`, דוגמאות |
 | [CREDIT_CARD_CHARGES.md](./CREDIT_CARD_CHARGES.md) | מניעת כפילות חיובי אשראי מהבנק |
 | [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | בעיות נפוצות (P3015, Chromium, cache) |
-| [SCRAPER_CHROMIUM_DOCKER_LXC.md](./SCRAPER_CHROMIUM_DOCKER_LXC.md) | Chromium ב-Docker ב-LXC — אבחון מפורט |
-
-## קישור חיצוני לקוד
-
-מקור הפרויקט תחת `finance-app/` (או `02_SERVICES/finance_app/`) ב-workspace HomeLab.
+| [SCRAPER_CHROMIUM_DOCKER.md](./SCRAPER_CHROMIUM_DOCKER.md) | Chromium ב-Docker — אבחון מפורט |

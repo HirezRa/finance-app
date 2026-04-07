@@ -1,8 +1,8 @@
 # פתרון בעיות
 
-בעיות שנתקלנו בהן בפועל (Docker ב-LXC, Proxmox) והפתרונות שנבדקו.
+בעיות נפוצות ב-Docker Compose והפתרונות המומלצים.
 
-## Chromium / Puppeteer ב-LXC
+## Chromium / Puppeteer (סקרייפר)
 
 **תסמינים:** `namespace`, `zygote`, Operation not permitted, סקרייפר נכשל.
 
@@ -10,20 +10,21 @@
 
 1. `docker-compose.yml` — `backend.security_opt: seccomp:unconfined` (אם מוגדר בפרויקט).
 2. `scraper.service.ts` — ארגומנטים לדפדפן: `--no-sandbox`, `--disable-setuid-sandbox`, `--no-zygote`, וכו'.
-3. Proxmox `/etc/pve/lxc/<id>.conf` — לעיתים `lxc.apparmor.profile: unconfined`.
 
-מדריך מפורט: [SCRAPER_CHROMIUM_DOCKER_LXC.md](./SCRAPER_CHROMIUM_DOCKER_LXC.md)
+מדריך מפורט: [SCRAPER_CHROMIUM_DOCKER.md](./SCRAPER_CHROMIUM_DOCKER.md)
+
+**הערה:** בהרצת Docker בתוך סביבות וירטואליות או קונטיינרים מקוננים, לעיתים נדרשות הגדרות נוספות ברמת המארח (למשל הרפיית AppArmor או nesting) — ראו את המדריך לעיל.
 
 ## Prisma P3015 — תיקיית מיגרציה ריקה
 
-**תסמינים:** `Error P3015: Could not find the migration file at ...` או כשל `migrate deploy` אחרי חילוץ tarball.
+**תסמינים:** `Error P3015: Could not find the migration file at ...` או כשל `migrate deploy` אחרי העתקת קבצים.
 
-**סיבות נפוצות:** תיקייה ריקה תחת `prisma/migrations` (שארית חילוץ/מיזוג).
+**סיבות נפוצות:** תיקייה ריקה תחת `prisma/migrations`.
 
-**פתרון (במארח האפליקציה / LXC):**
+**פתרון** (מתוך תיקיית הפרויקט בשרת):
 
 ```bash
-find /opt/finance-app/backend/prisma/migrations -type d -empty -delete
+find backend/prisma/migrations -type d -empty -delete
 ```
 
 או בתוך קונטיינר backend:
@@ -93,7 +94,7 @@ echo "vm.overcommit_memory=1" >> /etc/sysctl.conf && sysctl -p
 
 ## מטמון דפדפן (Frontend)
 
-אחרי פריסה: רענון קשיח (Ctrl+F5), ניקוי cache, או חלון גלישה בסתר — אם הממשק לא מציג שדות/כפתורים חדשים למרות אימג׳ frontend מע_updated.
+אחרי פריסה: רענון קשיח (Ctrl+F5), ניקוי cache, או חלון גלישה בסתר — אם הממשק לא מציג שדות/כפתורים חדשים למרות אימג׳ frontend מעודכן.
 
 ## פקודות אבחון מהירות
 
