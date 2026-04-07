@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pack backend for pct push (run from repo root: finance_app/)
+# Pack backend tarball for deploy (run from repo root)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:-${ROOT}/deploy_out/finance_backend_latest.tar.gz}"

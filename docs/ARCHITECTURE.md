@@ -36,4 +36,4 @@ React **18**, Vite, TanStack Query, Zustand, React Router.
 
 ## קישורים
 
-[SECURITY.md](./SECURITY.md) · [API.md](./API.md) · [SCRAPER_CHROMIUM_DOCKER_LXC.md](./SCRAPER_CHROMIUM_DOCKER_LXC.md)
+[SECURITY.md](./SECURITY.md) · [API.md](./API.md) · [SCRAPER_CHROMIUM_DOCKER.md](./SCRAPER_CHROMIUM_DOCKER.md)
