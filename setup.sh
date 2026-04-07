@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd /opt/finance-app
+cd "$(dirname "$0")"
 
 if [[ ! -f .env ]]; then
   chmod +x scripts/generate_env.sh 2>/dev/null || true
