@@ -33,12 +33,17 @@ CREATE TABLE IF NOT EXISTS "BudgetCategory" (
     "budgetId" TEXT NOT NULL,
     "categoryId" TEXT NOT NULL,
     "amount" DECIMAL(18,2) NOT NULL,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "BudgetCategory_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "BudgetCategory_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "BudgetCategory_budgetId_categoryId_key" UNIQUE ("budgetId", "categoryId")
 );
 
 CREATE INDEX IF NOT EXISTS "BudgetCategory_budgetId_idx" ON "BudgetCategory"("budgetId");
 CREATE INDEX IF NOT EXISTS "BudgetCategory_categoryId_idx" ON "BudgetCategory"("categoryId");
+CREATE INDEX IF NOT EXISTS "BudgetCategory_budgetId_sortOrder_idx" ON "BudgetCategory"("budgetId", "sortOrder");
 
 ALTER TABLE "BudgetCategory" DROP CONSTRAINT IF EXISTS "BudgetCategory_budgetId_fkey";
 ALTER TABLE "BudgetCategory" ADD CONSTRAINT "BudgetCategory_budgetId_fkey" FOREIGN KEY ("budgetId") REFERENCES "Budget"("id") ON DELETE CASCADE ON UPDATE CASCADE;
