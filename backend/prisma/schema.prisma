@@ -1,0 +1,214 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String          @id @default(uuid())
+  email                String          @unique
+  passwordHash         String
+  name                 String?
+  role                 String          @default("USER")
+  twoFactorEnabled     Boolean         @default(false)
+  twoFactorSecret      String?         @db.Text
+  twoFactorSecretIv    String?
+  twoFactorSecretTag   String?
+  recoveryCodes        String?         @db.Text
+  recoveryCodesIv      String?
+  recoveryCodesTag     String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  scraperConfigs       ScraperConfig[]
+  accounts             Account[]
+  categories           Category[]
+  budgets              Budget[]
+  userSettings         UserSettings?
+}
+
+model ScraperConfig {
+  id                   String    @id @default(uuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId            String
+  companyDisplayName   String
+  encryptedCredentials String    @db.Text
+  credentialsIv        String
+  credentialsAuthTag   String
+  isActive             Boolean   @default(true)
+  syncEnabled          Boolean   @default(true)
+  lastSyncAt           DateTime?
+  lastSyncStatus       String?
+  lastError            String?   @db.Text
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Account {
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionId   String
+  institutionName String
+  accountNumber   String
+  accountType     AccountType
+  balance         Decimal?      @db.Decimal(18, 2)
+  lastSyncAt      DateTime?
+  nickname        String?
+  description     String?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  transactions    Transaction[]
+
+  @@unique([userId, institutionId, accountNumber])
+  @@index([userId])
+}
+
+model Category {
+  id          String        @id @default(uuid())
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  nameHe      String
+  icon        String?
+  color       String?
+  parentId    String?
+  parent      Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[]    @relation("CategoryHierarchy")
+  isIncome    Boolean       @default(false)
+  isFixed     Boolean       @default(false)
+  isTracked   Boolean       @default(false)
+  isSystem    Boolean       @default(false)
+  sortOrder   Int           @default(0)
+  keywords    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  transactions     Transaction[]
+  budgetCategories BudgetCategory[]
+
+  @@index([userId])
+  @@index([name])
+}
+
+model Budget {
+  id         String           @id @default(uuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month      Int
+  year       Int
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  categories BudgetCategory[]
+
+  @@unique([userId, month, year])
+  @@index([userId])
+}
+
+model BudgetCategory {
+  id         String   @id @default(uuid())
+  budgetId   String
+  budget     Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  amount     Decimal  @db.Decimal(18, 2)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([budgetId, categoryId])
+  @@index([budgetId])
+  @@index([categoryId])
+  @@index([budgetId, sortOrder])
+}
+
+model UserSettings {
+  userId                 String   @id
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailNotifications     Boolean  @default(true)
+  pushNotifications      Boolean  @default(true)
+  weeklyDigest           Boolean  @default(false)
+  theme                  String   @default("system")
+  language               String   @default("he")
+  dateFormat             String   @default("dd/MM/yyyy")
+  largeExpenseThreshold  Decimal? @db.Decimal(18, 2)
+  budgetWarningEnabled   Boolean  @default(true)
+  budgetExceededEnabled  Boolean  @default(true)
+  ollamaEnabled          Boolean  @default(false)
+  ollamaUrl              String?
+  ollamaModel            String?
+  n8nEnabled             Boolean  @default(false)
+  n8nWebhookUrl          String?
+  n8nWebhookSecret       String?
+  salaryStartDay             Int      @default(25)
+  salaryEndDay               Int      @default(31)
+  includePendingInBudget     Boolean  @default(false)
+  includePendingInDashboard  Boolean  @default(true)
+  excludeCreditCardChargesFromBudget Boolean @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
+enum AccountType {
+  BANK
+  CREDIT_CARD
+}
+
+model Transaction {
+  id                       String            @id @default(uuid())
+  accountId                String
+  account                  Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  categoryId               String?
+  category                 Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  type                     TransactionType
+  status                   TransactionStatus @default(COMPLETED)
+  date                     DateTime
+  effectiveDate            DateTime?
+  processedDate            DateTime?
+  amount                   Decimal           @db.Decimal(18, 2)
+  originalAmount           Decimal?          @db.Decimal(18, 2)
+  originalCurrency         String            @default("ILS")
+  description              String            @default("")
+  memo                     String?
+  notes                    String?
+  note                     String?
+  installmentNumber        Int?
+  installmentTotal         Int?
+  scraperIdentifier        String?
+  bankIdentifier           String?
+  pendingMatchHash         String?
+  scraperHash              String            @unique
+  rawData                  Json?
+  isManual                 Boolean           @default(false)
+  createdByUserId          String?
+  isExcludedFromCashFlow   Boolean           @default(false)
+  createdAt                DateTime          @default(now())
+
+  @@unique([accountId, date, amount, description], name: "unique_transaction")
+  @@index([accountId])
+  @@index([accountId, status])
+  @@index([pendingMatchHash])
+  @@index([categoryId])
+}
+
+enum TransactionType {
+  NORMAL
+  INSTALLMENTS
+  CREDIT
+  REFUND
+  CASH
+  TRANSFER
+  FEE
+  INTEREST
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+}
