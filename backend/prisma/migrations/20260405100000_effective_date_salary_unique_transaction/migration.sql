@@ -1,8 +1,6 @@
--- AlterTable
-ALTER TABLE "UserSettings" ADD COLUMN     "salaryStartDay" INTEGER NOT NULL DEFAULT 25;
-ALTER TABLE "UserSettings" ADD COLUMN     "salaryEndDay" INTEGER NOT NULL DEFAULT 31;
+-- UserSettings columns (salaryStartDay/salaryEndDay) are created with UserSettings in 20260430200000_phase4.
 
--- AlterTable
+-- AlterTable Transaction
 ALTER TABLE "Transaction" ADD COLUMN     "effectiveDate" TIMESTAMP(3);
 
 UPDATE "Transaction" SET "effectiveDate" = "date" WHERE "effectiveDate" IS NULL;
