@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { settingsApi, authApi, transactionsApi } from '@/services/api';
+import { settingsApi, authApi, transactionsApi, categoriesApi } from '@/services/api';
 import { useAuthStore } from '@/store/auth.store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,7 @@ import {
   Eye,
   EyeOff,
   Trash2,
+  Tags,
 } from 'lucide-react';
 import type { AuthUser } from '@/store/auth.store';
 import { toast } from 'sonner';
@@ -89,6 +90,20 @@ export default function SettingsPage() {
 function DataSettings() {
   const queryClient = useQueryClient();
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  const createDefaultCategoriesMutation = useMutation({
+    mutationFn: () => categoriesApi.createDefaults(),
+    onSuccess: (response) => {
+      const { created, skipped } = response.data;
+      toast.success(
+        `נוצרו ${created} קטגוריות חדשות${skipped > 0 ? `, ${skipped} כבר קיימות` : ''}`,
+      );
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+    onError: () => {
+      toast.error('שגיאה ביצירת קטגוריות');
+    },
+  });
 
   const deleteAllTransactionsMutation = useMutation({
     mutationFn: async () => {
@@ -144,15 +159,40 @@ function DataSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-red-500">
-          <Trash2 className="h-5 w-5" />
-          מחיקת נתונים
-        </CardTitle>
-        <CardDescription>
-          פעולות אלו הן בלתי הפיכות. נא לגבות את הנתונים לפני המחיקה.
-        </CardDescription>
+        <CardTitle>ניהול נתונים</CardTitle>
+        <CardDescription>יצירה ומחיקה של נתונים במערכת</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h4 className="flex items-center gap-2 font-medium text-blue-500">
+                <Tags className="h-4 w-4" />
+                יצירת קטגוריות בסיס
+              </h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                יוצר כ־30 קטגוריות בסיסיות עם מילות מפתח לסיווג אוטומטי. קטגוריות
+                קיימות (כולל מערכת) לא יושפעו.
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => createDefaultCategoriesMutation.mutate()}
+              disabled={createDefaultCategoriesMutation.isPending}
+              className="shrink-0 border-blue-500 text-blue-500 hover:bg-blue-500/10"
+            >
+              {createDefaultCategoriesMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'צור קטגוריות'
+              )}
+            </Button>
+          </div>
+        </div>
+
         <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
           <div className="flex items-start justify-between gap-4">
             <div>

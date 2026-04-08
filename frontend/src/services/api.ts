@@ -159,6 +159,10 @@ export const categoriesApi = {
   checkDuplicate: (params: { name?: string; nameHe?: string }) =>
     api.get('/categories/check-duplicate', { params }),
   create: (data: Record<string, unknown>) => api.post('/categories', data),
+  createDefaults: () =>
+    api.post<{ created: number; skipped: number; total: number }>(
+      '/categories/create-defaults',
+    ),
   update: (id: string, data: Record<string, unknown>) =>
     api.patch(`/categories/${id}`, data),
   delete: (id: string) => api.delete(`/categories/${id}`),
