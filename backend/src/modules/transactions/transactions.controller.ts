@@ -54,6 +54,11 @@ export class TransactionsController {
     return this.transactionsService.getInstallmentsSummary(userId);
   }
 
+  @Delete('all')
+  deleteAllTransactions(@CurrentUser('id') userId: string) {
+    return this.transactionsService.deleteAllTransactions(userId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.transactionsService.findOne(id, userId);

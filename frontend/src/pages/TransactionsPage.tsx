@@ -127,10 +127,8 @@ export default function TransactionsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [showBankTransactions, setShowBankTransactions] = useState(true);
   const [showCreditTransactions, setShowCreditTransactions] = useState(true);
-  const [showInstallmentsOnly, setShowInstallmentsOnly] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
   const [manualDate, setManualDate] = useState(() =>
@@ -150,28 +148,16 @@ export default function TransactionsPage() {
   }, [showBankTransactions, showCreditTransactions]);
 
   const { data, isPending } = useQuery({
-    queryKey: [
-      'transactions',
-      {
-        page,
-        search,
-        categoryId: selectedCategory,
-        statusFilter,
-        accountTypesKey: accountTypesFilter.join(','),
-        showInstallmentsOnly,
-      },
-    ],
+    queryKey: ['transactions', accountTypesFilter, page, search, selectedCategory],
     enabled: accountTypesFilter.length > 0,
     queryFn: () =>
       transactionsApi
         .getAll({
           page,
-          limit: 20,
+          limit: 50,
           search: search || undefined,
           categoryId: selectedCategory || undefined,
-          status: statusFilter,
           accountTypes: accountTypesFilter,
-          ...(showInstallmentsOnly ? { hasInstallments: true } : {}),
         })
         .then((res) => res.data),
   });
@@ -266,42 +252,6 @@ export default function TransactionsPage() {
               : `${pagination.total} עסקאות`}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-4">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant={statusFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setStatusFilter('all');
-                  setPage(1);
-                }}
-              >
-                הכל
-              </Button>
-              <Button
-                type="button"
-                variant={statusFilter === 'completed' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setStatusFilter('completed');
-                  setPage(1);
-                }}
-              >
-                סופיות
-              </Button>
-              <Button
-                type="button"
-                variant={statusFilter === 'pending' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setStatusFilter('pending');
-                  setPage(1);
-                }}
-              >
-                בתהליך
-              </Button>
-            </div>
-            <div className="hidden h-6 w-px bg-border sm:block" aria-hidden />
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <Checkbox
@@ -330,18 +280,6 @@ export default function TransactionsPage() {
                 </Label>
               </div>
             </div>
-            <div className="hidden h-6 w-px bg-border sm:block" aria-hidden />
-            <Button
-              type="button"
-              variant={showInstallmentsOnly ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setShowInstallmentsOnly((v) => !v);
-                setPage(1);
-              }}
-            >
-              📅 תשלומים בלבד
-            </Button>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

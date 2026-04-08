@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { settingsApi, authApi } from '@/services/api';
+import { settingsApi, authApi, transactionsApi } from '@/services/api';
 import { useAuthStore } from '@/store/auth.store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,17 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   User,
   Shield,
   Bell,
@@ -25,12 +36,14 @@ import {
   Copy,
   Eye,
   EyeOff,
+  Trash2,
 } from 'lucide-react';
 import type { AuthUser } from '@/store/auth.store';
+import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<
-    'profile' | 'security' | 'notifications' | 'ollama' | 'n8n'
+    'profile' | 'security' | 'notifications' | 'ollama' | 'n8n' | 'data'
   >('profile');
 
   const tabs = [
@@ -39,6 +52,7 @@ export default function SettingsPage() {
     { id: 'notifications' as const, label: 'התראות', icon: Bell },
     { id: 'ollama' as const, label: 'OLLAMA', icon: Cpu },
     { id: 'n8n' as const, label: 'n8n', icon: Webhook },
+    { id: 'data' as const, label: 'נתונים', icon: Trash2 },
   ];
 
   return (
@@ -67,7 +81,100 @@ export default function SettingsPage() {
       {activeTab === 'notifications' ? <NotificationSettings /> : null}
       {activeTab === 'ollama' ? <OllamaSettings /> : null}
       {activeTab === 'n8n' ? <N8nSettings /> : null}
+      {activeTab === 'data' ? <DataSettings /> : null}
     </div>
+  );
+}
+
+function DataSettings() {
+  const queryClient = useQueryClient();
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  const deleteAllTransactionsMutation = useMutation({
+    mutationFn: () => transactionsApi.deleteAll(),
+    onSuccess: () => {
+      toast.success('כל העסקאות נמחקו בהצלחה');
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      setDeleteConfirmText('');
+    },
+    onError: () => {
+      toast.error('שגיאה במחיקת העסקאות');
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-red-500">
+          <Trash2 className="h-5 w-5" />
+          מחיקת נתונים
+        </CardTitle>
+        <CardDescription>
+          פעולות אלו הן בלתי הפיכות. נא לגבות את הנתונים לפני המחיקה.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h4 className="font-medium text-red-500">מחיקת כל העסקאות</h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                פעולה זו תמחק את כל העסקאות מכל החשבונות. הפעולה בלתי הפיכה!
+              </p>
+            </div>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="ms-2 h-4 w-4" />
+                  מחק הכל
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-red-500">
+                    ⚠️ אזהרה: מחיקת כל העסקאות
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-4">
+                    <p>
+                      אתה עומד למחוק את <strong>כל העסקאות</strong> מבסיס הנתונים.
+                    </p>
+                    <p>
+                      פעולה זו <strong>בלתי הפיכה</strong> ולא ניתן לשחזר את הנתונים.
+                    </p>
+                    <p className="font-medium">להמשך, הקלד "מחק הכל" בשדה למטה:</p>
+                    <Input
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder='הקלד "מחק הכל"'
+                      className="mt-2"
+                    />
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setDeleteConfirmText('')}>
+                    ביטול
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteAllTransactionsMutation.mutate()}
+                    disabled={
+                      deleteConfirmText !== 'מחק הכל' ||
+                      deleteAllTransactionsMutation.isPending
+                    }
+                    className="bg-red-500 hover:bg-red-600"
+                  >
+                    {deleteAllTransactionsMutation.isPending
+                      ? 'מוחק...'
+                      : 'אישור מחיקה'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
