@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import AlertsDropdown from '@/components/AlertsDropdown';
+import { AppVersion } from '@/components/AppVersion';
 
 const navItems = [
   { path: '/dashboard', label: 'לוח בקרה', icon: LayoutDashboard },
@@ -62,12 +63,12 @@ export default function MainLayout() {
 
       <aside
         className={cn(
-          'fixed top-0 z-[60] h-full w-64 border-l bg-background transition-transform lg:translate-x-0',
+          'fixed top-0 z-[60] flex h-full w-64 flex-col border-l bg-background transition-transform lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : 'translate-x-full',
           'right-0',
         )}
       >
-        <div className="flex h-14 items-center justify-between border-b px-4">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
             <span className="font-semibold">ניהול פיננסי</span>
@@ -87,7 +88,7 @@ export default function MainLayout() {
           </div>
         </div>
 
-        <nav className="flex flex-col gap-1 p-4">
+        <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-4">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
@@ -108,8 +109,9 @@ export default function MainLayout() {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 border-t p-4">
-          <div className="mb-2 truncate px-3 text-sm text-muted-foreground">
+        <div className="mt-auto shrink-0 border-t p-4">
+          <AppVersion />
+          <div className="mb-2 mt-2 truncate px-3 text-sm text-muted-foreground">
             {user?.name || user?.email}
           </div>
           <Button
