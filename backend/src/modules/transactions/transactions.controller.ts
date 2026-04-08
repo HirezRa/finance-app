@@ -25,6 +25,22 @@ export class TransactionsController {
 
   constructor(private transactionsService: TransactionsService) {}
 
+  /** Must stay before @Delete(':id') — static path `all` vs param `:id`. */
+  @Delete('all')
+  async deleteAll(@CurrentUser('id') userId: string) {
+    this.logger.log('=== DELETE ALL TRANSACTIONS CALLED ===');
+    this.logger.log(`User ID: ${userId}`);
+    try {
+      const result = await this.transactionsService.deleteAllTransactions(userId);
+      this.logger.log(`=== DELETE COMPLETE: ${result.deleted} transactions ===`);
+      return result;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Delete all failed: ${msg}`);
+      throw error;
+    }
+  }
+
   @Get()
   findAll(@CurrentUser('id') userId: string, @Query() query: GetTransactionsDto) {
     return this.transactionsService.findAll(userId, query);
@@ -55,14 +71,6 @@ export class TransactionsController {
   @Get('installments-summary')
   getInstallmentsSummary(@CurrentUser('id') userId: string) {
     return this.transactionsService.getInstallmentsSummary(userId);
-  }
-
-  @Delete('all')
-  async deleteAllTransactions(@CurrentUser('id') userId: string) {
-    this.logger.log(`Deleting all transactions for user ${userId}`);
-    const result = await this.transactionsService.deleteAllTransactions(userId);
-    this.logger.log(`Deleted ${result.deleted} transactions`);
-    return result;
   }
 
   @Get(':id')
@@ -111,6 +119,7 @@ export class TransactionsController {
 
   @Delete(':id')
   delete(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    this.logger.log(`Delete single transaction: ${id}`);
     return this.transactionsService.delete(id, userId);
   }
 }
