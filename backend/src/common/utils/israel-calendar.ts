@@ -52,3 +52,24 @@ export function getUtcWideRangeForIsraelMonth(
 export function startOfIsraelMonthDay(year: number, month: number, day = 1): Date {
   return new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
 }
+
+/**
+ * Days left in (budgetYear, budgetMonth) by Israel civil date, counting today inclusive.
+ * `null` if that month is entirely in the past relative to `now`.
+ */
+export function daysRemainingInBudgetMonth(
+  now: Date,
+  budgetYear: number,
+  budgetMonth: number,
+): number | null {
+  const { year: cy, month: cm } = getIsraelYearMonth(now);
+  const dim = daysInMonth(budgetYear, budgetMonth);
+  if (budgetYear < cy || (budgetYear === cy && budgetMonth < cm)) {
+    return null;
+  }
+  if (budgetYear > cy || (budgetYear === cy && budgetMonth > cm)) {
+    return dim;
+  }
+  const day = getIsraelDayOfMonth(now);
+  return Math.max(1, dim - day + 1);
+}
