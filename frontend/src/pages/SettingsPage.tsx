@@ -91,18 +91,30 @@ function DataSettings() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const deleteAllTransactionsMutation = useMutation({
-    mutationFn: () => transactionsApi.deleteAll(),
-    onSuccess: (response) => {
-      const deleted = (response.data as { deleted?: number } | undefined)?.deleted ?? 0;
+    mutationFn: async () => {
+      console.log('Starting delete all transactions...');
+      const response = await transactionsApi.deleteAll();
       console.log('Delete response:', response);
-      toast.success(`נמחקו ${deleted} עסקאות`);
+      return response;
+    },
+    onSuccess: (response) => {
+      const deleted = response.data?.deleted ?? 0;
+      console.log(`Successfully deleted ${deleted} transactions`);
+      toast.success(`נמחקו ${deleted} עסקאות בהצלחה`);
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      queryClient.invalidateQueries({ queryKey: ['budgets'] });
       setDeleteConfirmText('');
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
       console.error('Delete error:', error);
-      toast.error('שגיאה במחיקת העסקאות');
+      const ax = error as { message?: string; response?: { data?: { message?: string } } };
+      const detail =
+        ax.response?.data?.message ??
+        (typeof ax.message === 'string' ? ax.message : null) ??
+        'שגיאה לא ידועה';
+      toast.error(`שגיאה במחיקת העסקאות: ${detail}`);
     },
   });
 
