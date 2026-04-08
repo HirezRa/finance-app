@@ -92,13 +92,16 @@ function DataSettings() {
 
   const deleteAllTransactionsMutation = useMutation({
     mutationFn: () => transactionsApi.deleteAll(),
-    onSuccess: () => {
-      toast.success('כל העסקאות נמחקו בהצלחה');
+    onSuccess: (response) => {
+      const deleted = (response.data as { deleted?: number } | undefined)?.deleted ?? 0;
+      console.log('Delete response:', response);
+      toast.success(`נמחקו ${deleted} עסקאות`);
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setDeleteConfirmText('');
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Delete error:', error);
       toast.error('שגיאה במחיקת העסקאות');
     },
   });
