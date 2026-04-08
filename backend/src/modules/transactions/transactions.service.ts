@@ -311,6 +311,27 @@ export class TransactionsService {
     });
   }
 
+  async deleteAllTransactions(userId: string) {
+    const accounts = await this.prisma.account.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+
+    const accountIds = accounts.map((a) => a.id);
+
+    if (accountIds.length === 0) {
+      return { deleted: 0 };
+    }
+
+    const result = await this.prisma.transaction.deleteMany({
+      where: {
+        accountId: { in: accountIds },
+      },
+    });
+
+    return { deleted: result.count };
+  }
+
   private parseKeywordsField(
     raw: Prisma.JsonValue | null | undefined,
   ): string[] {

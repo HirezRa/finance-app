@@ -111,6 +111,7 @@ export const transactionsApi = {
   setExcludeFromCashFlow: (id: string, exclude: boolean) =>
     api.patch(`/transactions/${id}/exclude`, { exclude }),
   delete: (id: string) => api.delete(`/transactions/${id}`),
+  deleteAll: () => api.delete('/transactions/all'),
   bulkUpdateCategory: (transactionIds: string[], categoryId: string) =>
     api.patch('/transactions/bulk/category', { transactionIds, categoryId }),
   recategorizeAll: () => api.post('/transactions/recategorize-all'),
