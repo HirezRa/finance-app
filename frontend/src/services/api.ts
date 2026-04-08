@@ -6,8 +6,25 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+/** JWT from Zustand; if persist rehydration lagged, read persisted `finance-auth` blob once. */
+function resolveAccessToken(): string | null {
+  const fromStore = useAuthStore.getState().accessToken;
+  if (fromStore) return fromStore;
+  try {
+    const raw = localStorage.getItem('finance-auth');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      state?: { accessToken?: string | null };
+    };
+    const t = parsed.state?.accessToken;
+    return typeof t === 'string' && t.length > 0 ? t : null;
+  } catch {
+    return null;
+  }
+}
+
 api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken;
+  const token = resolveAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
