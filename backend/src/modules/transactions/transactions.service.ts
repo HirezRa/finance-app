@@ -318,19 +318,46 @@ export class TransactionsService {
   }
 
   async deleteAllTransactions(userId: string) {
-    this.logger.log(`Starting deleteAllTransactions for user ${userId}`);
+    this.logger.log('=== DELETE ALL TRANSACTIONS ===');
+    this.logger.log(`Received userId: "${userId}"`);
+    this.logger.log(`userId type: ${typeof userId}`);
 
     const accounts = await this.prisma.account.findMany({
       where: { userId },
-      select: { id: true },
+      select: { id: true, userId: true, institutionName: true },
     });
 
-    this.logger.log(`Found ${accounts.length} accounts`);
+    this.logger.log(`Found ${accounts.length} accounts for userId "${userId}"`);
+    accounts.forEach((a) => {
+      this.logger.log(
+        `  Account: ${a.id} (${a.institutionName}), userId: ${a.userId}`,
+      );
+    });
 
     const accountIds = accounts.map((a) => a.id);
 
     if (accountIds.length === 0) {
-      this.logger.log('No accounts found, nothing to delete');
+      this.logger.log('No accounts found - checking if user exists...');
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true },
+      });
+
+      if (user) {
+        this.logger.log(`User exists: ${user.email}`);
+
+        const allAccounts = await this.prisma.account.findMany({
+          select: { id: true, userId: true, institutionName: true },
+        });
+        this.logger.log(`Total accounts in DB: ${allAccounts.length}`);
+        allAccounts.forEach((a) => {
+          this.logger.log(`  DB Account: ${a.id}, userId: "${a.userId}"`);
+        });
+      } else {
+        this.logger.log(`User NOT found with id: ${userId}`);
+      }
+
       return { deleted: 0 };
     }
 
@@ -346,7 +373,7 @@ export class TransactionsService {
       },
     });
 
-    this.logger.log(`Deleted ${result.count} transactions`);
+    this.logger.log(`=== DELETED ${result.count} transactions ===`);
 
     return { deleted: result.count };
   }
