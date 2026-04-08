@@ -92,14 +92,25 @@ function DataSettings() {
 
   const deleteAllTransactionsMutation = useMutation({
     mutationFn: async () => {
-      console.log('Starting delete all transactions...');
+      console.log('=== DELETE ALL MUTATION STARTED ===');
+      const storeToken = useAuthStore.getState().accessToken;
+      console.log('Token in store:', !!storeToken);
+      try {
+        const raw = localStorage.getItem('finance-auth');
+        const parsed = raw
+          ? (JSON.parse(raw) as { state?: { accessToken?: string | null } })
+          : null;
+        console.log('Token in persisted finance-auth:', !!parsed?.state?.accessToken);
+      } catch {
+        console.log('Token in persisted finance-auth: (parse error)');
+      }
       const response = await transactionsApi.deleteAll();
-      console.log('Delete response:', response);
+      console.log('=== DELETE ALL RESPONSE ===', response);
       return response;
     },
     onSuccess: (response) => {
       const deleted = response.data?.deleted ?? 0;
-      console.log(`Successfully deleted ${deleted} transactions`);
+      console.log('=== DELETE SUCCESS ===', response.data);
       toast.success(`נמחקו ${deleted} עסקאות בהצלחה`);
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -108,13 +119,25 @@ function DataSettings() {
       setDeleteConfirmText('');
     },
     onError: (error: unknown) => {
-      console.error('Delete error:', error);
-      const ax = error as { message?: string; response?: { data?: { message?: string } } };
+      console.error('=== DELETE ERROR ===', error);
+      const ax = error as {
+        message?: string;
+        response?: { data?: unknown; status?: number };
+      };
+      console.error('Response status:', ax.response?.status);
+      console.error('Response body:', ax.response?.data);
       const detail =
-        ax.response?.data?.message ??
-        (typeof ax.message === 'string' ? ax.message : null) ??
-        'שגיאה לא ידועה';
-      toast.error(`שגיאה במחיקת העסקאות: ${detail}`);
+        ax.response?.data &&
+        typeof ax.response.data === 'object' &&
+        'message' in ax.response.data &&
+        typeof (ax.response.data as { message: unknown }).message === 'string'
+          ? (ax.response.data as { message: string }).message
+          : typeof ax.message === 'string'
+            ? ax.message
+            : null;
+      toast.error(
+        detail ? `שגיאה במחיקת העסקאות: ${detail}` : 'שגיאה במחיקת העסקאות',
+      );
     },
   });
 
