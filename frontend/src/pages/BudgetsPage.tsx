@@ -13,6 +13,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, cn } from '@/lib/utils';
+import { getIsraelYearMonth } from '@/lib/israel-calendar';
 import {
   ChevronRight,
   ChevronLeft,
@@ -40,9 +41,9 @@ function apiErrorMessage(err: unknown, fallback: string): string {
 
 export default function BudgetsPage() {
   const queryClient = useQueryClient();
-  const now = new Date();
-  const [displayMonth, setDisplayMonth] = useState(now.getMonth() + 1);
-  const [displayYear, setDisplayYear] = useState(now.getFullYear());
+  const todayIsraelInit = getIsraelYearMonth(new Date());
+  const [displayMonth, setDisplayMonth] = useState(todayIsraelInit.month);
+  const [displayYear, setDisplayYear] = useState(todayIsraelInit.year);
   const [isEditing, setIsEditing] = useState(false);
   const [editedBudgets, setEditedBudgets] = useState<Record<string, number>>({});
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -200,11 +201,23 @@ export default function BudgetsPage() {
     }
   };
 
-  const isCurrentMonth = displayMonth === now.getMonth() + 1 && displayYear === now.getFullYear();
+  const todayIsrael = getIsraelYearMonth(new Date());
+  const isCurrentMonth =
+    displayMonth === todayIsrael.month && displayYear === todayIsrael.year;
   const b = budget as
     | {
         id?: string | null;
-        summary?: { totalSpent?: number; totalBudget?: number; totalRemaining?: number; overallPercentage?: number };
+        summary?: {
+          totalSpent?: number;
+          totalBudget?: number;
+          totalRemaining?: number;
+          overallPercentage?: number;
+          pace?: {
+            daysRemaining: number;
+            dailyAllowance: number;
+            weeklyAllowance: number;
+          } | null;
+        };
         usedFallback?: boolean;
         categories?: Array<{
           id: string;
@@ -305,7 +318,7 @@ export default function BudgetsPage() {
       ) : b?.summary ? (
         <Card>
           <CardContent className="p-6">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               <div>
                 <p className="text-sm text-muted-foreground">תקציב כולל</p>
                 <p className="text-2xl font-bold">{formatCurrency(b.summary.totalBudget ?? 0)}</p>
@@ -317,7 +330,7 @@ export default function BudgetsPage() {
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">נותר</p>
+                <p className="text-sm text-muted-foreground">נותר לחודש</p>
                 <p
                   className={cn(
                     'text-2xl font-bold',
@@ -327,6 +340,42 @@ export default function BudgetsPage() {
                   {formatCurrency(b.summary.totalRemaining ?? 0)}
                 </p>
               </div>
+              {b.summary.pace ? (
+                <>
+                  <div>
+                    <p className="text-sm text-muted-foreground">מותר להוציא השבוע (ממוצע)</p>
+                    <p
+                      className={cn(
+                        'text-2xl font-bold',
+                        (b.summary.pace.weeklyAllowance ?? 0) >= 0
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-red-500',
+                      )}
+                    >
+                      {formatCurrency(b.summary.pace.weeklyAllowance ?? 0)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      חלוקה שווה ל־{b.summary.pace.daysRemaining} ימים שנותרו בחודש (ישראל)
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">מותר להוציא היום (ממוצע)</p>
+                    <p
+                      className={cn(
+                        'text-2xl font-bold',
+                        (b.summary.pace.dailyAllowance ?? 0) >= 0
+                          ? 'text-teal-600 dark:text-teal-400'
+                          : 'text-red-500',
+                      )}
+                    >
+                      {formatCurrency(b.summary.pace.dailyAllowance ?? 0)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      נותר לחודש לחלק לימים שנותרו
+                    </p>
+                  </div>
+                </>
+              ) : null}
             </div>
             {(b.summary.totalBudget ?? 0) > 0 ? (
               <>

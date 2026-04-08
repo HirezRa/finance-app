@@ -10,6 +10,7 @@ import {
   getIsraelYearMonth,
   getUtcWideRangeForIsraelMonth,
   isInIsraelMonth,
+  daysRemainingInBudgetMonth,
 } from '../../common/utils/israel-calendar';
 
 function cashFlowAnchorDate(t: {
@@ -17,6 +18,26 @@ function cashFlowAnchorDate(t: {
   effectiveDate: Date | null;
 }): Date {
   return t.effectiveDate ?? t.date;
+}
+
+type BudgetPaceSummary = {
+  daysRemaining: number;
+  dailyAllowance: number;
+  weeklyAllowance: number;
+} | null;
+
+function computeBudgetPace(totalRemaining: number, now: Date, month: number, year: number): BudgetPaceSummary {
+  const daysRem = daysRemainingInBudgetMonth(now, year, month);
+  if (daysRem === null || daysRem <= 0) {
+    return null;
+  }
+  const daily = totalRemaining / daysRem;
+  const weekly = (totalRemaining * 7) / daysRem;
+  return {
+    daysRemaining: daysRem,
+    dailyAllowance: Math.round(daily * 100) / 100,
+    weeklyAllowance: Math.round(weekly * 100) / 100,
+  };
 }
 
 @Injectable()
@@ -246,6 +267,7 @@ export class BudgetsService {
           totalSpent,
           totalRemaining: -totalSpent,
           overallPercentage: 0,
+          pace: null,
         },
         spendingByCategory: Object.fromEntries(spendingMap),
       };
@@ -274,6 +296,10 @@ export class BudgetsService {
 
     const totalBudget = categoriesWithSpending.reduce((sum, c) => sum + c.budgetAmount, 0);
     const totalBudgetSpent = categoriesWithSpending.reduce((sum, c) => sum + c.spent, 0);
+    const totalRemaining = totalBudget - totalBudgetSpent;
+    const now = new Date();
+    const pace =
+      totalBudget > 0 ? computeBudgetPace(totalRemaining, now, month, year) : null;
 
     return {
       id: budget.id,
@@ -283,8 +309,9 @@ export class BudgetsService {
       summary: {
         totalBudget,
         totalSpent: totalBudgetSpent,
-        totalRemaining: totalBudget - totalBudgetSpent,
+        totalRemaining,
         overallPercentage: totalBudget > 0 ? Math.round((totalBudgetSpent / totalBudget) * 100) : 0,
+        pace,
       },
       spendingByCategory: Object.fromEntries(spendingMap),
     };
