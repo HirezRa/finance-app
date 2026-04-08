@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { GetTransactionsDto } from './dto/get-transactions.dto';
@@ -20,6 +21,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 @Controller('transactions')
 @UseGuards(JwtAuthGuard)
 export class TransactionsController {
+  private readonly logger = new Logger(TransactionsController.name);
+
   constructor(private transactionsService: TransactionsService) {}
 
   @Get()
@@ -55,8 +58,11 @@ export class TransactionsController {
   }
 
   @Delete('all')
-  deleteAllTransactions(@CurrentUser('id') userId: string) {
-    return this.transactionsService.deleteAllTransactions(userId);
+  async deleteAllTransactions(@CurrentUser('id') userId: string) {
+    this.logger.log(`Deleting all transactions for user ${userId}`);
+    const result = await this.transactionsService.deleteAllTransactions(userId);
+    this.logger.log(`Deleted ${result.deleted} transactions`);
+    return result;
   }
 
   @Get(':id')
