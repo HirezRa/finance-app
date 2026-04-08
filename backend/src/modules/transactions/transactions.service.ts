@@ -62,6 +62,12 @@ export class TransactionsService {
       },
     };
 
+    // When credit accounts are not selected, hide aggregate credit-card charges
+    // that appear on bank statements (marked isExcludedFromCashFlow).
+    if (!accountTypes.includes(AccountType.CREDIT_CARD)) {
+      where.isExcludedFromCashFlow = false;
+    }
+
     if (categoryId) where.categoryId = categoryId;
 
     const st = statusQ ?? 'all';
@@ -312,22 +318,35 @@ export class TransactionsService {
   }
 
   async deleteAllTransactions(userId: string) {
+    this.logger.log(`Starting deleteAllTransactions for user ${userId}`);
+
     const accounts = await this.prisma.account.findMany({
       where: { userId },
       select: { id: true },
     });
 
+    this.logger.log(`Found ${accounts.length} accounts`);
+
     const accountIds = accounts.map((a) => a.id);
 
     if (accountIds.length === 0) {
+      this.logger.log('No accounts found, nothing to delete');
       return { deleted: 0 };
     }
+
+    const countBefore = await this.prisma.transaction.count({
+      where: { accountId: { in: accountIds } },
+    });
+
+    this.logger.log(`Found ${countBefore} transactions to delete`);
 
     const result = await this.prisma.transaction.deleteMany({
       where: {
         accountId: { in: accountIds },
       },
     });
+
+    this.logger.log(`Deleted ${result.count} transactions`);
 
     return { deleted: result.count };
   }
