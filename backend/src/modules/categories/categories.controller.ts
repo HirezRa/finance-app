@@ -54,6 +54,11 @@ export class CategoriesController {
     return this.categoriesService.getCategoriesWithStats(userId, month, year);
   }
 
+  @Post('create-defaults')
+  createDefaults(@CurrentUser('id') userId: string) {
+    return this.categoriesService.createDefaultCategories(userId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.categoriesService.findOne(id, userId);
