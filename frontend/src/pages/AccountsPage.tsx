@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { accountsApi, scraperApi } from '@/services/api';
+import { accountsApi, scraperApi, settingsApi } from '@/services/api';
 import { SyncProgress, type SyncProgressStatus } from '@/components/SyncProgress';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
 import {
   Plus,
   RefreshCw,
@@ -34,6 +36,8 @@ import {
   XCircle,
   Clock,
   Loader2,
+  Eye as PasswordRevealIcon,
+  EyeOff as PasswordHideIcon,
   Eye,
   EyeOff,
   Pencil,
@@ -98,9 +102,28 @@ export default function AccountsPage() {
   const syncAllTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 
+  const { data: userSettings } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: () =>
+      settingsApi.get().then((res) => res.data as { showInactiveAccounts?: boolean }),
+  });
+
+  const showInactiveAccounts = userSettings?.showInactiveAccounts === true;
+
   const { data: accounts, isPending: accountsPending } = useQuery({
-    queryKey: ['accounts'],
-    queryFn: () => accountsApi.getAll().then((res) => res.data),
+    queryKey: ['accounts', showInactiveAccounts],
+    queryFn: () => accountsApi.getAll(showInactiveAccounts).then((res) => res.data),
+  });
+
+  const updateShowInactiveMutation = useMutation({
+    mutationFn: (checked: boolean) =>
+      settingsApi.update({ showInactiveAccounts: checked }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      toast.success('ההגדרה נשמרה');
+    },
+    onError: () => toast.error('שגיאה בשמירת ההגדרה'),
   });
 
   const { data: configs, isPending: configsPending } = useQuery({
@@ -133,13 +156,28 @@ export default function AccountsPage() {
       data,
     }: {
       id: string;
-      data: { nickname?: string | null; description?: string | null };
+      data: {
+        nickname?: string | null;
+        description?: string | null;
+        isActive?: boolean;
+      };
     }) => accountsApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      setEditingAccount(null);
+      const d = vars.data;
+      const keys = Object.keys(d).filter(
+        (k) => d[k as keyof typeof d] !== undefined,
+      );
+      const onlyActive = keys.length === 1 && keys[0] === 'isActive';
+      if (onlyActive) {
+        toast.success('סטטוס החשבון עודכן');
+      } else {
+        setEditingAccount(null);
+        toast.success('החשבון עודכן');
+      }
     },
+    onError: () => toast.error('שגיאה בעדכון'),
   });
 
   const deleteConfigMutation = useMutation({
@@ -310,7 +348,18 @@ export default function AccountsPage() {
             ניהול חשבונות בנק וכרטיסי אשראי
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-inactive-accounts"
+              checked={showInactiveAccounts}
+              onCheckedChange={(c) => updateShowInactiveMutation.mutate(c)}
+              disabled={updateShowInactiveMutation.isPending}
+            />
+            <Label htmlFor="show-inactive-accounts" className="cursor-pointer text-sm font-normal">
+              {showInactiveAccounts ? 'מציג גם לא פעילים' : 'פעילים בלבד'}
+            </Label>
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -417,9 +466,11 @@ export default function AccountsPage() {
                       {config.lastError}
                     </p>
                   ) : null}
-                  <div className="text-2xl font-bold">
-                    {formatCurrency(totalBalance || 0)}
-                  </div>
+                  {totalBalance !== 0 ? (
+                    <div className="text-2xl font-bold tabular-nums">
+                      {formatCurrency(totalBalance)}
+                    </div>
+                  ) : null}
                   <p className="text-sm text-muted-foreground">
                     {configAccounts.length} חשבונות
                   </p>
@@ -444,8 +495,15 @@ export default function AccountsPage() {
               <div className="divide-y">
                 {accounts.map((account: Account) => {
                   const balNum = Number(account.balance) || 0;
+                  const showBalance = balNum !== 0;
                   return (
-                    <div key={account.id} className="flex items-center gap-4 p-4">
+                    <div
+                      key={account.id}
+                      className={cn(
+                        'flex items-center gap-4 p-4',
+                        !account.isActive && 'opacity-60',
+                      )}
+                    >
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
                         {account.accountType === 'CREDIT_CARD' ? (
                           <CreditCard className="h-5 w-5" />
@@ -454,8 +512,13 @@ export default function AccountsPage() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium">
-                          {getAccountDisplayName(account)}
+                        <p className="flex flex-wrap items-center gap-2 font-medium">
+                          <span>{getAccountDisplayName(account)}</span>
+                          {!account.isActive ? (
+                            <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                              לא פעיל
+                            </span>
+                          ) : null}
                         </p>
                         {account.nickname?.trim() ? (
                           <p className="text-sm text-muted-foreground">
@@ -475,21 +538,44 @@ export default function AccountsPage() {
                         type="button"
                         variant="ghost"
                         size="icon"
+                        onClick={() =>
+                          updateAccountMutation.mutate({
+                            id: account.id,
+                            data: { isActive: !account.isActive },
+                          })
+                        }
+                        disabled={updateAccountMutation.isPending}
+                        title={account.isActive ? 'סמן כלא פעיל' : 'סמן כפעיל'}
+                      >
+                        {account.isActive ? (
+                          <Eye className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setEditingAccount(account)}
                         title="עריכת חשבון"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <div className="text-end">
-                        <p
-                          className={cn(
-                            'font-semibold tabular-nums',
-                            balNum >= 0 ? 'text-green-500' : 'text-red-500',
-                          )}
-                        >
-                          {formatCurrency(balNum)}
-                        </p>
-                      </div>
+                      {showBalance ? (
+                        <div className="text-end">
+                          <p
+                            className={cn(
+                              'font-semibold tabular-nums',
+                              balNum >= 0 ? 'text-green-500' : 'text-red-500',
+                            )}
+                          >
+                            {formatCurrency(balNum)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="min-w-[4rem]" aria-hidden />
+                      )}
                     </div>
                   );
                 })}
@@ -546,6 +632,23 @@ export default function AccountsPage() {
                   className="min-h-20"
                 />
               </div>
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="acc-active">חשבון פעיל</Label>
+                    <p className="text-xs text-muted-foreground">
+                      חשבונות לא פעילים לא נכללים בסיכומים וברירת המחדל ברשימה
+                    </p>
+                  </div>
+                  <Switch
+                    id="acc-active"
+                    checked={editingAccount.isActive}
+                    onCheckedChange={(c) =>
+                      setEditingAccount({ ...editingAccount, isActive: c })
+                    }
+                  />
+                </div>
+              </div>
             </div>
           ) : null}
           <DialogFooter>
@@ -559,6 +662,7 @@ export default function AccountsPage() {
                   data: {
                     nickname: editingAccount.nickname?.trim() || null,
                     description: editingAccount.description?.trim() || null,
+                    isActive: editingAccount.isActive,
                   },
                 });
               }}
@@ -636,9 +740,9 @@ export default function AccountsPage() {
                             className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                           >
                             {showPassword ? (
-                              <EyeOff className="h-4 w-4" />
+                              <PasswordHideIcon className="h-4 w-4" />
                             ) : (
-                              <Eye className="h-4 w-4" />
+                              <PasswordRevealIcon className="h-4 w-4" />
                             )}
                           </button>
                         ) : null}

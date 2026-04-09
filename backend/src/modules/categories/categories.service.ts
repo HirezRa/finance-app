@@ -615,7 +615,7 @@ export class CategoriesService {
     });
 
     const accounts = await this.prisma.account.findMany({
-      where: { userId },
+      where: { userId, isActive: true },
       select: { id: true },
     });
     const accountIds = accounts.map((a) => a.id);

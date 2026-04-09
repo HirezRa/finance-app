@@ -85,4 +85,8 @@ export class UpdateUserSettingsDto {
   @IsNumber()
   @Min(0)
   monthlySavingsGoal?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  showInactiveAccounts?: boolean;
 }
