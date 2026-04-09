@@ -8,10 +8,10 @@ import {
 import { Prisma, TransactionStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
-import { getIsraelYearMonth } from '../../common/utils/israel-calendar';
 import {
   getUtcWideRangeForBudgetCycle,
   isInBudgetCycle,
+  getBudgetCycleLabelForIsraelDate,
 } from '../../common/utils/budget-cycle';
 
 function cashFlowAnchorDate(t: {
@@ -27,15 +27,15 @@ export class CategoriesService {
 
   constructor(private prisma: PrismaService) {}
 
-  /** כמו הדשבורד: ללא pending כש־includePendingInDashboard כבוי */
-  private async statusFilterForStats(
+  /** כמו תקציבים: ללא pending כש־includePendingInBudget כבוי (ברירת מחדל). */
+  private async statusFilterAlignedWithBudget(
     userId: string,
   ): Promise<{ status?: TransactionStatus }> {
     const settings = await this.prisma.userSettings.findUnique({
       where: { userId },
-      select: { includePendingInDashboard: true },
+      select: { includePendingInBudget: true },
     });
-    const includePending = settings?.includePendingInDashboard ?? true;
+    const includePending = settings?.includePendingInBudget ?? false;
     return includePending ? {} : { status: TransactionStatus.COMPLETED };
   }
 
@@ -159,12 +159,44 @@ export class CategoriesService {
         keywords: ['משכנתא', 'mortgage', 'פועלים-משכנתא'],
       },
       {
-        name: 'bills',
-        nameHe: 'חשבונות',
-        icon: '📄',
+        name: 'electricity',
+        nameHe: 'חשבון חשמל',
+        icon: '⚡',
         color: '#f97316',
         isFixed: true,
-        keywords: ['חשמל', 'מים', 'גז', 'ארנונה', 'ועד בית'],
+        keywords: ['חשמל', 'חברת חשמל', 'IEC', 'electricity'],
+      },
+      {
+        name: 'water',
+        nameHe: 'חשבון מים',
+        icon: '💧',
+        color: '#0ea5e9',
+        isFixed: true,
+        keywords: ['מים', 'מי ', 'תאגיד מים', 'water'],
+      },
+      {
+        name: 'vaad_bayit',
+        nameHe: 'ועד בית',
+        icon: '🏢',
+        color: '#8b5cf6',
+        isFixed: true,
+        keywords: ['ועד בית', 'ועד הבית', 'דמי ועד'],
+      },
+      {
+        name: 'arnona',
+        nameHe: 'ארנונה',
+        icon: '🏛️',
+        color: '#ec4899',
+        isFixed: true,
+        keywords: ['ארנונה', 'עירייה', 'מועצה', 'arnona'],
+      },
+      {
+        name: 'gas',
+        nameHe: 'חשבון גז',
+        icon: '🔥',
+        color: '#f59e0b',
+        isFixed: true,
+        keywords: ['גז', 'פזגז', 'סופרגז', 'אמישראגז', 'gas'],
       },
       {
         name: 'internet',
@@ -532,6 +564,16 @@ export class CategoriesService {
   }
 
   async getCategoriesWithStats(userId: string, month?: number, year?: number) {
+    const settings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+      select: { budgetCycleStartDay: true, includePendingInBudget: true },
+    });
+    const cycleStartDay = settings?.budgetCycleStartDay ?? 1;
+    const includePendingBudget = settings?.includePendingInBudget ?? false;
+    const budgetStatusWhere = includePendingBudget
+      ? {}
+      : { status: TransactionStatus.COMPLETED };
+
     const now = new Date();
     let targetMonth: number;
     let targetYear: number;
@@ -546,16 +588,10 @@ export class CategoriesService {
       targetMonth = month;
       targetYear = year;
     } else {
-      const i = getIsraelYearMonth(now);
+      const i = getBudgetCycleLabelForIsraelDate(now, cycleStartDay);
       targetMonth = i.month;
       targetYear = i.year;
     }
-
-    const settings = await this.prisma.userSettings.findUnique({
-      where: { userId },
-      select: { budgetCycleStartDay: true },
-    });
-    const cycleStartDay = settings?.budgetCycleStartDay ?? 1;
 
     this.logger.log(
       `getCategoriesWithStats: budget cycle label ${targetMonth}/${targetYear} (startDay=${cycleStartDay})`,
@@ -592,16 +628,20 @@ export class CategoriesService {
 
     const statsMap = new Map<
       string,
-      { count: number; incomeSum: number; expenseSum: number }
+      {
+        incomeCount: number;
+        expenseCount: number;
+        incomeSum: number;
+        expenseSum: number;
+      }
     >();
 
     if (accountIds.length > 0) {
-      const statusWhere = await this.statusFilterForStats(userId);
       const transactionsRaw = await this.prisma.transaction.findMany({
         where: {
           accountId: { in: accountIds },
           isExcludedFromCashFlow: false,
-          ...statusWhere,
+          ...budgetStatusWhere,
           OR: [
             { date: { gte: rangeStart, lte: rangeEnd } },
             { effectiveDate: { gte: rangeStart, lte: rangeEnd } },
@@ -623,17 +663,19 @@ export class CategoriesService {
         const catId = txn.categoryId ?? uncategorizedId;
         if (!catId) continue;
         const current = statsMap.get(catId) || {
-          count: 0,
+          incomeCount: 0,
+          expenseCount: 0,
           incomeSum: 0,
           expenseSum: 0,
         };
-        current.count += 1;
         const amt = Number(txn.amount);
         const isIncomeCategory = txn.category?.isIncome === true;
         if (amt > 0 || isIncomeCategory) {
           current.incomeSum += Math.abs(amt);
+          current.incomeCount += 1;
         } else if (amt < 0 && !isIncomeCategory) {
           current.expenseSum += Math.abs(amt);
+          current.expenseCount += 1;
         }
         statsMap.set(catId, current);
       }
@@ -641,7 +683,8 @@ export class CategoriesService {
 
     const result = categories.map((cat) => {
       const stats = statsMap.get(cat.id) || {
-        count: 0,
+        incomeCount: 0,
+        expenseCount: 0,
         incomeSum: 0,
         expenseSum: 0,
       };
@@ -657,14 +700,17 @@ export class CategoriesService {
           : null;
       const isOverBudget = remaining !== null && remaining < 0;
 
+      const txnCount = cat.isIncome ? stats.incomeCount : stats.expenseCount;
+
       return {
         ...cat,
         monthlyTarget: target,
         spent: Math.round(spent * 100) / 100,
+        income: Math.round(stats.incomeSum * 100) / 100,
         remaining,
         percentUsed,
         isOverBudget,
-        transactionCount: stats.count,
+        transactionCount: txnCount,
         totalAmount: Math.round(totalAmount * 100) / 100,
         month: targetMonth,
         year: targetYear,
