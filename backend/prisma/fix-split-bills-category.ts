@@ -61,7 +61,6 @@ function pickSplitCategory(descLower: string): string | null {
   }
   if (
     descLower.includes('מים') ||
-    descLower.includes('מי ') ||
     descLower.includes('תאגיד מים') ||
     descLower.includes('water')
   ) {
