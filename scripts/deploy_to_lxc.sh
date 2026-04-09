@@ -37,7 +37,7 @@ echo "[4/5] docker compose build frontend (no cache)"
 lxc_run 900 840 "cd /opt/finance-app && docker compose build --no-cache frontend"
 
 echo "[5/5] docker compose up -d"
-lxc_run 120 90 "cd /opt/finance-app && docker compose up -d"
+lxc_run 180 120 "cd /opt/finance-app && docker compose down --remove-orphans && docker compose up -d"
 
 echo "[health] waiting then GET /api/v1/health"
 lxc_run 60 45 "sleep 10 && curl -s --max-time 10 --connect-timeout 5 http://localhost/api/v1/health"
