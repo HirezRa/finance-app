@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { dashboardApi, transactionsApi } from '@/services/api';
+import { dashboardApi, transactionsApi, settingsApi } from '@/services/api';
 import {
   Card,
   CardContent,
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatShortDate, cn } from '@/lib/utils';
 import { getAccountDisplayName } from '@/lib/accountDisplay';
-import { getIsraelYearMonth } from '@/lib/israel-calendar';
+import { getBudgetCycleLabelForIsraelDate } from '@/lib/israel-calendar';
 import {
   ChevronRight,
   ChevronLeft,
@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   RefreshCw,
   PiggyBank,
+  Calendar,
 } from 'lucide-react';
 import {
   BarChart,
@@ -134,10 +135,39 @@ function num(v: string | number | null | undefined): number {
   return typeof v === 'number' ? v : Number(v);
 }
 
+function formatBudgetCycleRange(
+  budgetMonth: number,
+  budgetYear: number,
+  cycleStartDay: number,
+): string {
+  if (cycleStartDay <= 1) {
+    return `${MONTH_NAMES_HE[budgetMonth - 1]} ${budgetYear}`;
+  }
+  const endMonth = budgetMonth === 12 ? 1 : budgetMonth + 1;
+  const endYear = budgetMonth === 12 ? budgetYear + 1 : budgetYear;
+  const endDay = cycleStartDay - 1;
+  return `${cycleStartDay} ב${MONTH_NAMES_HE[budgetMonth - 1]} ${budgetYear} – ${endDay} ב${MONTH_NAMES_HE[endMonth - 1]} ${endYear}`;
+}
+
 export default function DashboardPage() {
-  const todayIsrael = getIsraelYearMonth(new Date());
-  const [month, setMonth] = useState(todayIsrael.month);
-  const [year, setYear] = useState(todayIsrael.year);
+  const calendarInitial = getBudgetCycleLabelForIsraelDate(new Date(), 1);
+  const [month, setMonth] = useState(calendarInitial.month);
+  const [year, setYear] = useState(calendarInitial.year);
+  const appliedSettingsCycle = useRef(false);
+
+  const { data: settings } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: () => settingsApi.get().then((res) => res.data as { budgetCycleStartDay?: number }),
+  });
+
+  useEffect(() => {
+    if (appliedSettingsCycle.current || settings === undefined) return;
+    appliedSettingsCycle.current = true;
+    const csd = Number(settings.budgetCycleStartDay ?? 1);
+    const { month: m, year: y } = getBudgetCycleLabelForIsraelDate(new Date(), csd);
+    setMonth(m);
+    setYear(y);
+  }, [settings]);
 
   const { data: summary, isPending: summaryLoading } = useQuery({
     queryKey: ['dashboard', 'summary', month, year],
@@ -187,13 +217,24 @@ export default function DashboardPage() {
     setYear(newYear);
   };
 
+  const cycleStartDay = Number(
+    settings?.budgetCycleStartDay ?? summary?.budgetCycleStartDay ?? 1,
+  );
+  const nonCalendarCycle = cycleStartDay > 1;
+
   const goToCurrentMonth = () => {
-    const d = getIsraelYearMonth(new Date());
-    setMonth(d.month);
-    setYear(d.year);
+    const { month: m, year: y } = getBudgetCycleLabelForIsraelDate(
+      new Date(),
+      cycleStartDay,
+    );
+    setMonth(m);
+    setYear(y);
   };
 
-  const isCurrentMonth = month === todayIsrael.month && year === todayIsrael.year;
+  const currentCycle = getBudgetCycleLabelForIsraelDate(new Date(), cycleStartDay);
+  const isCurrentMonth =
+    month === currentCycle.month && year === currentCycle.year;
+  const periodTitle = formatBudgetCycleRange(month, year, cycleStartDay);
   const showFallback =
     summary &&
     (summary.usedFallback === true || summary.usedFallbackToLatestMonth === true);
@@ -209,24 +250,32 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="space-y-2">
           <h1 className="text-2xl font-bold">לוח בקרה</h1>
-          <p className="text-muted-foreground">
-            סיכום חודשי — {MONTH_NAMES_HE[month - 1]} {year}
+          <p className="flex flex-wrap items-center gap-2 text-muted-foreground">
+            <span>{nonCalendarCycle ? 'מחזור תקציב:' : 'סיכום חודשי:'}</span>
+            {nonCalendarCycle ? (
+              <span className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-xs text-foreground">
+                <Calendar className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="leading-snug">{periodTitle}</span>
+              </span>
+            ) : (
+              <span className="font-medium text-foreground">{periodTitle}</span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!isCurrentMonth ? (
             <Button type="button" variant="outline" size="sm" onClick={goToCurrentMonth}>
               <RefreshCw className="ms-2 h-4 w-4" />
-              חודש נוכחי
+              {nonCalendarCycle ? 'מחזור נוכחי' : 'חודש נוכחי'}
             </Button>
           ) : null}
           <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(-1)}>
             <ChevronRight className="h-5 w-5" />
           </Button>
-          <span className="min-w-[8rem] text-center font-medium">
-            {MONTH_NAMES_HE[month - 1]} {year}
+          <span className="min-w-[10rem] max-w-[20rem] text-center text-sm font-medium leading-snug sm:text-base">
+            {periodTitle}
           </span>
           <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(1)}>
             <ChevronLeft className="h-5 w-5" />
@@ -240,10 +289,13 @@ export default function DashboardPage() {
             <AlertTriangle className="h-5 w-5 shrink-0 text-yellow-600 dark:text-yellow-500" />
             <div>
               <p className="font-medium text-yellow-800 dark:text-yellow-500">
-                מוצגים נתונים מ{MONTH_NAMES_HE[summary.month - 1]} {summary.year}
+                מוצגים נתונים מ
+                {formatBudgetCycleRange(summary.month, summary.year, cycleStartDay)}
               </p>
               <p className="text-sm text-muted-foreground">
-                אין עסקאות בחודש שנבחר — שימוש בנתוני חודש אחרון עם פעילות.
+                {nonCalendarCycle
+                  ? 'אין עסקאות במחזור שנבחר — שימוש בנתוני מחזור אחרון עם פעילות.'
+                  : 'אין עסקאות בחודש שנבחר — שימוש בנתוני חודש אחרון עם פעילות.'}
               </p>
             </div>
           </CardContent>
@@ -256,12 +308,14 @@ export default function DashboardPage() {
             <AlertTriangle className="h-5 w-5 shrink-0 text-yellow-500" />
             <div>
               <p className="font-medium text-yellow-600 dark:text-yellow-500">
-                אין עסקאות בחודש זה
+                {nonCalendarCycle ? 'אין עסקאות במחזור זה' : 'אין עסקאות בחודש זה'}
               </p>
               <p className="text-sm text-muted-foreground">
                 {isCurrentMonth
                   ? 'העסקאות יופיעו לאחר סנכרון הבנק'
-                  : 'ניתן לנווט לחודש אחר לראות נתונים'}
+                  : nonCalendarCycle
+                    ? 'ניתן לנווט למחזור אחר לראות נתונים'
+                    : 'ניתן לנווט לחודש אחר לראות נתונים'}
               </p>
             </div>
           </CardContent>
@@ -455,9 +509,7 @@ export default function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>הוצאות שבועיות</CardTitle>
-            <CardDescription>
-              לפי שבועות ב{MONTH_NAMES_HE[month - 1]} {year}
-            </CardDescription>
+            <CardDescription>לפי שבועות ב{periodTitle}</CardDescription>
           </CardHeader>
           <CardContent>
             {weeklyLoading ? (
@@ -522,9 +574,7 @@ export default function DashboardPage() {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>הוצאות מובילות לפי קטגוריה</CardTitle>
-              <CardDescription>
-                {MONTH_NAMES_HE[month - 1]} {year}
-              </CardDescription>
+              <CardDescription>{periodTitle}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="divide-y rounded-lg border">
