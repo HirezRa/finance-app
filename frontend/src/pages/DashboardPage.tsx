@@ -22,6 +22,7 @@ import {
   CreditCard,
   AlertTriangle,
   RefreshCw,
+  PiggyBank,
 } from 'lucide-react';
 import {
   BarChart,
@@ -62,6 +63,10 @@ interface CashFlowSummary {
     variable: number;
   };
   remaining: number;
+  balance?: number;
+  availableBalance?: number;
+  monthlySavingsGoal?: number;
+  budgetCycleStartDay?: number;
   transactionCount: number;
 }
 
@@ -195,6 +200,12 @@ export default function DashboardPage() {
 
   const topCategories = (categories ?? []).slice(0, 6);
 
+  const monthlyGoal = Number(summary?.monthlySavingsGoal ?? 0);
+  const hasSavingsGoal = monthlyGoal > 0;
+  const spendable = Number(
+    summary?.availableBalance ?? summary?.balance ?? summary?.remaining ?? 0,
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -302,7 +313,9 @@ export default function DashboardPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">יתרה חודשית</p>
+                <p className="text-sm text-muted-foreground">
+                  {hasSavingsGoal ? 'יתרה גולמית' : 'יתרה חודשית'}
+                </p>
                 {summaryLoading ? (
                   <Skeleton className="mt-1 h-8 w-24" />
                 ) : (
@@ -341,6 +354,54 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {hasSavingsGoal && !summaryLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    יעד חיסכון חודשי
+                  </p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-500">
+                    {formatCurrency(monthlyGoal)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    סכום זה מופחת מיתרה זמינה להוצאות
+                  </p>
+                </div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10">
+                  <PiggyBank className="h-6 w-6 text-green-600 dark:text-green-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">נשאר להוציא</p>
+                  <p
+                    className={cn(
+                      'text-2xl font-bold',
+                      spendable >= 0 ? 'text-green-500' : 'text-red-500',
+                    )}
+                  >
+                    {formatCurrency(spendable)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    אחרי יעד חיסכון של {formatCurrency(monthlyGoal)}
+                  </p>
+                </div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10">
+                  <Wallet className="h-6 w-6 text-amber-600 dark:text-amber-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
 
       {installments && installments.activeCount > 0 ? (
         <Card>

@@ -38,19 +38,23 @@ import {
   EyeOff,
   Trash2,
   Tags,
+  PieChart,
 } from 'lucide-react';
 import type { AuthUser } from '@/store/auth.store';
 import { toast } from 'sonner';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { formatCurrency } from '@/lib/utils';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<
-    'profile' | 'security' | 'notifications' | 'ollama' | 'n8n' | 'data'
+    'profile' | 'security' | 'notifications' | 'budget' | 'ollama' | 'n8n' | 'data'
   >('profile');
 
   const tabs = [
     { id: 'profile' as const, label: 'פרופיל', icon: User },
     { id: 'security' as const, label: 'אבטחה', icon: Shield },
     { id: 'notifications' as const, label: 'התראות', icon: Bell },
+    { id: 'budget' as const, label: 'תקציב', icon: PieChart },
     { id: 'ollama' as const, label: 'OLLAMA', icon: Cpu },
     { id: 'n8n' as const, label: 'n8n', icon: Webhook },
     { id: 'data' as const, label: 'נתונים', icon: Trash2 },
@@ -80,6 +84,7 @@ export default function SettingsPage() {
       {activeTab === 'profile' ? <ProfileSettings /> : null}
       {activeTab === 'security' ? <SecuritySettings /> : null}
       {activeTab === 'notifications' ? <NotificationSettings /> : null}
+      {activeTab === 'budget' ? <BudgetSettings /> : null}
       {activeTab === 'ollama' ? <OllamaSettings /> : null}
       {activeTab === 'n8n' ? <N8nSettings /> : null}
       {activeTab === 'data' ? <DataSettings /> : null}
@@ -888,6 +893,126 @@ function NotificationSettings() {
           <p className="text-sm text-muted-foreground">
             כדי לקבל התראות ב-Telegram, WhatsApp או אימייל — הגדר webhook ב-n8n בטאב המתאים.
           </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function BudgetSettings() {
+  const queryClient = useQueryClient();
+  const [budgetCycleStartDay, setBudgetCycleStartDay] = useState(1);
+  const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(0);
+
+  const { data: settings } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: () => settingsApi.get().then((res) => res.data),
+  });
+
+  useEffect(() => {
+    if (settings) {
+      setBudgetCycleStartDay(Number(settings.budgetCycleStartDay ?? 1));
+      setMonthlySavingsGoal(Number(settings.monthlySavingsGoal ?? 0));
+    }
+  }, [settings]);
+
+  const updateMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => settingsApi.update(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      queryClient.invalidateQueries({ queryKey: ['budgets'] });
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>הגדרות תקציב</CardTitle>
+        <CardDescription>מחזור תקציב חודשי ויעד חיסכון חודשי</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-3">
+          <Label>מחזור תקציב חודשי</Label>
+          <p className="text-sm text-muted-foreground">
+            בחר מתי מתחיל החודש התקציבי (לפי לוח שנה ישראלי)
+          </p>
+          <RadioGroup
+            value={String(budgetCycleStartDay)}
+            onValueChange={(v) => {
+              const value = parseInt(v, 10);
+              setBudgetCycleStartDay(value);
+              updateMutation.mutate({ budgetCycleStartDay: value });
+            }}
+            className="flex flex-col gap-3"
+            disabled={updateMutation.isPending}
+          >
+            <div className="flex items-center gap-2 space-x-reverse">
+              <RadioGroupItem value="1" id="cycle-1" />
+              <Label htmlFor="cycle-1" className="cursor-pointer font-normal">
+                <span className="font-medium">1 בחודש</span>
+                <span className="text-muted-foreground ms-2">(מחזור קלנדרי רגיל)</span>
+              </Label>
+            </div>
+            <div className="flex items-center gap-2 space-x-reverse">
+              <RadioGroupItem value="10" id="cycle-10" />
+              <Label htmlFor="cycle-10" className="cursor-pointer font-normal">
+                <span className="font-medium">10 בחודש</span>
+                <span className="text-muted-foreground ms-2">(מתאים לחיוב אשראי)</span>
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
+
+        <div className="h-px w-full bg-border" />
+
+        <div className="space-y-3">
+          <Label>יעד חיסכון חודשי</Label>
+          <p className="text-sm text-muted-foreground">
+            סכום שתרצה לשמור בצד כל חודש. הסכום יופחת מיתרה זמינה להוצאות בלוח הבקרה.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative max-w-xs flex-1">
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={monthlySavingsGoal === 0 ? '' : monthlySavingsGoal}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setMonthlySavingsGoal(raw === '' ? 0 : Number(raw));
+                }}
+                onBlur={() => {
+                  updateMutation.mutate({ monthlySavingsGoal });
+                }}
+                placeholder="0"
+                className="ps-8"
+                dir="ltr"
+              />
+              <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                ₪
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setMonthlySavingsGoal(0);
+                updateMutation.mutate({ monthlySavingsGoal: 0 });
+              }}
+              disabled={updateMutation.isPending}
+            >
+              אפס
+            </Button>
+          </div>
+
+          {monthlySavingsGoal > 0 ? (
+            <p className="text-sm text-green-600 dark:text-green-500">
+              {formatCurrency(monthlySavingsGoal)} יופחתו מהיתרה הזמינה להוצאות בדשבורד
+            </p>
+          ) : null}
         </div>
       </CardContent>
     </Card>

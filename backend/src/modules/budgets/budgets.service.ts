@@ -6,12 +6,13 @@ import {
 } from '@nestjs/common';
 import { Prisma, TransactionStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { daysRemainingInBudgetMonth } from '../../common/utils/israel-calendar';
 import {
-  getIsraelYearMonth,
-  getUtcWideRangeForIsraelMonth,
-  isInIsraelMonth,
-  daysRemainingInBudgetMonth,
-} from '../../common/utils/israel-calendar';
+  getUtcWideRangeForBudgetCycle,
+  isInBudgetCycle,
+  getBudgetCycleLabelForIsraelDate,
+  daysRemainingInBudgetCycle,
+} from '../../common/utils/budget-cycle';
 
 function cashFlowAnchorDate(t: {
   date: Date;
@@ -26,8 +27,17 @@ type BudgetPaceSummary = {
   weeklyAllowance: number;
 } | null;
 
-function computeBudgetPace(totalRemaining: number, now: Date, month: number, year: number): BudgetPaceSummary {
-  const daysRem = daysRemainingInBudgetMonth(now, year, month);
+function computeBudgetPace(
+  totalRemaining: number,
+  now: Date,
+  month: number,
+  year: number,
+  cycleStartDay: number,
+): BudgetPaceSummary {
+  const daysRem =
+    cycleStartDay === 1
+      ? daysRemainingInBudgetMonth(now, year, month)
+      : daysRemainingInBudgetCycle(now, year, month, cycleStartDay);
   if (daysRem === null || daysRem <= 0) {
     return null;
   }
@@ -58,7 +68,10 @@ export class BudgetsService {
     return includePending ? {} : { status: TransactionStatus.COMPLETED };
   }
 
-  async getLatestMonthWithTransactions(userId: string): Promise<{ month: number; year: number } | null> {
+  async getLatestMonthWithTransactions(
+    userId: string,
+    cycleStartDay = 1,
+  ): Promise<{ month: number; year: number } | null> {
     const userAccounts = await this.prisma.account.findMany({
       where: { userId },
       select: { id: true },
@@ -81,10 +94,15 @@ export class BudgetsService {
 
     if (!latestTxn) return null;
 
-    return getIsraelYearMonth(latestTxn.date);
+    return getBudgetCycleLabelForIsraelDate(latestTxn.date, cycleStartDay);
   }
 
-  async calculateSpendingByCategory(userId: string, month: number, year: number): Promise<Map<string, number>> {
+  async calculateSpendingByCategory(
+    userId: string,
+    month: number,
+    year: number,
+    cycleStartDay = 1,
+  ): Promise<Map<string, number>> {
     this.logger.log(`calculateSpendingByCategory: ${month}/${year} for user ${userId}`);
 
     const userAccounts = await this.prisma.account.findMany({
@@ -106,7 +124,11 @@ export class BudgetsService {
     });
     const uncategorizedId = uncategorized?.id ?? null;
 
-    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForIsraelMonth(year, month);
+    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForBudgetCycle(
+      year,
+      month,
+      cycleStartDay,
+    );
 
     this.logger.log(`Wide UTC query range: ${rangeStart.toISOString()} - ${rangeEnd.toISOString()}`);
 
@@ -133,9 +155,11 @@ export class BudgetsService {
     });
 
     const inMonth = transactions.filter((t) =>
-      isInIsraelMonth(cashFlowAnchorDate(t), year, month),
+      isInBudgetCycle(cashFlowAnchorDate(t), year, month, cycleStartDay),
     );
-    this.logger.log(`Found ${transactions.length} expense rows in wide range, ${inMonth.length} in Israel ${month}/${year}`);
+    this.logger.log(
+      `Found ${transactions.length} expense rows in wide range, ${inMonth.length} in budget cycle ${month}/${year} (startDay=${cycleStartDay})`,
+    );
 
     const spendingMap = new Map<string, number>();
     for (const txn of inMonth) {
@@ -189,6 +213,12 @@ export class BudgetsService {
   async findByMonth(userId: string, month: number, year: number) {
     this.logger.log(`findByMonth: ${month}/${year} for user ${userId}`);
 
+    const cyclePrefs = await this.prisma.userSettings.findUnique({
+      where: { userId },
+      select: { budgetCycleStartDay: true },
+    });
+    const cycleStartDay = cyclePrefs?.budgetCycleStartDay ?? 1;
+
     let budget = await this.prisma.budget.findUnique({
       where: { userId_month_year: { userId, month, year } },
       include: {
@@ -236,7 +266,12 @@ export class BudgetsService {
       });
     }
 
-    const spendingMap = await this.calculateSpendingByCategory(userId, month, year);
+    const spendingMap = await this.calculateSpendingByCategory(
+      userId,
+      month,
+      year,
+      cycleStartDay,
+    );
     const totalSpent = Array.from(spendingMap.values()).reduce((sum, v) => sum + v, 0);
 
     if (!budget) {
@@ -299,7 +334,9 @@ export class BudgetsService {
     const totalRemaining = totalBudget - totalBudgetSpent;
     const now = new Date();
     const pace =
-      totalBudget > 0 ? computeBudgetPace(totalRemaining, now, month, year) : null;
+      totalBudget > 0
+        ? computeBudgetPace(totalRemaining, now, month, year, cycleStartDay)
+        : null;
 
     return {
       id: budget.id,
@@ -319,7 +356,16 @@ export class BudgetsService {
 
   async findByMonthWithFallback(userId: string, requestedMonth?: number, requestedYear?: number) {
     const now = new Date();
-    const { month: currentMonth, year: currentYear } = getIsraelYearMonth(now);
+    const cycleRow = await this.prisma.userSettings.findUnique({
+      where: { userId },
+      select: { budgetCycleStartDay: true },
+    });
+    const cycleStartDay = cycleRow?.budgetCycleStartDay ?? 1;
+
+    const { month: currentMonth, year: currentYear } = getBudgetCycleLabelForIsraelDate(
+      now,
+      cycleStartDay,
+    );
 
     let targetMonth = requestedMonth ?? currentMonth;
     let targetYear = requestedYear ?? currentYear;
@@ -333,7 +379,11 @@ export class BudgetsService {
       const accountIds = userAccounts.map((a) => a.id);
 
       if (accountIds.length > 0) {
-        const { start, end } = getUtcWideRangeForIsraelMonth(targetYear, targetMonth);
+        const { start, end } = getUtcWideRangeForBudgetCycle(
+          targetYear,
+          targetMonth,
+          cycleStartDay,
+        );
         const budgetStatusFallback = await this.statusFilterForBudget(userId);
         const rows = await this.prisma.transaction.findMany({
           where: {
@@ -348,16 +398,18 @@ export class BudgetsService {
           select: { date: true, effectiveDate: true },
         });
         const countInMonth = rows.filter((r) =>
-          isInIsraelMonth(cashFlowAnchorDate(r), targetYear, targetMonth),
+          isInBudgetCycle(cashFlowAnchorDate(r), targetYear, targetMonth, cycleStartDay),
         ).length;
 
         if (countInMonth === 0) {
-          const latest = await this.getLatestMonthWithTransactions(userId);
+          const latest = await this.getLatestMonthWithTransactions(userId, cycleStartDay);
           if (latest) {
             targetMonth = latest.month;
             targetYear = latest.year;
             usedFallback = true;
-            this.logger.log(`Budget fallback to ${targetMonth}/${targetYear} (no txns in Israel ${currentMonth}/${currentYear})`);
+            this.logger.log(
+              `Budget fallback to ${targetMonth}/${targetYear} (no txns in cycle ${currentMonth}/${currentYear})`,
+            );
           }
         }
       }
