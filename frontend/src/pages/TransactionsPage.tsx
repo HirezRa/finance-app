@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { transactionsApi, categoriesApi } from '@/services/api';
+import { AICategorizeButton } from '@/components/AICategorizeButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -307,6 +308,8 @@ export default function TransactionsPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <AICategorizeButton mode="uncategorized" />
+          <AICategorizeButton mode="improve" />
           <Button
             type="button"
             variant="outline"

@@ -17,6 +17,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { BudgetsModule } from './modules/budgets/budgets.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
+import { OllamaModule } from './modules/ollama/ollama.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     BudgetsModule,
     SettingsModule,
     AlertsModule,
+    OllamaModule,
   ],
   providers: [
     {
