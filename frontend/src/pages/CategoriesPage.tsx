@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { categoriesApi, dashboardApi } from '@/services/api';
-import { getIsraelYearMonth } from '@/lib/israel-calendar';
+import { categoriesApi, dashboardApi, settingsApi } from '@/services/api';
+import { getBudgetCycleLabelForIsraelDate } from '@/lib/israel-calendar';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +40,7 @@ interface Category {
   remaining?: number | null;
   percentUsed?: number | null;
   isOverBudget?: boolean;
+  income?: number;
 }
 
 interface CategoryBreakdownRow {
@@ -119,11 +120,26 @@ function normalizeKeywords(raw: unknown): string[] {
   return [];
 }
 
+function formatBudgetCycleRange(
+  budgetMonth: number,
+  budgetYear: number,
+  cycleStartDay: number,
+): string {
+  if (cycleStartDay <= 1) {
+    return `${MONTH_NAMES_HE[budgetMonth - 1]} ${budgetYear}`;
+  }
+  const endMonth = budgetMonth === 12 ? 1 : budgetMonth + 1;
+  const endYear = budgetMonth === 12 ? budgetYear + 1 : budgetYear;
+  const endDay = cycleStartDay - 1;
+  return `${cycleStartDay} ב${MONTH_NAMES_HE[budgetMonth - 1]} ${budgetYear} – ${endDay} ב${MONTH_NAMES_HE[endMonth - 1]} ${endYear}`;
+}
+
 export default function CategoriesPage() {
   const queryClient = useQueryClient();
-  const israelNow = getIsraelYearMonth(new Date());
-  const [trackMonth, setTrackMonth] = useState(israelNow.month);
-  const [trackYear, setTrackYear] = useState(israelNow.year);
+  const cycleInitial = getBudgetCycleLabelForIsraelDate(new Date(), 1);
+  const [trackMonth, setTrackMonth] = useState(cycleInitial.month);
+  const [trackYear, setTrackYear] = useState(cycleInitial.year);
+  const appliedBudgetCycle = useRef(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
@@ -150,6 +166,21 @@ export default function CategoriesPage() {
     monthlyTarget: '',
   });
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+
+  const { data: userSettings } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: () =>
+      settingsApi.get().then((res) => res.data as { budgetCycleStartDay?: number }),
+  });
+
+  useEffect(() => {
+    if (appliedBudgetCycle.current || userSettings === undefined) return;
+    appliedBudgetCycle.current = true;
+    const csd = Number(userSettings.budgetCycleStartDay ?? 1);
+    const { month: m, year: y } = getBudgetCycleLabelForIsraelDate(new Date(), csd);
+    setTrackMonth(m);
+    setTrackYear(y);
+  }, [userSettings]);
 
   useEffect(() => {
     if (editingCategory || !showAddModal) {
@@ -340,6 +371,10 @@ export default function CategoriesPage() {
   const incomeCategories = categories?.filter((c: Category) => c.isIncome) || [];
   const expenseCategories = categories?.filter((c: Category) => !c.isIncome) || [];
 
+  const cycleStartDayUi = Number(userSettings?.budgetCycleStartDay ?? 1);
+  const statsPeriodLabel = formatBudgetCycleRange(trackMonth, trackYear, cycleStartDayUi);
+  const nonCalendarCycle = cycleStartDayUi > 1;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -387,14 +422,16 @@ export default function CategoriesPage() {
       <Card>
         <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-lg">
-            קטגוריות במעקב — הוצאות בחודש {MONTH_NAMES_HE[trackMonth - 1]} {trackYear}
+            קטגוריות במעקב — הוצאות
+            {nonCalendarCycle ? ' במחזור ' : ' בחודש '}
+            {statsPeriodLabel}
           </CardTitle>
           <div className="flex items-center gap-2">
             <Button type="button" variant="ghost" size="icon" onClick={() => changeTrackMonth(-1)}>
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <span className="min-w-[6.5rem] text-center text-sm">
-              {MONTH_NAMES_HE[trackMonth - 1]} {trackYear}
+            <span className="min-w-[6.5rem] max-w-[14rem] text-center text-sm leading-snug">
+              {statsPeriodLabel}
             </span>
             <Button type="button" variant="ghost" size="icon" onClick={() => changeTrackMonth(1)}>
               <ChevronLeft className="h-4 w-4" />
@@ -404,7 +441,8 @@ export default function CategoriesPage() {
         <CardContent>
           {trackedSpendingRows.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              אין הוצאות בחודש זה בקטגוריות המסומנות &quot;במעקב&quot;.
+              אין הוצאות {nonCalendarCycle ? 'במחזור זה' : 'בחודש זה'} בקטגוריות המסומנות
+              &quot;במעקב&quot;.
             </p>
           ) : (
             <div className="divide-y rounded-lg border">
@@ -491,7 +529,7 @@ export default function CategoriesPage() {
                       ) : null}
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {cat.transactionCount ?? 0} עסקאות ב־{MONTH_NAMES_HE[trackMonth - 1]} {trackYear}
+                      {cat.transactionCount ?? 0} עסקאות ב־{statsPeriodLabel}
                     </p>
                   </div>
                   </div>
