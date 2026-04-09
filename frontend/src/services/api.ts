@@ -234,6 +234,28 @@ export const scraperApi = {
   getVersion: () => api.get('/scraper/version'),
 };
 
+export const ollamaApi = {
+  getUncategorized: (limit = 50) =>
+    api
+      .get('/ollama/uncategorized', { params: { limit } })
+      .then((res) => res.data),
+  getForImprovement: (limit = 50) =>
+    api
+      .get('/ollama/for-improvement', { params: { limit } })
+      .then((res) => res.data),
+  categorize: (
+    transactionIds: string[],
+    mode: 'uncategorized' | 'improve',
+  ) =>
+    api
+      .post('/ollama/categorize', { transactionIds, mode })
+      .then((res) => res.data),
+  applySuggestions: (
+    suggestions: Array<{ transactionId: string; categoryId: string }>,
+  ) =>
+    api.post('/ollama/apply', { suggestions }).then((res) => res.data),
+};
+
 export const settingsApi = {
   get: () => api.get('/settings'),
   update: (data: Record<string, unknown>) => api.patch('/settings', data),
