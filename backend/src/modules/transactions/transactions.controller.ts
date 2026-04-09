@@ -10,8 +10,11 @@ import {
   UseGuards,
   BadRequestException,
   Logger,
+  Res,
 } from '@nestjs/common';
+import type { FastifyReply } from 'fastify';
 import { TransactionsService } from './transactions.service';
+import { TransactionsExportService } from './transactions-export.service';
 import { GetTransactionsDto } from './dto/get-transactions.dto';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
@@ -23,7 +26,10 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 export class TransactionsController {
   private readonly logger = new Logger(TransactionsController.name);
 
-  constructor(private transactionsService: TransactionsService) {}
+  constructor(
+    private transactionsService: TransactionsService,
+    private exportService: TransactionsExportService,
+  ) {}
 
   /** Must stay before @Delete(':id') — static path `all` vs param `:id`. */
   @Delete('all')
@@ -71,6 +77,37 @@ export class TransactionsController {
   @Get('installments-summary')
   getInstallmentsSummary(@CurrentUser('id') userId: string) {
     return this.transactionsService.getInstallmentsSummary(userId);
+  }
+
+  @Get('export')
+  async exportExcel(
+    @Res({ passthrough: false }) reply: FastifyReply,
+    @CurrentUser('id') userId: string,
+    @Query('month') monthStr?: string,
+    @Query('year') yearStr?: string,
+  ) {
+    const m =
+      monthStr !== undefined && monthStr !== ''
+        ? Number.parseInt(monthStr, 10)
+        : undefined;
+    const y =
+      yearStr !== undefined && yearStr !== ''
+        ? Number.parseInt(yearStr, 10)
+        : undefined;
+    const month = m !== undefined && !Number.isNaN(m) ? m : undefined;
+    const year = y !== undefined && !Number.isNaN(y) ? y : undefined;
+    const { buffer, filename } = await this.exportService.exportToExcel(
+      userId,
+      month,
+      year,
+    );
+    reply
+      .header(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      )
+      .header('Content-Disposition', `attachment; filename="${filename}"`);
+    return reply.send(buffer);
   }
 
   @Get(':id')
