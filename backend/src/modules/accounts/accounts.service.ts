@@ -6,10 +6,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class AccountsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(userId: string) {
+  async findAll(userId: string, includeInactive = false) {
     const rows = await this.prisma.account.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
+      where: {
+        userId,
+        ...(includeInactive ? {} : { isActive: true }),
+      },
+      orderBy: [
+        { isActive: 'desc' },
+        { institutionName: 'asc' },
+        { accountNumber: 'asc' },
+      ],
       include: {
         _count: {
           select: { transactions: true },

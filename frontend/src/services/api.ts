@@ -151,11 +151,20 @@ export const transactionsApi = {
 };
 
 export const accountsApi = {
-  getAll: () => api.get('/accounts'),
+  getAll: (includeInactive = false) =>
+    api.get('/accounts', {
+      params: includeInactive ? { includeInactive: 'true' } : {},
+    }),
   getOne: (id: string) => api.get(`/accounts/${id}`),
   getSummary: (id: string) => api.get(`/accounts/${id}/summary`),
-  update: (id: string, data: Record<string, unknown>) =>
-    api.patch(`/accounts/${id}`, data),
+  update: (
+    id: string,
+    data: {
+      nickname?: string | null;
+      description?: string | null;
+      isActive?: boolean;
+    },
+  ) => api.patch(`/accounts/${id}`, data),
   delete: (id: string) => api.delete(`/accounts/${id}`),
 };
 

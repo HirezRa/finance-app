@@ -21,7 +21,7 @@ export class TransactionsExportService {
     year?: number,
   ): Promise<{ buffer: Buffer; filename: string }> {
     const accounts = await this.prisma.account.findMany({
-      where: { userId },
+      where: { userId, isActive: true },
       select: { id: true },
     });
     const accountIds = accounts.map((a) => a.id);

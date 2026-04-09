@@ -80,6 +80,9 @@ export class SettingsService {
     if (dto.monthlySavingsGoal !== undefined) {
       data.monthlySavingsGoal = new Prisma.Decimal(dto.monthlySavingsGoal);
     }
+    if (dto.showInactiveAccounts !== undefined) {
+      data.showInactiveAccounts = dto.showInactiveAccounts;
+    }
 
     const createData: Prisma.UserSettingsUncheckedCreateInput = { userId };
     if (dto.emailNotifications !== undefined) {
@@ -132,6 +135,9 @@ export class SettingsService {
     }
     if (dto.monthlySavingsGoal !== undefined) {
       createData.monthlySavingsGoal = new Prisma.Decimal(dto.monthlySavingsGoal);
+    }
+    if (dto.showInactiveAccounts !== undefined) {
+      createData.showInactiveAccounts = dto.showInactiveAccounts;
     }
 
     const shouldRecomputeSalary =

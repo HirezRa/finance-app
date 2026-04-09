@@ -5,9 +5,11 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
+import { UpdateAccountDto } from './dto/update-account.dto';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -17,8 +19,12 @@ export class AccountsController {
   constructor(private accountsService: AccountsService) {}
 
   @Get()
-  findAll(@CurrentUser('id') userId: string) {
-    return this.accountsService.findAll(userId);
+  findAll(
+    @CurrentUser('id') userId: string,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
+    const include = includeInactive === 'true' || includeInactive === '1';
+    return this.accountsService.findAll(userId, include);
   }
 
   @Get(':id/summary')
@@ -35,14 +41,9 @@ export class AccountsController {
   update(
     @Param('id') id: string,
     @CurrentUser('id') userId: string,
-    @Body()
-    data: {
-      nickname?: string | null;
-      description?: string | null;
-      isActive?: boolean;
-    },
+    @Body() dto: UpdateAccountDto,
   ) {
-    return this.accountsService.update(id, userId, data);
+    return this.accountsService.update(id, userId, dto);
   }
 
   @Delete(':id')

@@ -151,7 +151,7 @@ export class DashboardService {
 
   async getCashFlowSummary(userId: string, month?: number, year?: number) {
     const userAccounts = await this.prisma.account.findMany({
-      where: { userId },
+      where: { userId, isActive: true },
       select: { id: true },
     });
 
@@ -291,7 +291,7 @@ export class DashboardService {
 
   async getWeeklyBreakdown(userId: string, month?: number, year?: number) {
     const userAccounts = await this.prisma.account.findMany({
-      where: { userId },
+      where: { userId, isActive: true },
       select: { id: true },
     });
 
@@ -352,7 +352,7 @@ export class DashboardService {
 
   async getCategoryBreakdown(userId: string, month?: number, year?: number) {
     const userAccounts = await this.prisma.account.findMany({
-      where: { userId },
+      where: { userId, isActive: true },
       select: { id: true },
     });
 
@@ -451,7 +451,7 @@ export class DashboardService {
     const n = Math.min(12, Math.max(3, Math.floor(monthsCount) || 6));
     const { cycleStartDay } = await this.loadBudgetCyclePrefs(userId);
     const accounts = await this.prisma.account.findMany({
-      where: { userId },
+      where: { userId, isActive: true },
       select: { id: true },
     });
     const accountIds = accounts.map((a) => a.id);
@@ -535,7 +535,7 @@ export class DashboardService {
 
   async getRecentTransactions(userId: string, limit = 10) {
     const userAccounts = await this.prisma.account.findMany({
-      where: { userId },
+      where: { userId, isActive: true },
       select: { id: true },
     });
 

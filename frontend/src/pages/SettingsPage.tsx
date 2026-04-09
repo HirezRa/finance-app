@@ -261,6 +261,41 @@ function DataSettings() {
   );
 }
 
+function ProfileInactiveAccountsToggle() {
+  const queryClient = useQueryClient();
+  const { data: settings } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: () =>
+      settingsApi.get().then((res) => res.data as { showInactiveAccounts?: boolean }),
+  });
+  const updateMutation = useMutation({
+    mutationFn: (checked: boolean) =>
+      settingsApi.update({ showInactiveAccounts: checked }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      toast.success('ההגדרה נשמרה');
+    },
+    onError: () => toast.error('שגיאה בשמירה'),
+  });
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+      <div className="space-y-1">
+        <Label htmlFor="settings-show-inactive-accounts">הצג חשבונות לא פעילים</Label>
+        <p className="text-xs text-muted-foreground">
+          כרטיסים וחשבונות שסומנו כלא פעילים יופיעו בדף החשבונות (ברירת מחדל: מוסתרים)
+        </p>
+      </div>
+      <Switch
+        id="settings-show-inactive-accounts"
+        checked={settings?.showInactiveAccounts === true}
+        onCheckedChange={(c) => updateMutation.mutate(c)}
+        disabled={updateMutation.isPending}
+      />
+    </div>
+  );
+}
+
 function ProfileSettings() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
@@ -319,6 +354,7 @@ function ProfileSettings() {
           <span>•</span>
           <span>{profile?._count?.categories ?? 0} קטגוריות</span>
         </div>
+        <ProfileInactiveAccountsToggle />
         <Button
           type="button"
           onClick={() => updateMutation.mutate({ name })}
