@@ -1,5 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
+import { HistoryQueryDto } from './dto/history.dto';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -60,5 +61,10 @@ export class DashboardController {
   @Get('accounts')
   getAccountsOverview(@CurrentUser('id') userId: string) {
     return this.dashboardService.getAccountsOverview(userId);
+  }
+
+  @Get('history')
+  getHistory(@CurrentUser('id') userId: string, @Query() query: HistoryQueryDto) {
+    return this.dashboardService.getHistory(userId, query.months ?? 6);
   }
 }

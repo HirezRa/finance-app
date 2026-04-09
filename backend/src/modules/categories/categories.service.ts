@@ -5,14 +5,14 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, TransactionStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { getIsraelYearMonth } from '../../common/utils/israel-calendar';
 import {
-  getIsraelYearMonth,
-  getUtcWideRangeForIsraelMonth,
-  isInIsraelMonth,
-} from '../../common/utils/israel-calendar';
+  getUtcWideRangeForBudgetCycle,
+  isInBudgetCycle,
+} from '../../common/utils/budget-cycle';
 
 function cashFlowAnchorDate(t: {
   date: Date;
@@ -26,6 +26,18 @@ export class CategoriesService {
   private readonly logger = new Logger(CategoriesService.name);
 
   constructor(private prisma: PrismaService) {}
+
+  /** כמו הדשבורד: ללא pending כש־includePendingInDashboard כבוי */
+  private async statusFilterForStats(
+    userId: string,
+  ): Promise<{ status?: TransactionStatus }> {
+    const settings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+      select: { includePendingInDashboard: true },
+    });
+    const includePending = settings?.includePendingInDashboard ?? true;
+    return includePending ? {} : { status: TransactionStatus.COMPLETED };
+  }
 
   async findAll(userId: string) {
     return this.prisma.category.findMany({
@@ -416,6 +428,14 @@ export class CategoriesService {
         isFixed: dto.isFixed ?? false,
         isTracked: dto.isTracked !== undefined ? dto.isTracked : true,
         keywords: keywordsJson,
+        ...(dto.monthlyTarget !== undefined
+          ? {
+              monthlyTarget:
+                dto.monthlyTarget === null
+                  ? null
+                  : new Prisma.Decimal(dto.monthlyTarget),
+            }
+          : {}),
       },
     });
   }
@@ -450,6 +470,12 @@ export class CategoriesService {
     if (dto.isTracked !== undefined) data.isTracked = dto.isTracked;
     if (dto.keywords !== undefined) {
       data.keywords = dto.keywords as unknown as Prisma.InputJsonValue;
+    }
+    if (dto.monthlyTarget !== undefined) {
+      data.monthlyTarget =
+        dto.monthlyTarget === null
+          ? null
+          : new Prisma.Decimal(dto.monthlyTarget);
     }
 
     return this.prisma.category.update({
@@ -525,13 +551,21 @@ export class CategoriesService {
       targetYear = i.year;
     }
 
-    this.logger.log(`getCategoriesWithStats: Israel month ${targetMonth}/${targetYear}`);
+    const settings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+      select: { budgetCycleStartDay: true },
+    });
+    const cycleStartDay = settings?.budgetCycleStartDay ?? 1;
 
-    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForIsraelMonth(
+    this.logger.log(
+      `getCategoriesWithStats: budget cycle label ${targetMonth}/${targetYear} (startDay=${cycleStartDay})`,
+    );
+
+    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForBudgetCycle(
       targetYear,
       targetMonth,
+      cycleStartDay,
     );
-    this.logger.log(`Wide UTC range: ${rangeStart.toISOString()} - ${rangeEnd.toISOString()}`);
 
     const categories = await this.prisma.category.findMany({
       where: {
@@ -556,46 +590,82 @@ export class CategoriesService {
     });
     const uncategorizedId = uncategorized?.id ?? null;
 
-    const statsMap = new Map<string, { count: number; total: number }>();
+    const statsMap = new Map<
+      string,
+      { count: number; incomeSum: number; expenseSum: number }
+    >();
 
     if (accountIds.length > 0) {
+      const statusWhere = await this.statusFilterForStats(userId);
       const transactionsRaw = await this.prisma.transaction.findMany({
         where: {
           accountId: { in: accountIds },
           isExcludedFromCashFlow: false,
+          ...statusWhere,
           OR: [
             { date: { gte: rangeStart, lte: rangeEnd } },
             { effectiveDate: { gte: rangeStart, lte: rangeEnd } },
           ],
         },
-        select: {
-          categoryId: true,
-          amount: true,
-          date: true,
-          effectiveDate: true,
-        },
+        include: { category: true },
       });
 
       const transactions = transactionsRaw.filter((t) =>
-        isInIsraelMonth(cashFlowAnchorDate(t), targetYear, targetMonth),
+        isInBudgetCycle(
+          cashFlowAnchorDate(t),
+          targetYear,
+          targetMonth,
+          cycleStartDay,
+        ),
       );
 
       for (const txn of transactions) {
         const catId = txn.categoryId ?? uncategorizedId;
         if (!catId) continue;
-        const current = statsMap.get(catId) || { count: 0, total: 0 };
-        current.count++;
-        current.total += Math.abs(Number(txn.amount));
+        const current = statsMap.get(catId) || {
+          count: 0,
+          incomeSum: 0,
+          expenseSum: 0,
+        };
+        current.count += 1;
+        const amt = Number(txn.amount);
+        const isIncomeCategory = txn.category?.isIncome === true;
+        if (amt > 0 || isIncomeCategory) {
+          current.incomeSum += Math.abs(amt);
+        } else if (amt < 0 && !isIncomeCategory) {
+          current.expenseSum += Math.abs(amt);
+        }
         statsMap.set(catId, current);
       }
     }
 
     const result = categories.map((cat) => {
-      const stats = statsMap.get(cat.id) || { count: 0, total: 0 };
+      const stats = statsMap.get(cat.id) || {
+        count: 0,
+        incomeSum: 0,
+        expenseSum: 0,
+      };
+      const totalAmount = cat.isIncome ? stats.incomeSum : stats.expenseSum;
+      const spent = stats.expenseSum;
+      const target =
+        cat.monthlyTarget != null ? Number(cat.monthlyTarget) : null;
+      const remaining =
+        target !== null ? Math.round((target - spent) * 100) / 100 : null;
+      const percentUsed =
+        target !== null && target > 0
+          ? Math.round((spent / target) * 100)
+          : null;
+      const isOverBudget = remaining !== null && remaining < 0;
+
       return {
         ...cat,
+        monthlyTarget: target,
+        spent: Math.round(spent * 100) / 100,
+        remaining,
+        percentUsed,
+        isOverBudget,
         transactionCount: stats.count,
-        totalAmount: stats.total,
+        totalAmount: Math.round(totalAmount * 100) / 100,
         month: targetMonth,
         year: targetYear,
       };

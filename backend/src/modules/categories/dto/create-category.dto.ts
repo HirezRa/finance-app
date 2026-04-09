@@ -1,4 +1,5 @@
-import { IsString, IsBoolean, IsOptional, IsArray } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsArray, IsNumber, Min, ValidateIf } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateCategoryDto {
   @IsString()
@@ -34,4 +35,17 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsArray()
   keywords?: string[];
+
+  /** יעד הוצאה חודשי (אופציונלי); null מנקה את היעד */
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === null) return null;
+    if (value === undefined || value === '') return undefined;
+    const n = Number(value);
+    return Number.isNaN(n) ? undefined : n;
+  })
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsNumber()
+  @Min(0)
+  monthlyTarget?: number | null;
 }

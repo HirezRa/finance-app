@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { transactionsApi, categoriesApi } from '@/services/api';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ import {
   Loader2,
   MessageSquare,
   MoreVertical,
+  Download,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -139,6 +141,7 @@ export default function TransactionsPage() {
   const [manualCategoryId, setManualCategoryId] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const accountTypesFilter = useMemo(() => {
     const t: string[] = [];
@@ -241,6 +244,27 @@ export default function TransactionsPage() {
     });
   };
 
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const res = await transactionsApi.exportExcel();
+      const blob = res.data as Blob;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'transactions.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('הקובץ הורד בהצלחה');
+    } catch {
+      toast.error('שגיאה בייצוא');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -283,6 +307,19 @@ export default function TransactionsPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void handleExport()}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="ms-2 h-4 w-4" />
+            )}
+            ייצוא לאקסל
+          </Button>
           <Button
             type="button"
             variant="outline"

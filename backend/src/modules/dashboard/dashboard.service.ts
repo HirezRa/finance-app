@@ -7,6 +7,7 @@ import {
   getBudgetCycleLabelForIsraelDate,
   buildBudgetCycleWeekBuckets,
   israelYmdInDayList,
+  shiftBudgetCycleLabel,
 } from '../../common/utils/budget-cycle';
 
 function cashFlowAnchorDate(t: {
@@ -20,7 +21,27 @@ function cashFlowAnchorDate(t: {
 export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
 
+  private static readonly HEBREW_MONTHS = [
+    '',
+    'ינואר',
+    'פברואר',
+    'מרץ',
+    'אפריל',
+    'מאי',
+    'יוני',
+    'יולי',
+    'אוגוסט',
+    'ספטמבר',
+    'אוקטובר',
+    'נובמבר',
+    'דצמבר',
+  ];
+
   constructor(private prisma: PrismaService) {}
+
+  private hebrewMonthName(month: number): string {
+    return DashboardService.HEBREW_MONTHS[month] ?? '';
+  }
 
   /** כבוי = רק עסקאות סופיות בדשבורד; דילוג על pending (לפי UserSettings). */
   private async statusFilterForDashboard(
@@ -421,6 +442,95 @@ export class DashboardService {
       ...b,
       percentage: grandTotal > 0 ? Math.round((b.total / grandTotal) * 100) : 0,
     }));
+  }
+
+  /**
+   * סיכום הכנסות/הוצאות לפי מחזורי תקציב (כמו הדשבורד), X מחזורים אחורה — מהישן לחדש.
+   */
+  async getHistory(userId: string, monthsCount: number) {
+    const n = Math.min(12, Math.max(3, Math.floor(monthsCount) || 6));
+    const { cycleStartDay } = await this.loadBudgetCyclePrefs(userId);
+    const accounts = await this.prisma.account.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+    const accountIds = accounts.map((a) => a.id);
+    if (accountIds.length === 0) {
+      return [];
+    }
+
+    const statusWhere = await this.statusFilterForDashboard(userId);
+    const now = new Date();
+    const cur = getBudgetCycleLabelForIsraelDate(now, cycleStartDay);
+    const oldest = shiftBudgetCycleLabel(cur.month, cur.year, -(n - 1));
+
+    const { start: rangeStart } = getUtcWideRangeForBudgetCycle(
+      oldest.year,
+      oldest.month,
+      cycleStartDay,
+    );
+    const { end: rangeEnd } = getUtcWideRangeForBudgetCycle(
+      cur.year,
+      cur.month,
+      cycleStartDay,
+    );
+
+    const raw = await this.prisma.transaction.findMany({
+      where: {
+        accountId: { in: accountIds },
+        isExcludedFromCashFlow: false,
+        ...statusWhere,
+        OR: [
+          { date: { gte: rangeStart, lte: rangeEnd } },
+          { effectiveDate: { gte: rangeStart, lte: rangeEnd } },
+        ],
+      },
+      include: { category: true },
+    });
+
+    const history: Array<{
+      month: number;
+      year: number;
+      label: string;
+      income: number;
+      expenses: number;
+      balance: number;
+      transactionCount: number;
+    }> = [];
+
+    for (let i = n - 1; i >= 0; i--) {
+      const { month, year } = shiftBudgetCycleLabel(cur.month, cur.year, -i);
+      const filtered = raw.filter((t) =>
+        isInBudgetCycle(cashFlowAnchorDate(t), year, month, cycleStartDay),
+      );
+
+      const income = { total: 0 };
+      const expenses = { total: 0 };
+
+      for (const txn of filtered) {
+        const amount = Number(txn.amount);
+        const isIncomeCategory = txn.category?.isIncome === true;
+
+        if (amount > 0 || isIncomeCategory) {
+          income.total += Math.abs(amount);
+        } else if (amount < 0 && !isIncomeCategory) {
+          expenses.total += Math.abs(amount);
+        }
+      }
+
+      const balance = income.total - expenses.total;
+      history.push({
+        month,
+        year,
+        label: `${this.hebrewMonthName(month)} ${year}`,
+        income: Math.round(income.total * 100) / 100,
+        expenses: Math.round(expenses.total * 100) / 100,
+        balance: Math.round(balance * 100) / 100,
+        transactionCount: filtered.length,
+      });
+    }
+
+    return history;
   }
 
   async getRecentTransactions(userId: string, limit = 10) {
