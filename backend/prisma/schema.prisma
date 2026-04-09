@@ -151,6 +151,8 @@ model UserSettings {
   includePendingInBudget     Boolean  @default(false)
   includePendingInDashboard  Boolean  @default(true)
   excludeCreditCardChargesFromBudget Boolean @default(true)
+  budgetCycleStartDay              Int      @default(1)
+  monthlySavingsGoal               Decimal  @default(0) @db.Decimal(12, 2)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 }

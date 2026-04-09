@@ -2,12 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TransactionStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
-  daysInMonth,
-  getIsraelYearMonth,
-  getUtcWideRangeForIsraelMonth,
-  getIsraelDayOfMonth,
-  isInIsraelMonth,
-} from '../../common/utils/israel-calendar';
+  getUtcWideRangeForBudgetCycle,
+  isInBudgetCycle,
+  getBudgetCycleLabelForIsraelDate,
+  buildBudgetCycleWeekBuckets,
+  israelYmdInDayList,
+} from '../../common/utils/budget-cycle';
 
 function cashFlowAnchorDate(t: {
   date: Date;
@@ -34,15 +34,33 @@ export class DashboardService {
     return includePending ? {} : { status: TransactionStatus.COMPLETED };
   }
 
-  /** When month+year are omitted, use calendar month if it has data; else latest month with transactions. */
+  private async loadBudgetCyclePrefs(userId: string): Promise<{
+    cycleStartDay: number;
+    monthlySavingsGoal: number;
+  }> {
+    const s = await this.prisma.userSettings.findUnique({
+      where: { userId },
+      select: { budgetCycleStartDay: true, monthlySavingsGoal: true },
+    });
+    return {
+      cycleStartDay: s?.budgetCycleStartDay ?? 1,
+      monthlySavingsGoal: Number(s?.monthlySavingsGoal ?? 0),
+    };
+  }
+
+  /** When month+year are omitted, use current budget cycle if it has data; else latest cycle with activity. */
   private async resolveTargetMonthYear(
     userId: string,
     accountIds: string[],
-    month?: number,
-    year?: number,
+    month: number | undefined,
+    year: number | undefined,
+    cycleStartDay: number,
   ): Promise<{ month: number; year: number; usedFallbackToLatestMonth: boolean }> {
     const now = new Date();
-    const { month: defaultM, year: defaultY } = getIsraelYearMonth(now);
+    const { month: defaultM, year: defaultY } = getBudgetCycleLabelForIsraelDate(
+      now,
+      cycleStartDay,
+    );
 
     const explicit =
       month != null &&
@@ -59,7 +77,11 @@ export class DashboardService {
     let m = month ?? defaultM;
     let y = year ?? defaultY;
 
-    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForIsraelMonth(y, m);
+    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForBudgetCycle(
+      y,
+      m,
+      cycleStartDay,
+    );
     const statusWhere = await this.statusFilterForDashboard(userId);
     const inMonthRows = await this.prisma.transaction.findMany({
       where: {
@@ -73,11 +95,11 @@ export class DashboardService {
       },
       select: { date: true, effectiveDate: true },
     });
-    const countThisMonth = inMonthRows.filter((r) =>
-      isInIsraelMonth(cashFlowAnchorDate(r), y, m),
+    const countThisCycle = inMonthRows.filter((r) =>
+      isInBudgetCycle(cashFlowAnchorDate(r), y, m, cycleStartDay),
     ).length;
 
-    if (countThisMonth > 0) {
+    if (countThisCycle > 0) {
       return { month: m, year: y, usedFallbackToLatestMonth: false };
     }
 
@@ -96,11 +118,11 @@ export class DashboardService {
     }
 
     const d = latest.date;
-    const { month: lm, year: ly } = getIsraelYearMonth(d);
+    const { month: lm, year: ly } = getBudgetCycleLabelForIsraelDate(d, cycleStartDay);
     const usedFallback = lm !== defaultM || ly !== defaultY;
     if (usedFallback) {
       this.logger.warn(
-        `No transactions in calendar month ${defaultM}/${defaultY}; showing ${lm}/${ly} (latest activity).`,
+        `No transactions in budget cycle ${defaultM}/${defaultY}; showing ${lm}/${ly} (latest activity).`,
       );
     }
     return { month: lm, year: ly, usedFallbackToLatestMonth: usedFallback };
@@ -115,7 +137,11 @@ export class DashboardService {
     this.logger.log(`getCashFlowSummary for userId: ${userId}`);
 
     const now = new Date();
-    const { month: calM, year: calY } = getIsraelYearMonth(now);
+    const prefs = await this.loadBudgetCyclePrefs(userId);
+    const { month: calM, year: calY } = getBudgetCycleLabelForIsraelDate(
+      now,
+      prefs.cycleStartDay,
+    );
 
     if (userAccounts.length === 0) {
       return {
@@ -126,6 +152,10 @@ export class DashboardService {
         income: { total: 0, fixed: 0, variable: 0 },
         expenses: { total: 0, fixed: 0, tracked: 0, variable: 0 },
         remaining: 0,
+        balance: 0,
+        availableBalance: 0,
+        monthlySavingsGoal: prefs.monthlySavingsGoal,
+        budgetCycleStartDay: prefs.cycleStartDay,
         transactionCount: 0,
       };
     }
@@ -133,13 +163,20 @@ export class DashboardService {
     const accountIds = userAccounts.map((a) => a.id);
 
     const { month: targetMonth, year: targetYear, usedFallbackToLatestMonth } =
-      await this.resolveTargetMonthYear(userId, accountIds, month, year);
+      await this.resolveTargetMonthYear(
+        userId,
+        accountIds,
+        month,
+        year,
+        prefs.cycleStartDay,
+      );
 
     this.logger.log(`Resolved month: ${targetMonth}/${targetYear}, fallback=${usedFallbackToLatestMonth}`);
 
-    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForIsraelMonth(
+    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForBudgetCycle(
       targetYear,
       targetMonth,
+      prefs.cycleStartDay,
     );
 
     this.logger.log(`Wide UTC range: ${rangeStart.toISOString()} - ${rangeEnd.toISOString()}`);
@@ -159,11 +196,11 @@ export class DashboardService {
     });
 
     const transactions = transactionsRaw.filter((t) =>
-      isInIsraelMonth(cashFlowAnchorDate(t), targetYear, targetMonth),
+      isInBudgetCycle(cashFlowAnchorDate(t), targetYear, targetMonth, prefs.cycleStartDay),
     );
 
     this.logger.log(
-      `Found ${transactionsRaw.length} in wide range, ${transactions.length} in Israel ${targetMonth}/${targetYear}`,
+      `Found ${transactionsRaw.length} in wide range, ${transactions.length} in budget cycle ${targetMonth}/${targetYear} (startDay=${prefs.cycleStartDay})`,
     );
 
     if (transactions.length === 0) {
@@ -211,6 +248,7 @@ export class DashboardService {
     }
 
     const remaining = income.total - expenses.total;
+    const availableBalance = remaining - prefs.monthlySavingsGoal;
 
     this.logger.log(`Summary: income=${income.total}, expenses=${expenses.total}, remaining=${remaining}`);
 
@@ -222,6 +260,10 @@ export class DashboardService {
       income,
       expenses,
       remaining,
+      balance: remaining,
+      availableBalance,
+      monthlySavingsGoal: prefs.monthlySavingsGoal,
+      budgetCycleStartDay: prefs.cycleStartDay,
       transactionCount: transactions.length,
     };
   }
@@ -237,16 +279,19 @@ export class DashboardService {
     }
 
     const accountIds = userAccounts.map((a) => a.id);
+    const prefs = await this.loadBudgetCyclePrefs(userId);
     const { month: targetMonth, year: targetYear } = await this.resolveTargetMonthYear(
       userId,
       accountIds,
       month,
       year,
+      prefs.cycleStartDay,
     );
 
-    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForIsraelMonth(
+    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForBudgetCycle(
       targetYear,
       targetMonth,
+      prefs.cycleStartDay,
     );
 
     const dashStatusWhere = await this.statusFilterForDashboard(userId);
@@ -265,41 +310,23 @@ export class DashboardService {
     });
 
     const transactions = transactionsRaw.filter((t) =>
-      isInIsraelMonth(cashFlowAnchorDate(t), targetYear, targetMonth),
+      isInBudgetCycle(cashFlowAnchorDate(t), targetYear, targetMonth, prefs.cycleStartDay),
     );
 
-    const weeks: { week: number; startDate: string; endDate: string; total: number }[] = [];
+    const buckets = buildBudgetCycleWeekBuckets(
+      targetYear,
+      targetMonth,
+      prefs.cycleStartDay,
+    );
 
-    const dim = daysInMonth(targetYear, targetMonth);
-    let weekNum = 1;
-    let weekStart = 1;
-
-    while (weekStart <= dim) {
-      const weekEnd = Math.min(weekStart + 6, dim);
-
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const startLabel = `${targetYear}-${pad(targetMonth)}-${pad(weekStart)}`;
-      const endLabel = `${targetYear}-${pad(targetMonth)}-${pad(weekEnd)}`;
-
-      const weekTotal = transactions
-        .filter((t) => {
-          const d = getIsraelDayOfMonth(cashFlowAnchorDate(t));
-          return d >= weekStart && d <= weekEnd;
-        })
-        .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
-
-      weeks.push({
-        week: weekNum,
-        startDate: startLabel,
-        endDate: endLabel,
-        total: weekTotal,
-      });
-
-      weekStart = weekEnd + 1;
-      weekNum++;
-    }
-
-    return weeks;
+    return buckets.map((b) => ({
+      week: b.week,
+      startDate: b.startDate,
+      endDate: b.endDate,
+      total: transactions
+        .filter((t) => israelYmdInDayList(cashFlowAnchorDate(t), b.days))
+        .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0),
+    }));
   }
 
   async getCategoryBreakdown(userId: string, month?: number, year?: number) {
@@ -313,16 +340,19 @@ export class DashboardService {
     }
 
     const accountIds = userAccounts.map((a) => a.id);
+    const prefs = await this.loadBudgetCyclePrefs(userId);
     const { month: targetMonth, year: targetYear } = await this.resolveTargetMonthYear(
       userId,
       accountIds,
       month,
       year,
+      prefs.cycleStartDay,
     );
 
-    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForIsraelMonth(
+    const { start: rangeStart, end: rangeEnd } = getUtcWideRangeForBudgetCycle(
       targetYear,
       targetMonth,
+      prefs.cycleStartDay,
     );
 
     const dashStatusWhereCat = await this.statusFilterForDashboard(userId);
@@ -341,7 +371,7 @@ export class DashboardService {
     });
 
     const transactions = transactionsRaw.filter((t) =>
-      isInIsraelMonth(cashFlowAnchorDate(t), targetYear, targetMonth),
+      isInBudgetCycle(cashFlowAnchorDate(t), targetYear, targetMonth, prefs.cycleStartDay),
     );
 
     const uncategorized = await this.prisma.category.findFirst({

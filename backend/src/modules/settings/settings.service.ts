@@ -74,6 +74,12 @@ export class SettingsService {
       data.excludeCreditCardChargesFromBudget =
         dto.excludeCreditCardChargesFromBudget;
     }
+    if (dto.budgetCycleStartDay !== undefined) {
+      data.budgetCycleStartDay = dto.budgetCycleStartDay;
+    }
+    if (dto.monthlySavingsGoal !== undefined) {
+      data.monthlySavingsGoal = new Prisma.Decimal(dto.monthlySavingsGoal);
+    }
 
     const createData: Prisma.UserSettingsUncheckedCreateInput = { userId };
     if (dto.emailNotifications !== undefined) {
@@ -120,6 +126,12 @@ export class SettingsService {
     if (dto.excludeCreditCardChargesFromBudget !== undefined) {
       createData.excludeCreditCardChargesFromBudget =
         dto.excludeCreditCardChargesFromBudget;
+    }
+    if (dto.budgetCycleStartDay !== undefined) {
+      createData.budgetCycleStartDay = dto.budgetCycleStartDay;
+    }
+    if (dto.monthlySavingsGoal !== undefined) {
+      createData.monthlySavingsGoal = new Prisma.Decimal(dto.monthlySavingsGoal);
     }
 
     const shouldRecomputeSalary =
