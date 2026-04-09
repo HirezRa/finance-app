@@ -154,6 +154,7 @@ model UserSettings {
   excludeCreditCardChargesFromBudget Boolean @default(true)
   budgetCycleStartDay              Int      @default(1)
   monthlySavingsGoal               Decimal  @default(0) @db.Decimal(12, 2)
+  showInactiveAccounts             Boolean  @default(false)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 }

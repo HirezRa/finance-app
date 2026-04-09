@@ -73,7 +73,7 @@ export class BudgetsService {
     cycleStartDay = 1,
   ): Promise<{ month: number; year: number } | null> {
     const userAccounts = await this.prisma.account.findMany({
-      where: { userId },
+      where: { userId, isActive: true },
       select: { id: true },
     });
 
@@ -106,7 +106,7 @@ export class BudgetsService {
     this.logger.log(`calculateSpendingByCategory: ${month}/${year} for user ${userId}`);
 
     const userAccounts = await this.prisma.account.findMany({
-      where: { userId },
+      where: { userId, isActive: true },
       select: { id: true },
     });
 
@@ -373,7 +373,7 @@ export class BudgetsService {
 
     if (requestedMonth === undefined && requestedYear === undefined) {
       const userAccounts = await this.prisma.account.findMany({
-        where: { userId },
+        where: { userId, isActive: true },
         select: { id: true },
       });
       const accountIds = userAccounts.map((a) => a.id);
