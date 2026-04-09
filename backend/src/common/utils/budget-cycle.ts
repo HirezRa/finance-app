@@ -189,3 +189,22 @@ export function israelYmdInDayList(anchor: Date, days: BudgetCycleDay[]): boolea
   const { year: y, month: m, day: d } = getIsraelYmd(anchor);
   return days.some((c) => c.y === y && c.m === m && c.d === d);
 }
+
+/** Shift budget-cycle label (calendar month index of the cycle) by delta months. */
+export function shiftBudgetCycleLabel(
+  month: number,
+  year: number,
+  deltaMonths: number,
+): { month: number; year: number } {
+  let m = month + deltaMonths;
+  let y = year;
+  while (m > 12) {
+    m -= 12;
+    y += 1;
+  }
+  while (m < 1) {
+    m += 12;
+    y -= 1;
+  }
+  return { month: m, year: y };
+}

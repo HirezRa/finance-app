@@ -84,6 +84,8 @@ export const dashboardApi = {
   getRecent: (limit = 10) =>
     api.get('/dashboard/recent', { params: { limit } }),
   getAccounts: () => api.get('/dashboard/accounts'),
+  getHistory: (months = 6) =>
+    api.get('/dashboard/history', { params: { months } }),
 };
 
 export const transactionsApi = {
@@ -135,6 +137,17 @@ export const transactionsApi = {
   bulkUpdateCategory: (transactionIds: string[], categoryId: string) =>
     api.patch('/transactions/bulk/category', { transactionIds, categoryId }),
   recategorizeAll: () => api.post('/transactions/recategorize-all'),
+  exportExcel: (params?: { month?: number; year?: number }) =>
+    api.get('/transactions/export', {
+      responseType: 'blob',
+      params:
+        params?.month != null &&
+        params?.year != null &&
+        !Number.isNaN(params.month) &&
+        !Number.isNaN(params.year)
+          ? { month: params.month, year: params.year }
+          : {},
+    }),
 };
 
 export const accountsApi = {

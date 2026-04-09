@@ -5,6 +5,7 @@ import { getIsraelYearMonth } from '@/lib/israel-calendar';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -34,6 +35,11 @@ interface Category {
   keywords: string[];
   transactionCount?: number;
   totalAmount?: number;
+  monthlyTarget?: number | null;
+  spent?: number;
+  remaining?: number | null;
+  percentUsed?: number | null;
+  isOverBudget?: boolean;
 }
 
 interface CategoryBreakdownRow {
@@ -122,7 +128,17 @@ export default function CategoriesPage() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    nameHe: string;
+    icon: string;
+    color: string;
+    isIncome: boolean;
+    isFixed: boolean;
+    isTracked: boolean;
+    keywords: string;
+    monthlyTarget: number | '';
+  }>({
     name: '',
     nameHe: '',
     icon: '❓',
@@ -131,6 +147,7 @@ export default function CategoriesPage() {
     isFixed: false,
     isTracked: true,
     keywords: '',
+    monthlyTarget: '',
   });
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
@@ -258,6 +275,7 @@ export default function CategoriesPage() {
       isFixed: false,
       isTracked: true,
       keywords: '',
+      monthlyTarget: '',
     });
   };
 
@@ -273,11 +291,22 @@ export default function CategoriesPage() {
       isFixed: cat.isFixed,
       isTracked: cat.isTracked,
       keywords: cat.keywords?.join(', ') || '',
+      monthlyTarget:
+        cat.monthlyTarget != null && !Number.isNaN(Number(cat.monthlyTarget))
+          ? Number(cat.monthlyTarget)
+          : '',
     });
   };
 
   const handleSubmit = () => {
-    const data = {
+    const monthlyTargetPayload =
+      formData.monthlyTarget === ''
+        ? editingCategory
+          ? null
+          : undefined
+        : Number(formData.monthlyTarget);
+
+    const data: Record<string, unknown> = {
       name: formData.name,
       nameHe: formData.nameHe,
       icon: formData.icon,
@@ -290,6 +319,10 @@ export default function CategoriesPage() {
         .map((k) => k.trim())
         .filter(Boolean),
     };
+
+    if (monthlyTargetPayload !== undefined) {
+      data.monthlyTarget = monthlyTargetPayload;
+    }
 
     if (editingCategory) {
       updateMutation.mutate({ id: editingCategory.id, data });
@@ -629,6 +662,34 @@ export default function CategoriesPage() {
                   >
                     במעקב תקציב
                   </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>יעד חודשי (אופציונלי)</Label>
+                <p className="text-xs text-muted-foreground">
+                  סכום מקסימלי להוצאה בקטגוריה זו במחזור הנבחר בדף קטגוריות
+                </p>
+                <div className="relative max-w-xs">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={formData.monthlyTarget === '' ? '' : formData.monthlyTarget}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setFormData({
+                        ...formData,
+                        monthlyTarget: v === '' ? '' : Number(v),
+                      });
+                    }}
+                    placeholder="ללא הגבלה"
+                    className="ps-8"
+                    dir="ltr"
+                  />
+                  <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    ₪
+                  </span>
                 </div>
               </div>
 

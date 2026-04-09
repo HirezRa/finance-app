@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { dashboardApi, transactionsApi, settingsApi } from '@/services/api';
+import { dashboardApi, transactionsApi, settingsApi, categoriesApi } from '@/services/api';
+import { MonthlyComparisonChart } from '@/components/MonthlyComparisonChart';
+import type { HistoryItem } from '@/components/MonthlyComparisonChart';
+import { TrackedCategories } from '@/components/TrackedCategories';
 import {
   Card,
   CardContent,
@@ -199,6 +202,17 @@ export default function DashboardPage() {
     queryKey: ['installments', 'summary'],
     queryFn: () =>
       transactionsApi.getInstallmentsSummary().then((res) => res.data as InstallmentsSummary),
+  });
+
+  const { data: historyData, isPending: historyLoading } = useQuery({
+    queryKey: ['dashboard', 'history'],
+    queryFn: () =>
+      dashboardApi.getHistory(6).then((res) => res.data as HistoryItem[]),
+  });
+
+  const { data: categoriesStatsRes, isPending: trackedCategoriesLoading } = useQuery({
+    queryKey: ['categories', 'with-stats', 'dashboard-widget', month, year],
+    queryFn: () => categoriesApi.getWithStats(month, year).then((res) => res.data),
   });
 
   const changeMonth = (delta: number) => {
@@ -677,6 +691,14 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <MonthlyComparisonChart data={historyData ?? []} isLoading={historyLoading} />
+        <TrackedCategories
+          categories={categoriesStatsRes?.categories ?? []}
+          isLoading={trackedCategoriesLoading}
+        />
       </div>
     </div>
   );
