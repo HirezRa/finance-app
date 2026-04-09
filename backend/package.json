@@ -14,7 +14,8 @@
     "fix:all": "ts-node prisma/fix-all.ts",
     "fix:credit-charges": "ts-node prisma/fix-credit-charges.ts",
     "fix:transaction-types": "ts-node prisma/fix-transaction-types.ts",
-    "fix:budget-sort-order": "ts-node prisma/fix-budget-sort-order.ts"
+    "fix:budget-sort-order": "ts-node prisma/fix-budget-sort-order.ts",
+    "fix:split-bills": "ts-node prisma/fix-split-bills-category.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^9.3.1",
