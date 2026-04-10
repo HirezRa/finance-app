@@ -31,6 +31,11 @@ export class OllamaController {
     return { count: ids.length, transactionIds: ids };
   }
 
+  @Get('debug-uncategorized')
+  async debugUncategorized(@CurrentUser('id') userId: string) {
+    return this.ollamaService.debugUncategorized(userId);
+  }
+
   @Get('for-improvement')
   async getForImprovement(
     @CurrentUser('id') userId: string,
