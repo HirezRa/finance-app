@@ -10,6 +10,7 @@ SSH_OPTS=(
   -o StrictHostKeyChecking=no
 )
 MODEL="${1:-qwen2.5:7b}"
-GUEST="ollama pull ${MODEL}"
+# Explicit path: pct non-login env may omit /usr/local/bin
+GUEST="/usr/local/bin/ollama pull ${MODEL}"
 ssh "${SSH_OPTS[@]}" "${PROXMOX}" \
   "timeout 2400 bash -c 'pct exec 104 -- timeout 2300 bash -lc \"${GUEST}\"'"
