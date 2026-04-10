@@ -294,32 +294,93 @@ ${categoriesList}
     userId: string,
     limit: number = 50,
   ): Promise<string[]> {
-    const uncategorized = await this.prisma.category.findFirst({
-      where: { name: 'uncategorized', isSystem: true, userId: null },
-    });
-
     const accounts = await this.prisma.account.findMany({
       where: { userId, isActive: true },
       select: { id: true },
     });
-    if (accounts.length === 0) return [];
 
-    const uncategorizedId = uncategorized?.id;
+    if (accounts.length === 0) {
+      return [];
+    }
+
+    const accountIds = accounts.map((a) => a.id);
+
+    const uncategorizedCategory = await this.prisma.category.findFirst({
+      where: {
+        OR: [
+          { userId, name: 'uncategorized' },
+          { isSystem: true, name: 'uncategorized', userId: null },
+        ],
+      },
+    });
+
+    const whereConditions: Prisma.TransactionWhereInput[] = [
+      { categoryId: null },
+    ];
+
+    if (uncategorizedCategory) {
+      whereConditions.push({ categoryId: uncategorizedCategory.id });
+    }
+
+    const transactions = await this.prisma.transaction.findMany({
+      where: {
+        accountId: { in: accountIds },
+        OR: whereConditions,
+      },
+      take: limit,
+      orderBy: { date: 'desc' },
+      select: {
+        id: true,
+        description: true,
+        categoryId: true,
+      },
+    });
+
+    this.logger.log(`Found ${transactions.length} uncategorized transactions`);
+
+    for (const tx of transactions) {
+      this.logger.debug(
+        `TX: ${tx.description} | categoryId: ${tx.categoryId ?? 'null'}`,
+      );
+    }
+
+    return transactions.map((t) => t.id);
+  }
+
+  async debugUncategorized(userId: string) {
+    const accounts = await this.prisma.account.findMany({
+      where: { userId, isActive: true },
+      select: { id: true },
+    });
+
+    const uncategorizedCategory = await this.prisma.category.findFirst({
+      where: {
+        OR: [
+          { userId, name: 'uncategorized' },
+          { isSystem: true, name: 'uncategorized', userId: null },
+        ],
+      },
+    });
 
     const transactions = await this.prisma.transaction.findMany({
       where: {
         accountId: { in: accounts.map((a) => a.id) },
-        OR: [
-          { categoryId: null },
-          ...(uncategorizedId ? [{ categoryId: uncategorizedId }] : []),
-        ],
       },
-      take: limit,
+      include: { category: true },
+      take: 20,
       orderBy: { date: 'desc' },
-      select: { id: true },
     });
 
-    return transactions.map((t) => t.id);
+    return {
+      uncategorizedCategoryId: uncategorizedCategory?.id ?? null,
+      uncategorizedCategoryName: uncategorizedCategory?.name ?? null,
+      transactions: transactions.map((tx) => ({
+        id: tx.id,
+        description: tx.description,
+        categoryId: tx.categoryId,
+        categoryName: tx.category?.nameHe || tx.category?.name || 'NULL',
+      })),
+    };
   }
 
   async getTransactionsForImprovement(
