@@ -408,7 +408,7 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
     limit: number = 50,
   ): Promise<string[]> {
     this.logger.log(
-      `=== Getting uncategorized transactions for user ${userId} ===`,
+      `=== Getting ONLY uncategorized transactions for user ${userId} ===`,
     );
 
     const accounts = await this.prisma.account.findMany({
@@ -432,37 +432,120 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
     });
 
     this.logger.log(
-      `Uncategorized category: ${uncategorizedCategory?.id || 'NOT FOUND'}`,
+      `Uncategorized category ID: ${uncategorizedCategory?.id || 'NOT FOUND'}`,
     );
 
-    const transactions = await this.prisma.transaction.findMany({
+    const transactionsWithNull = await this.prisma.transaction.findMany({
       where: {
         accountId: { in: accountIds },
-        OR: [
-          { categoryId: null },
-          ...(uncategorizedCategory
-            ? [{ categoryId: uncategorizedCategory.id }]
-            : []),
-        ],
+        categoryId: null,
       },
-      take: limit,
-      orderBy: { date: 'desc' },
       select: {
         id: true,
         description: true,
-        categoryId: true,
+        date: true,
       },
     });
 
-    this.logger.log(`Found ${transactions.length} uncategorized transactions`);
+    this.logger.log(
+      `Transactions with categoryId=NULL: ${transactionsWithNull.length}`,
+    );
 
-    for (const tx of transactions) {
+    let transactionsWithUncategorized: Array<{
+      id: string;
+      description: string;
+      date: Date;
+    }> = [];
+
+    if (uncategorizedCategory) {
+      transactionsWithUncategorized =
+        await this.prisma.transaction.findMany({
+          where: {
+            accountId: { in: accountIds },
+            categoryId: uncategorizedCategory.id,
+          },
+          select: {
+            id: true,
+            description: true,
+            date: true,
+          },
+        });
       this.logger.log(
-        `  - "${tx.description}" | categoryId: ${tx.categoryId || 'NULL'}`,
+        `Transactions with uncategorized category id: ${transactionsWithUncategorized.length}`,
       );
     }
 
-    return transactions.map((t) => t.id);
+    const byId = new Map<
+      string,
+      { id: string; description: string; date: Date }
+    >();
+    for (const tx of [
+      ...transactionsWithNull,
+      ...transactionsWithUncategorized,
+    ]) {
+      if (!byId.has(tx.id)) {
+        byId.set(tx.id, tx);
+      }
+    }
+
+    const merged = Array.from(byId.values());
+    merged.sort((a, b) => b.date.getTime() - a.date.getTime());
+    const result = merged.slice(0, limit);
+
+    this.logger.log(`=== TOTAL uncategorized (merged, limited): ${result.length} ===`);
+    for (const tx of result) {
+      this.logger.log(`  -> "${tx.description}"`);
+    }
+
+    return result.map((t) => t.id);
+  }
+
+  async countUncategorized(userId: string) {
+    const accounts = await this.prisma.account.findMany({
+      where: { userId, isActive: true },
+      select: { id: true },
+    });
+    const accountIds = accounts.map((a) => a.id);
+
+    if (accountIds.length === 0) {
+      return {
+        withNullCategory: 0,
+        withUncategorizedCategory: 0,
+        uncategorizedCategoryId: null as string | null,
+        total: 0,
+      };
+    }
+
+    const withNull = await this.prisma.transaction.count({
+      where: {
+        accountId: { in: accountIds },
+        categoryId: null,
+      },
+    });
+
+    const uncategorizedCategory = await this.prisma.category.findFirst({
+      where: {
+        name: 'uncategorized',
+        OR: [{ userId }, { userId: null, isSystem: true }],
+      },
+    });
+
+    let withUncategorized = 0;
+    if (uncategorizedCategory) {
+      withUncategorized = await this.prisma.transaction.count({
+        where: {
+          accountId: { in: accountIds },
+          categoryId: uncategorizedCategory.id,
+        },
+      });
+    }
+
+    return {
+      withNullCategory: withNull,
+      withUncategorizedCategory: withUncategorized,
+      uncategorizedCategoryId: uncategorizedCategory?.id ?? null,
+      total: withNull + withUncategorized,
+    };
   }
 
   async debugUncategorized(userId: string) {

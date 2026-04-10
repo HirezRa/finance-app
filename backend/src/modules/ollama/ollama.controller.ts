@@ -17,6 +17,11 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 export class OllamaController {
   constructor(private readonly ollamaService: OllamaService) {}
 
+  @Get('count-uncategorized')
+  async countUncategorized(@CurrentUser('id') userId: string) {
+    return this.ollamaService.countUncategorized(userId);
+  }
+
   @Get('uncategorized')
   async getUncategorized(
     @CurrentUser('id') userId: string,
