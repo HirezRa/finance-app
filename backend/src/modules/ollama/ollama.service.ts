@@ -17,6 +17,14 @@ export interface CategorySuggestion {
   currentCategory?: string;
 }
 
+type CategoryRow = {
+  id: string;
+  name: string;
+  nameHe: string;
+  keywords: Prisma.JsonValue;
+  isIncome: boolean;
+};
+
 function parseKeywordsField(raw: Prisma.JsonValue | null | undefined): string[] {
   if (raw === null || raw === undefined) return [];
   if (Array.isArray(raw)) {
@@ -43,6 +51,8 @@ function parseOllamaJsonResponse(responseText: string): Record<string, unknown> 
   return parsed;
 }
 
+const DEFAULT_OLLAMA_MODEL = 'qwen2.5:7b';
+
 @Injectable()
 export class OllamaService {
   private readonly logger = new Logger(OllamaService.name);
@@ -63,7 +73,8 @@ export class OllamaService {
     }
 
     const ollamaUrl = settings.ollamaUrl.replace(/\/+$/, '');
-    const ollamaModel = settings.ollamaModel?.trim() || 'llama3';
+    const ollamaModel =
+      settings.ollamaModel?.trim() || DEFAULT_OLLAMA_MODEL;
 
     if (transactionIds.length === 0) {
       return [];
@@ -78,6 +89,7 @@ export class OllamaService {
         name: true,
         nameHe: true,
         keywords: true,
+        isIncome: true,
       },
     });
 
@@ -91,14 +103,36 @@ export class OllamaService {
       },
     });
 
-    const txById = new Map(transactions.map((t) => [t.id, t]));
-    const results: Omit<
-      CategorySuggestion,
-      'description' | 'amount' | 'currentCategory'
-    >[] = [];
+    const results: CategorySuggestion[] = [];
 
     for (const tx of transactions) {
       try {
+        const currentCategory = tx.category?.nameHe || tx.category?.name;
+        const baseFields = {
+          description: tx.description,
+          amount: Number(tx.amount),
+          currentCategory,
+        };
+
+        if (mode === 'uncategorized') {
+          const keywordMatch = this.classifyByKeywords(
+            tx.description,
+            tx.amount,
+            categories,
+          );
+          if (keywordMatch) {
+            results.push({
+              transactionId: tx.id,
+              suggestedCategoryId: keywordMatch.categoryId,
+              suggestedCategoryName: keywordMatch.categoryName,
+              confidence: 0.95,
+              reasoning: 'זוהה לפי מילות מפתח',
+              ...baseFields,
+            });
+            continue;
+          }
+        }
+
         const suggestion = await this.classifyTransaction(
           tx,
           categories,
@@ -108,7 +142,10 @@ export class OllamaService {
         );
 
         if (suggestion) {
-          results.push(suggestion);
+          results.push({
+            ...suggestion,
+            ...baseFields,
+          });
         }
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -116,15 +153,35 @@ export class OllamaService {
       }
     }
 
-    return results.map((r) => {
-      const tx = txById.get(r.transactionId);
-      return {
-        ...r,
-        description: tx?.description ?? undefined,
-        amount: tx ? Number(tx.amount) : undefined,
-        currentCategory: tx?.category?.nameHe || tx?.category?.name,
-      };
-    });
+    return results;
+  }
+
+  private classifyByKeywords(
+    description: string,
+    amount: Prisma.Decimal,
+    categories: CategoryRow[],
+  ): { categoryId: string; categoryName: string } | null {
+    const isExpense = Number(amount) < 0;
+    const desc = description.toLowerCase();
+
+    for (const cat of categories) {
+      if (cat.name === 'uncategorized') continue;
+      if (isExpense && cat.isIncome) continue;
+      if (!isExpense && !cat.isIncome) continue;
+
+      const kws = parseKeywordsField(cat.keywords);
+      for (const keyword of kws) {
+        const kw = keyword.toLowerCase();
+        if (kw && desc.includes(kw)) {
+          return {
+            categoryId: cat.id,
+            categoryName: cat.nameHe || cat.name,
+          };
+        }
+      }
+    }
+
+    return null;
   }
 
   private async classifyTransaction(
@@ -139,12 +196,7 @@ export class OllamaService {
         nameHe: string;
       } | null;
     },
-    categories: {
-      id: string;
-      name: string;
-      nameHe: string;
-      keywords: Prisma.JsonValue;
-    }[],
+    categories: CategoryRow[],
     ollamaUrl: string,
     ollamaModel: string,
     mode: 'uncategorized' | 'improve',
@@ -152,57 +204,94 @@ export class OllamaService {
     CategorySuggestion,
     'description' | 'amount' | 'currentCategory'
   > | null> {
-    const categoriesList = categories
-      .filter((c) => c.name !== 'uncategorized')
-      .map((c) => {
-        const kws = parseKeywordsField(c.keywords).join(', ');
-        return `- ${c.nameHe} (${c.name}): מילות מפתח: ${kws || '—'}`;
+    const isExpense = Number(transaction.amount) < 0;
+    const relevantCategories = categories.filter((c) => {
+      if (c.name === 'uncategorized') return false;
+      if (isExpense && c.isIncome) return false;
+      if (!isExpense && !c.isIncome) return false;
+      return true;
+    });
+
+    if (relevantCategories.length === 0) {
+      this.logger.warn('No relevant categories for expense/income type');
+      return null;
+    }
+
+    const categoriesList = relevantCategories
+      .map((c, i) => {
+        const kws = parseKeywordsField(c.keywords).slice(0, 5).join(', ');
+        return `${i + 1}. ${c.nameHe} (${c.name}) - מילות מפתח: ${kws || '—'}`;
       })
       .join('\n');
 
-    const noteText =
+    const transactionDesc = transaction.description || '';
+    const transactionNote =
       transaction.note?.trim() ||
       transaction.notes?.trim() ||
-      'אין';
+      '';
+    const transactionAmount = Math.abs(Number(transaction.amount));
 
-    const currentCategory =
+    const currentCategoryHe =
       transaction.category?.nameHe ||
       transaction.category?.name ||
       'לא מסווג';
 
+    const rulesBlock = `CATEGORIZATION RULES:
+- Netflix, Spotify, Disney+, Apple TV = מנויים (subscriptions)
+- Supermarkets (שופרסל, רמי לוי, ויקטורי, מגה, יוחננוף, Carrefour) = סופר ומכולת (groceries)
+- Restaurants, cafes, food delivery (וולט, וולטס, Wolt) = מסעדות וקפה (restaurants)
+- Gas stations (פז, סונול, דלק, Ten) = תחבורה (transportation)
+- Pharmacies (סופר פארם, Be) = בריאות (health)
+- Clothing stores (זארה, H&M, קסטרו) = ביגוד והנעלה (clothing)
+- Electronics (KSP, באג, iDigital) = אלקטרוניקה (electronics)
+- Bank fees, charges = עמלות בנק (fees)
+- Transfers (bit, paybox, העברה) = העברות (transfer)
+- Salary, wages = משכורת (salary)
+- Rent payments = שכר דירה (rent)
+- Insurance = ביטוח (insurance)
+- Electricity (חברת חשמל) = חשבון חשמל (electricity)
+- Water (מי X, תאגיד מים) = חשבון מים (water)
+- Municipality (עירייה, ארנונה) = ארנונה (arnona)
+- Pet stores, vets = חיות מחמד (pets)`;
+
     const prompt =
       mode === 'improve'
-        ? `אתה מומחה לסיווג עסקאות פיננסיות.
+        ? `You are a financial transaction categorizer for Israeli expenses.
 
-העסקה הנוכחית:
-- תיאור: ${transaction.description}
-- סכום: ${transaction.amount} ₪
-- הערות: ${noteText}
-- קטגוריה נוכחית: ${currentCategory}
+CURRENT TRANSACTION:
+- Description: "${transactionDesc}"
+- Amount: ${transactionAmount} ILS
+- Note: "${transactionNote}"
+- Type: ${isExpense ? 'EXPENSE' : 'INCOME'}
+- CURRENT CATEGORY: "${currentCategoryHe}"
 
-הקטגוריות האפשריות:
+AVAILABLE CATEGORIES (choose ONE, or use KEEP):
 ${categoriesList}
 
-האם הסיווג הנוכחי "${currentCategory}" הוא הטוב ביותר?
-אם יש קטגוריה מתאימה יותר, החזר אותה (שדה category = השם באנגלית name מהרשימה).
-אם הסיווג הנוכחי טוב, החזר "KEEP" בשדה category.
+If the current category is already the best match, respond with category "KEEP".
+Otherwise choose the most appropriate category (English \`name\` from the list above).
 
-החזר תשובה בפורמט JSON בלבד:
-{"category": "שם_הקטגוריה_באנגלית_או_KEEP", "confidence": 0.0, "reasoning": "הסבר קצר"}`
-        : `אתה מומחה לסיווג עסקאות פיננסיות.
+${rulesBlock}
 
-העסקה:
-- תיאור: ${transaction.description}
-- סכום: ${transaction.amount} ₪
-- הערות: ${noteText}
+Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
+{"category": "category_name_in_english_or_KEEP", "confidence": 0.0-1.0, "reasoning": "brief reason in Hebrew"}`
+        : `You are a financial transaction categorizer for Israeli expenses.
 
-הקטגוריות האפשריות:
+TRANSACTION TO CATEGORIZE:
+- Description: "${transactionDesc}"
+- Amount: ${transactionAmount} ILS
+- Note: "${transactionNote}"
+- Type: ${isExpense ? 'EXPENSE' : 'INCOME'}
+
+AVAILABLE CATEGORIES (choose ONE):
 ${categoriesList}
 
-בחר את הקטגוריה המתאימה ביותר לעסקה זו (שדה category = השם באנגלית name מהרשימה).
+${rulesBlock}
 
-החזר תשובה בפורמט JSON בלבד:
-{"category": "שם_הקטגוריה_באנגלית", "confidence": 0.0, "reasoning": "הסבר קצר"}`;
+Analyze the transaction description and choose the MOST APPROPRIATE category.
+
+Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
+{"category": "category_name_in_english", "confidence": 0.0-1.0, "reasoning": "brief reason in Hebrew"}`;
 
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 90_000);
@@ -216,7 +305,10 @@ ${categoriesList}
           model: ollamaModel,
           prompt,
           stream: false,
-          format: 'json',
+          options: {
+            temperature: 0.1,
+            num_predict: 150,
+          },
         }),
         signal: controller.signal,
       });
@@ -229,39 +321,61 @@ ${categoriesList}
     }
 
     const data = (await response.json()) as { response?: string };
-    const responseText = data.response ?? '';
-    if (!responseText.trim()) {
-      return null;
-    }
+    let responseText = data.response?.trim() || '';
+
+    this.logger.log(
+      `Ollama response for "${transactionDesc.slice(0, 80)}": ${responseText.slice(0, 300)}`,
+    );
+
+    responseText = responseText
+      .replace(/```json\n?/gi, '')
+      .replace(/```\n?/g, '')
+      .trim();
 
     try {
       const parsed = parseOllamaJsonResponse(responseText);
       const catRaw = parsed.category;
       if (typeof catRaw !== 'string') {
+        this.logger.warn('No category in response');
         return null;
       }
+
       if (catRaw === 'KEEP') {
         return null;
       }
 
-      const norm = (s: string) => s.toLowerCase().trim();
-      const catNorm = norm(catRaw);
-
+      const lower = catRaw.toLowerCase();
       let matchedCategory = categories.find(
-        (c) => norm(c.name) === catNorm || norm(c.nameHe) === catNorm,
+        (c) =>
+          c.name.toLowerCase() === lower || c.nameHe === catRaw,
       );
-      if (!matchedCategory) {
-        matchedCategory = categories.find(
-          (c) =>
-            catNorm.includes(norm(c.name)) ||
-            norm(c.name).includes(catNorm) ||
-            catNorm.includes(norm(c.nameHe)) ||
-            norm(c.nameHe).includes(catNorm),
-        );
-      }
 
       if (!matchedCategory) {
         this.logger.warn(`Category not found: ${catRaw}`);
+        const partialMatch = categories.find(
+          (c) =>
+            c.name.toLowerCase().includes(lower) ||
+            lower.includes(c.name.toLowerCase()),
+        );
+        if (partialMatch) {
+          this.logger.log(`Partial match found: ${partialMatch.name}`);
+          const confRaw = parsed.confidence;
+          let confidence = 0.5;
+          if (typeof confRaw === 'number' && !Number.isNaN(confRaw)) {
+            confidence = Math.min(1, Math.max(0, confRaw)) * 0.8;
+          } else {
+            confidence = 0.4;
+          }
+          const reasoning =
+            typeof parsed.reasoning === 'string' ? parsed.reasoning : '';
+          return {
+            transactionId: transaction.id,
+            suggestedCategoryId: partialMatch.id,
+            suggestedCategoryName: partialMatch.nameHe || partialMatch.name,
+            confidence,
+            reasoning,
+          };
+        }
         return null;
       }
 
@@ -270,7 +384,6 @@ ${categoriesList}
       if (typeof confRaw === 'number' && !Number.isNaN(confRaw)) {
         confidence = Math.min(1, Math.max(0, confRaw));
       }
-
       const reasoning =
         typeof parsed.reasoning === 'string' ? parsed.reasoning : '';
 
@@ -284,7 +397,7 @@ ${categoriesList}
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       this.logger.error(
-        `Failed to parse Ollama response: ${responseText.slice(0, 500)} — ${msg}`,
+        `Failed to classify "${transactionDesc}": ${msg}`,
       );
       return null;
     }
@@ -294,38 +407,43 @@ ${categoriesList}
     userId: string,
     limit: number = 50,
   ): Promise<string[]> {
+    this.logger.log(
+      `=== Getting uncategorized transactions for user ${userId} ===`,
+    );
+
     const accounts = await this.prisma.account.findMany({
       where: { userId, isActive: true },
       select: { id: true },
     });
 
     if (accounts.length === 0) {
+      this.logger.log('No active accounts found');
       return [];
     }
 
     const accountIds = accounts.map((a) => a.id);
+    this.logger.log(`Found ${accountIds.length} active accounts`);
 
     const uncategorizedCategory = await this.prisma.category.findFirst({
       where: {
-        OR: [
-          { userId, name: 'uncategorized' },
-          { isSystem: true, name: 'uncategorized', userId: null },
-        ],
+        name: 'uncategorized',
+        OR: [{ userId }, { userId: null, isSystem: true }],
       },
     });
 
-    const whereConditions: Prisma.TransactionWhereInput[] = [
-      { categoryId: null },
-    ];
-
-    if (uncategorizedCategory) {
-      whereConditions.push({ categoryId: uncategorizedCategory.id });
-    }
+    this.logger.log(
+      `Uncategorized category: ${uncategorizedCategory?.id || 'NOT FOUND'}`,
+    );
 
     const transactions = await this.prisma.transaction.findMany({
       where: {
         accountId: { in: accountIds },
-        OR: whereConditions,
+        OR: [
+          { categoryId: null },
+          ...(uncategorizedCategory
+            ? [{ categoryId: uncategorizedCategory.id }]
+            : []),
+        ],
       },
       take: limit,
       orderBy: { date: 'desc' },
@@ -339,8 +457,8 @@ ${categoriesList}
     this.logger.log(`Found ${transactions.length} uncategorized transactions`);
 
     for (const tx of transactions) {
-      this.logger.debug(
-        `TX: ${tx.description} | categoryId: ${tx.categoryId ?? 'null'}`,
+      this.logger.log(
+        `  - "${tx.description}" | categoryId: ${tx.categoryId || 'NULL'}`,
       );
     }
 
@@ -355,10 +473,8 @@ ${categoriesList}
 
     const uncategorizedCategory = await this.prisma.category.findFirst({
       where: {
-        OR: [
-          { userId, name: 'uncategorized' },
-          { isSystem: true, name: 'uncategorized', userId: null },
-        ],
+        name: 'uncategorized',
+        OR: [{ userId }, { userId: null, isSystem: true }],
       },
     });
 
@@ -388,7 +504,10 @@ ${categoriesList}
     limit: number = 50,
   ): Promise<string[]> {
     const uncategorized = await this.prisma.category.findFirst({
-      where: { name: 'uncategorized', isSystem: true, userId: null },
+      where: {
+        name: 'uncategorized',
+        OR: [{ userId }, { userId: null, isSystem: true }],
+      },
     });
 
     const accounts = await this.prisma.account.findMany({
