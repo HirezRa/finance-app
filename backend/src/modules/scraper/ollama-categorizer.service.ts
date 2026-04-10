@@ -37,7 +37,7 @@ export class OllamaCategorizerService {
     }
 
     const baseUrl = settings.ollamaUrl.replace(/\/+$/, '');
-    const model = settings.ollamaModel?.trim() || 'mistral';
+    const model = settings.ollamaModel?.trim() || 'qwen2.5:7b';
 
     const categories = await this.prisma.category.findMany({
       where: {
