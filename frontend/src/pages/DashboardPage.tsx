@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatShortDate, cn } from '@/lib/utils';
 import { getAccountDisplayName } from '@/lib/accountDisplay';
 import { getBudgetCycleLabelForIsraelDate } from '@/lib/israel-calendar';
+import { TransactionCategoryBadge } from '@/components/TransactionCategoryBadge';
 import {
   ChevronRight,
   ChevronLeft,
@@ -97,12 +98,20 @@ interface RecentTxn {
   date: string;
   amount: string | number;
   description: string;
+  categoryId?: string | null;
   account?: {
     institutionName?: string;
     nickname?: string | null;
     description?: string | null;
   };
-  category?: { nameHe?: string; icon?: string; color?: string };
+  category?: {
+    id?: string | null;
+    name?: string;
+    nameHe?: string;
+    icon?: string;
+    color?: string;
+  };
+  isUncategorized?: boolean;
 }
 
 interface AccountsOverview {
@@ -624,14 +633,10 @@ export default function DashboardPage() {
                 const amount = num(txn.amount);
                 return (
                   <div key={txn.id} className="flex items-center gap-4 p-4">
-                    <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
-                      style={{
-                        backgroundColor: `${txn.category?.color || '#6b7280'}20`,
-                      }}
-                    >
-                      {txn.category?.icon || '❓'}
-                    </div>
+                    <TransactionCategoryBadge
+                      transaction={txn}
+                      className="shrink-0 self-center"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{txn.description}</p>
                       <p className="text-sm text-muted-foreground">

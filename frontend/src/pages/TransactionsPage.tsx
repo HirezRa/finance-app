@@ -40,6 +40,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { TransactionCategoryBadge } from '@/components/TransactionCategoryBadge';
 
 interface Transaction {
   id: string;
@@ -48,12 +50,15 @@ interface Transaction {
   amount: number | string;
   type?: string;
   status?: 'PENDING' | 'COMPLETED';
+  categoryId?: string | null;
   category?: {
-    id: string;
+    id?: string | null;
+    name?: string;
     nameHe: string;
     icon: string;
     color: string;
   };
+  isUncategorized?: boolean;
   account?: {
     institutionName: string;
     nickname?: string | null;
@@ -160,10 +165,27 @@ export default function TransactionsPage() {
           page,
           limit: 50,
           search: search || undefined,
-          categoryId: selectedCategory || undefined,
+          categoryId:
+            selectedCategory === 'uncategorized'
+              ? 'uncategorized'
+              : selectedCategory || undefined,
           accountTypes: accountTypesFilter,
         })
         .then((res) => res.data),
+  });
+
+  const { data: uncategorizedTotal = 0 } = useQuery({
+    queryKey: ['transactions', 'uncategorized-total', accountTypesFilter],
+    enabled: accountTypesFilter.length > 0,
+    queryFn: () =>
+      transactionsApi
+        .getAll({
+          page: 1,
+          limit: 1,
+          categoryId: 'uncategorized',
+          accountTypes: accountTypesFilter,
+        })
+        .then((res) => res.data.pagination.total),
   });
 
   const { data: categories } = useQuery({
@@ -461,6 +483,26 @@ export default function TransactionsPage() {
                 >
                   הכל
                 </Button>
+                <Button
+                  type="button"
+                  variant={
+                    selectedCategory === 'uncategorized' ? 'default' : 'outline'
+                  }
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => {
+                    setSelectedCategory('uncategorized');
+                    setPage(1);
+                  }}
+                >
+                  <span aria-hidden>❓</span>
+                  לא מסווג
+                  {uncategorizedTotal > 0 ? (
+                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                      {uncategorizedTotal}
+                    </Badge>
+                  ) : null}
+                </Button>
                 {categories?.map(
                   (cat: { id: string; nameHe: string; icon?: string }) => (
                     <Button
@@ -529,16 +571,10 @@ export default function TransactionsPage() {
                       txn.isExcludedFromCashFlow && 'opacity-90 bg-muted/30',
                     )}
                   >
-                    <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
-                      style={{
-                        backgroundColor: txn.category?.color
-                          ? `${txn.category.color}20`
-                          : 'hsl(var(--muted))',
-                      }}
-                    >
-                      {txn.category?.icon || '❓'}
-                    </div>
+                    <TransactionCategoryBadge
+                      transaction={txn}
+                      className="shrink-0 self-center"
+                    />
 
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -667,7 +703,7 @@ export default function TransactionsPage() {
                       <div className="flex shrink-0 items-center gap-2">
                         <select
                           className="rounded border bg-background px-2 py-1 text-sm"
-                          defaultValue={txn.category?.id ?? ''}
+                          defaultValue={txn.categoryId ?? ''}
                           onChange={(e) => {
                             const v = e.target.value;
                             if (!v) return;
@@ -696,9 +732,9 @@ export default function TransactionsPage() {
                       <button
                         type="button"
                         onClick={() => setEditingId(txn.id)}
-                        className="shrink-0 text-sm text-muted-foreground hover:text-foreground"
+                        className="shrink-0 text-xs text-muted-foreground hover:text-foreground hover:underline"
                       >
-                        {txn.category?.nameHe ?? 'לא מסווג'}
+                        שנה קטגוריה
                       </button>
                     )}
 
