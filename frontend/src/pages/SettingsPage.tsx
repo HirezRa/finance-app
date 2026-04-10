@@ -586,7 +586,7 @@ function OllamaSettings() {
   useEffect(() => {
     if (settings) {
       setUrl(settings.url || '');
-      setModel(settings.model || 'mistral');
+      setModel(settings.model || 'qwen2.5:7b');
     }
   }, [settings]);
 
@@ -663,7 +663,7 @@ function OllamaSettings() {
           <Input
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            placeholder="mistral"
+            placeholder="qwen2.5:7b"
             dir="ltr"
             className="text-start"
           />

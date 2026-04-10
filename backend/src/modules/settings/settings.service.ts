@@ -211,7 +211,7 @@ export class SettingsService {
     return {
       enabled: settings.ollamaEnabled ?? false,
       url: settings.ollamaUrl || '',
-      model: settings.ollamaModel || 'mistral',
+      model: settings.ollamaModel || 'qwen2.5:7b',
     };
   }
 
