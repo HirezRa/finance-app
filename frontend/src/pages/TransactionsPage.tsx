@@ -129,6 +129,10 @@ function txnAmount(v: number | string): number {
   return typeof v === 'number' ? v : Number(v);
 }
 
+/** System uncategorized category — shown only by the dedicated filter button */
+const SYSTEM_UNCATEGORIZED_CATEGORY_ID =
+  '00000000-0000-0000-0000-000000000001';
+
 export default function TransactionsPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -174,7 +178,8 @@ export default function TransactionsPage() {
         .then((res) => res.data),
   });
 
-  const { data: uncategorizedTotal = 0 } = useQuery({
+  /** Combined NULL + uncategorized (matches backend `categoryId=uncategorized`) */
+  const { data: uncategorizedCount = 0 } = useQuery({
     queryKey: ['transactions', 'uncategorized-total', accountTypesFilter],
     enabled: accountTypesFilter.length > 0,
     queryFn: () =>
@@ -192,6 +197,15 @@ export default function TransactionsPage() {
     queryKey: ['categories'],
     queryFn: () => categoriesApi.getAll().then((res) => res.data),
   });
+
+  const categoryFilters = useMemo(() => {
+    if (!categories?.length) return [];
+    return categories.filter(
+      (cat: { id: string; name?: string }) =>
+        cat.name !== 'uncategorized' &&
+        cat.id !== SYSTEM_UNCATEGORIZED_CATEGORY_ID,
+    );
+  }, [categories]);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, categoryId }: { id: string; categoryId: string }) =>
@@ -491,19 +505,21 @@ export default function TransactionsPage() {
                   size="sm"
                   className="gap-1"
                   onClick={() => {
-                    setSelectedCategory('uncategorized');
+                    setSelectedCategory((prev) =>
+                      prev === 'uncategorized' ? '' : 'uncategorized',
+                    );
                     setPage(1);
                   }}
                 >
                   <span aria-hidden>❓</span>
                   לא מסווג
-                  {uncategorizedTotal > 0 ? (
+                  {uncategorizedCount > 0 ? (
                     <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                      {uncategorizedTotal}
+                      {uncategorizedCount}
                     </Badge>
                   ) : null}
                 </Button>
-                {categories?.map(
+                {categoryFilters.map(
                   (cat: { id: string; nameHe: string; icon?: string }) => (
                     <Button
                       key={cat.id}
