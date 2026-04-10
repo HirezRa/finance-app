@@ -9,6 +9,7 @@ import {
   israelYmdInDayList,
   shiftBudgetCycleLabel,
 } from '../../common/utils/budget-cycle';
+import { withDefaultTransactionCategory } from '../../common/utils/transaction-category-default';
 
 function cashFlowAnchorDate(t: {
   date: Date;
@@ -546,7 +547,7 @@ export class DashboardService {
     const accountIds = userAccounts.map((a) => a.id);
     const dashStatusRecent = await this.statusFilterForDashboard(userId);
 
-    return this.prisma.transaction.findMany({
+    const rows = await this.prisma.transaction.findMany({
       where: { accountId: { in: accountIds }, ...dashStatusRecent },
       include: {
         account: {
@@ -556,11 +557,21 @@ export class DashboardService {
             description: true,
           },
         },
-        category: { select: { nameHe: true, icon: true, color: true } },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            nameHe: true,
+            icon: true,
+            color: true,
+          },
+        },
       },
       orderBy: { date: 'desc' },
       take: limit,
     });
+
+    return rows.map((tx) => withDefaultTransactionCategory(tx));
   }
 
   async getAccountsOverview(userId: string) {

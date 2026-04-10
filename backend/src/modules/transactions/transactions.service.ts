@@ -16,6 +16,10 @@ import { GetTransactionsDto } from './dto/get-transactions.dto';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { computeSalaryEffectiveDateForBankDate } from '../../common/utils/salary-effective-date';
+import {
+  withDefaultTransactionCategory,
+  uncategorizedTransactionFilter,
+} from '../../common/utils/transaction-category-default';
 
 @Injectable()
 export class TransactionsService {
@@ -68,7 +72,23 @@ export class TransactionsService {
       where.isExcludedFromCashFlow = false;
     }
 
-    if (categoryId) where.categoryId = categoryId;
+    if (categoryId?.toLowerCase() === 'uncategorized') {
+      const uncWhere = await uncategorizedTransactionFilter(
+        this.prisma,
+        userId,
+      );
+      const existingAnd = where.AND;
+      where.AND = [
+        ...(Array.isArray(existingAnd)
+          ? existingAnd
+          : existingAnd
+            ? [existingAnd]
+            : []),
+        uncWhere,
+      ];
+    } else if (categoryId) {
+      where.categoryId = categoryId;
+    }
 
     const st = statusQ ?? 'all';
     if (st === 'pending') {
@@ -125,7 +145,7 @@ export class TransactionsService {
     ]);
 
     return {
-      data: transactions,
+      data: transactions.map((tx) => withDefaultTransactionCategory(tx)),
       pagination: {
         page,
         limit,
