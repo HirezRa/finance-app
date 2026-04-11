@@ -49,6 +49,7 @@ import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { formatCurrency, cn } from '@/lib/utils';
 import { FontSizeSelector } from '@/components/FontSizeSelector';
+import { VersionChecker } from '@/components/VersionChecker';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function SettingsPage() {
@@ -164,6 +165,10 @@ function DisplaySettings() {
 
       <div className="finance-card">
         <FontSizeSelector />
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <VersionChecker />
       </div>
     </div>
   );
