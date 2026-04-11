@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatShortDate, cn } from '@/lib/utils';
+import { Amount } from '@/components/Amount';
 import { getAccountDisplayName } from '@/lib/accountDisplay';
 import { getBudgetCycleLabelForIsraelDate } from '@/lib/israel-calendar';
 import { TransactionCategoryBadge } from '@/components/TransactionCategoryBadge';
@@ -38,6 +39,8 @@ import {
   ResponsiveContainer,
   Cell,
   CartesianGrid,
+  PieChart,
+  Pie,
 } from 'recharts';
 
 const MONTH_NAMES_HE = [
@@ -306,6 +309,41 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {!summaryLoading && summary ? (
+        <div className="finance-card-elevated bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+          <div className="space-y-1">
+            <p className="text-sm text-primary-foreground/80">יתרה זמינה</p>
+            <Amount
+              value={spendable}
+              size="hero"
+              showSign={false}
+              className="text-primary-foreground"
+            />
+          </div>
+          <div className="mt-6 grid grid-cols-2 gap-4 border-t border-primary-foreground/20 pt-4">
+            <div>
+              <p className="text-xs text-primary-foreground/70">הכנסות החודש</p>
+              <Amount
+                value={Number(summary.income?.total ?? 0)}
+                size="lg"
+                showSign={false}
+                className="text-primary-foreground"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-primary-foreground/70">הוצאות החודש</p>
+              <Amount
+                value={-Number(summary.expenses?.total ?? 0)}
+                size="lg"
+                className="text-primary-foreground"
+              />
+            </div>
+          </div>
+        </div>
+      ) : summaryLoading ? (
+        <Skeleton className="h-48 w-full rounded-xl" />
+      ) : null}
+
       {showFallback && summary ? (
         <Card className="border-yellow-500/50 bg-yellow-500/10">
           <CardContent className="flex items-center gap-3 p-4">
@@ -354,13 +392,15 @@ export default function DashboardPage() {
                 {summaryLoading ? (
                   <Skeleton className="mt-1 h-8 w-24" />
                 ) : (
-                  <p className="text-2xl font-bold text-green-500">
-                    {formatCurrency(summary?.income?.total ?? 0)}
-                  </p>
+                  <Amount
+                    value={Number(summary?.income?.total ?? 0)}
+                    size="2xl"
+                    showSign={false}
+                  />
                 )}
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10">
-                <TrendingUp className="h-6 w-6 text-green-500" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-income/15">
+                <TrendingUp className="h-6 w-6 text-income" />
               </div>
             </div>
           </CardContent>
@@ -374,13 +414,14 @@ export default function DashboardPage() {
                 {summaryLoading ? (
                   <Skeleton className="mt-1 h-8 w-24" />
                 ) : (
-                  <p className="text-2xl font-bold text-red-500">
-                    {formatCurrency(summary?.expenses?.total ?? 0)}
-                  </p>
+                  <Amount
+                    value={-Number(summary?.expenses?.total ?? 0)}
+                    size="2xl"
+                  />
                 )}
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
-                <TrendingDown className="h-6 w-6 text-red-500" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-expense/15">
+                <TrendingDown className="h-6 w-6 text-expense" />
               </div>
             </div>
           </CardContent>
@@ -396,18 +437,11 @@ export default function DashboardPage() {
                 {summaryLoading ? (
                   <Skeleton className="mt-1 h-8 w-24" />
                 ) : (
-                  <p
-                    className={cn(
-                      'text-2xl font-bold',
-                      (summary?.remaining ?? 0) >= 0 ? 'text-green-500' : 'text-red-500',
-                    )}
-                  >
-                    {formatCurrency(summary?.remaining ?? 0)}
-                  </p>
+                  <Amount value={Number(summary?.remaining ?? 0)} size="2xl" showSign={false} />
                 )}
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10">
-                <Wallet className="h-6 w-6 text-blue-500" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15">
+                <Wallet className="h-6 w-6 text-primary" />
               </div>
             </div>
           </CardContent>
@@ -596,25 +630,63 @@ export default function DashboardPage() {
         {topCategories.length > 0 ? (
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>הוצאות מובילות לפי קטגוריה</CardTitle>
+              <CardTitle>הוצאות לפי קטגוריה</CardTitle>
               <CardDescription>{periodTitle}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="divide-y rounded-lg border">
-                {topCategories.map((cat) => (
-                  <div
-                    key={cat.categoryId ?? cat.nameHe}
-                    className="flex items-center justify-between gap-4 p-3"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="text-lg">{cat.icon}</span>
-                      <span className="truncate font-medium">{cat.nameHe}</span>
+              <div className="finance-card flex flex-col items-stretch gap-6 sm:flex-row sm:items-center">
+                <div className="mx-auto h-40 w-40 shrink-0 sm:mx-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={topCategories.map((c) => ({
+                          name: c.nameHe,
+                          value: c.total,
+                          color: c.color || '#64748b',
+                        }))}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={48}
+                        outerRadius={72}
+                        paddingAngle={2}
+                      >
+                        {topCategories.map((c) => (
+                          <Cell
+                            key={c.categoryId ?? c.nameHe}
+                            fill={c.color || '#64748b'}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) =>
+                          typeof value === 'number' ? formatCurrency(value) : String(value ?? '')
+                        }
+                        contentStyle={{
+                          background: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="min-w-0 flex-1 space-y-2">
+                  {topCategories.map((cat) => (
+                    <div
+                      key={cat.categoryId ?? cat.nameHe}
+                      className="flex items-center gap-2"
+                    >
+                      <div
+                        className="h-3 w-3 shrink-0 rounded-full"
+                        style={{ backgroundColor: cat.color || '#64748b' }}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm">{cat.nameHe}</span>
+                      <Amount value={-Math.abs(cat.total)} size="sm" />
                     </div>
-                    <span className="shrink-0 font-semibold text-red-500 tabular-nums">
-                      {formatCurrency(cat.total)}
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -649,14 +721,9 @@ export default function DashboardPage() {
                           : ''}
                       </p>
                     </div>
-                    <p
-                      className={cn(
-                        'shrink-0 font-semibold tabular-nums',
-                        amount > 0 ? 'text-green-500' : 'text-red-500',
-                      )}
-                    >
-                      {formatCurrency(amount)}
-                    </p>
+                    <div className="shrink-0 text-start" dir="ltr">
+                      <Amount value={amount} size="base" showSign={false} />
+                    </div>
                   </div>
                 );
               })}

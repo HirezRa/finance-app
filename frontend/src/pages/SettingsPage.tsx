@@ -39,21 +39,35 @@ import {
   Trash2,
   Tags,
   PieChart,
+  Palette,
+  Moon,
+  Sun,
+  Monitor,
 } from 'lucide-react';
 import type { AuthUser } from '@/store/auth.store';
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
+import { FontSizeSelector } from '@/components/FontSizeSelector';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<
-    'profile' | 'security' | 'notifications' | 'budget' | 'ollama' | 'n8n' | 'data'
+    | 'profile'
+    | 'security'
+    | 'notifications'
+    | 'display'
+    | 'budget'
+    | 'ollama'
+    | 'n8n'
+    | 'data'
   >('profile');
 
   const tabs = [
     { id: 'profile' as const, label: 'פרופיל', icon: User },
     { id: 'security' as const, label: 'אבטחה', icon: Shield },
     { id: 'notifications' as const, label: 'התראות', icon: Bell },
+    { id: 'display' as const, label: 'תצוגה', icon: Palette },
     { id: 'budget' as const, label: 'תקציב', icon: PieChart },
     { id: 'ollama' as const, label: 'OLLAMA', icon: Cpu },
     { id: 'n8n' as const, label: 'n8n', icon: Webhook },
@@ -84,10 +98,73 @@ export default function SettingsPage() {
       {activeTab === 'profile' ? <ProfileSettings /> : null}
       {activeTab === 'security' ? <SecuritySettings /> : null}
       {activeTab === 'notifications' ? <NotificationSettings /> : null}
+      {activeTab === 'display' ? <DisplaySettings /> : null}
       {activeTab === 'budget' ? <BudgetSettings /> : null}
       {activeTab === 'ollama' ? <OllamaSettings /> : null}
       {activeTab === 'n8n' ? <N8nSettings /> : null}
       {activeTab === 'data' ? <DataSettings /> : null}
+    </div>
+  );
+}
+
+function DisplaySettings() {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <div className="space-y-6">
+      <h2 className="flex items-center gap-2 text-xl font-semibold">
+        <Palette className="h-5 w-5" />
+        הגדרות תצוגה
+      </h2>
+
+      <div className="finance-card space-y-4">
+        <h3 className="font-medium">ערכת נושא</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => setTheme('light')}
+            className={cn(
+              'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all',
+              theme === 'light'
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-primary/50',
+            )}
+          >
+            <Sun className="h-6 w-6" />
+            <span className="text-sm font-medium">בהיר</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme('dark')}
+            className={cn(
+              'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all',
+              theme === 'dark'
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-primary/50',
+            )}
+          >
+            <Moon className="h-6 w-6" />
+            <span className="text-sm font-medium">כהה</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme('system')}
+            className={cn(
+              'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all sm:col-span-1',
+              theme === 'system'
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-primary/50',
+            )}
+          >
+            <Monitor className="h-6 w-6" />
+            <span className="text-sm font-medium">מערכת</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="finance-card">
+        <FontSizeSelector />
+      </div>
     </div>
   );
 }
