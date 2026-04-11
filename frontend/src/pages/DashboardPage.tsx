@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi, transactionsApi, settingsApi, categoriesApi } from '@/services/api';
 import { MonthlyComparisonChart } from '@/components/MonthlyComparisonChart';
@@ -11,7 +12,7 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatShortDate, cn } from '@/lib/utils';
 import { Amount } from '@/components/Amount';
@@ -515,51 +516,98 @@ export default function DashboardPage() {
       ) : null}
 
       {installments && installments.activeCount > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span aria-hidden>📅</span>
-              תשלומים פעילים
-            </CardTitle>
-            <CardDescription>
-              {installments.activeCount} מסלולי תשלומים מזוהים
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">חיוב חודשי (סכום תשלומים):</span>
-                <span className="font-medium text-red-500 tabular-nums">
-                  {formatCurrency(installments.totalMonthly)}
-                </span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">הערכת נותר לתשלום:</span>
-                <span className="font-medium tabular-nums">
-                  {formatCurrency(installments.totalRemaining)}
-                </span>
-              </div>
+        <div className="finance-card">
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+              <CreditCard className="h-4 w-4 text-primary" />
             </div>
-            <div className="mt-4 max-h-40 space-y-2 overflow-y-auto">
-              {installments.details.slice(0, 5).map((item, i) => (
-                <div
-                  key={`${item.description}-${i}`}
-                  className="flex items-center justify-between gap-2 text-sm"
-                >
-                  <span className="max-w-[40%] truncate" title={item.description}>
-                    {item.description}
-                  </span>
-                  <span className="shrink-0 text-muted-foreground tabular-nums">
-                    {item.currentPayment ?? '?'}/{item.totalPayments ?? '?'}
-                  </span>
-                  <span className="shrink-0 font-medium tabular-nums">
-                    {formatCurrency(item.monthlyAmount)}
-                  </span>
-                </div>
-              ))}
+            <div>
+              <h3 className="font-semibold">תשלומים פעילים</h3>
+              <p className="text-sm text-muted-foreground">
+                {installments.activeCount} מסלולי תשלומים מזוהים
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          <div className="mb-4 grid grid-cols-2 gap-4 rounded-lg bg-muted/30 p-3">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                חיוב חודשי (סכום תשלומים):
+              </p>
+              <p className="font-semibold text-expense">
+                <Amount value={-installments.totalMonthly} showSign={false} />
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">הערכת נותר לתשלום:</p>
+              <p className="font-semibold">
+                <Amount
+                  value={installments.totalRemaining}
+                  showSign={false}
+                  className="text-foreground"
+                />
+              </p>
+            </div>
+          </div>
+
+          {installments.details.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full table-fixed">
+                <thead>
+                  <tr className="border-b text-sm text-muted-foreground">
+                    <th className="w-[45%] py-2 text-right font-medium">תיאור</th>
+                    <th className="w-[20%] py-2 text-center font-medium">תשלום</th>
+                    <th className="w-[35%] py-2 text-left font-medium" dir="ltr">
+                      סכום
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {installments.details.slice(0, 5).map((item, i) => (
+                    <tr
+                      key={`${item.description}-${i}`}
+                      className="transition-colors hover:bg-muted/30"
+                    >
+                      <td className="py-2.5 text-right">
+                        <span
+                          className="block max-w-full truncate font-medium"
+                          title={item.description}
+                        >
+                          {item.description}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-center">
+                        <span className="text-sm text-muted-foreground tabular-nums">
+                          {item.currentPayment ?? '?'}/{item.totalPayments ?? '?'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-left" dir="ltr">
+                        <Amount
+                          value={-item.monthlyAmount}
+                          size="sm"
+                          showSign={false}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="py-4 text-center text-muted-foreground">אין תשלומים פעילים</p>
+          )}
+
+          {installments.details.length > 5 ? (
+            <div className="mt-3 border-t border-border pt-3 text-center">
+              <Link
+                to="/transactions"
+                className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'inline-flex')}
+              >
+                הצג את כל התשלומים ({installments.details.length})
+              </Link>
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
