@@ -221,6 +221,8 @@ export const budgetsApi = {
 
 export const alertsApi = {
   getAll: () => api.get('/alerts'),
+  markAsRead: (id: string) => api.post(`/alerts/${encodeURIComponent(id)}/read`),
+  markAllAsRead: () => api.post('/alerts/read-all'),
 };
 
 export const scraperApi = {
