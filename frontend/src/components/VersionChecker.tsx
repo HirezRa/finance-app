@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/services/api';
+import { isAxiosError } from 'axios';
 
 interface GitHubRelease {
   tag_name: string;
@@ -21,30 +22,27 @@ interface GitHubRelease {
   body: string;
 }
 
-const GITHUB_REPO = 'HirezRa/finance-app';
+interface GithubReleaseApiResponse {
+  success: boolean;
+  release: GitHubRelease | null;
+  messageHe?: string;
+  code?: string;
+}
 
-async function fetchLatestRelease(): Promise<GitHubRelease | null> {
-  const ctrl = new AbortController();
-  const t = window.setTimeout(() => ctrl.abort(), 10_000);
-  try {
-    const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
-      {
-        headers: { Accept: 'application/vnd.github.v3+json' },
-        signal: ctrl.signal,
-      },
-    );
-    if (!response.ok) {
-      if (response.status === 404) return null;
-      throw new Error('Failed to fetch release');
-    }
-    return (await response.json()) as GitHubRelease;
-  } catch (e) {
-    console.error('Error fetching GitHub release:', e);
-    return null;
-  } finally {
-    window.clearTimeout(t);
+interface LatestCheckResult {
+  release: GitHubRelease | null;
+  infoHe?: string;
+}
+
+async function fetchLatestRelease(): Promise<LatestCheckResult> {
+  const { data } = await api.get<GithubReleaseApiResponse>('/version/github-release');
+  if (!data.success) {
+    throw new Error(data.messageHe ?? 'לא ניתן לבדוק עדכונים מול GitHub.');
   }
+  return {
+    release: data.release,
+    infoHe: data.release ? undefined : data.messageHe,
+  };
 }
 
 async function fetchCurrentVersion(): Promise<string> {
@@ -71,6 +69,17 @@ function compareVersions(current: string, latest: string): number {
   return 0;
 }
 
+function formatQueryError(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (isAxiosError(err)) {
+    const d = err.response?.data as { message?: string; messageHe?: string } | undefined;
+    if (d && typeof d.messageHe === 'string') return d.messageHe;
+    if (d && typeof d.message === 'string') return d.message;
+    if (err.message) return err.message;
+  }
+  return 'שגיאה לא ידועה בבדיקת עדכונים.';
+}
+
 export function VersionChecker() {
   const [isChecking, setIsChecking] = useState(false);
 
@@ -81,14 +90,17 @@ export function VersionChecker() {
   });
 
   const {
-    data: latestRelease,
+    data: checkResult,
     refetch: refetchLatest,
     isFetching: latestFetching,
+    error: latestError,
+    isError: latestIsError,
   } = useQuery({
     queryKey: ['latest-release'],
     queryFn: fetchLatestRelease,
     staleTime: 5 * 60 * 1000,
     enabled: false,
+    retry: false,
   });
 
   const checkForUpdates = async () => {
@@ -100,6 +112,10 @@ export function VersionChecker() {
     }
   };
 
+  const latestRelease = checkResult?.release ?? null;
+  const infoHe = checkResult?.infoHe;
+  const errorHe = latestIsError ? formatQueryError(latestError) : null;
+
   const comparison =
     latestRelease && currentVersion
       ? compareVersions(currentVersion, latestRelease.tag_name)
@@ -109,6 +125,7 @@ export function VersionChecker() {
   const isUpToDate = comparison === 0;
   const isNewer = comparison === -1;
   const busy = isChecking || latestFetching;
+  const checked = checkResult !== undefined || latestIsError;
 
   return (
     <div className="finance-card space-y-4">
@@ -123,12 +140,23 @@ export function VersionChecker() {
         </Button>
       </div>
 
+      <p className="text-xs text-muted-foreground">
+        הבדיקה מתבצעת דרך השרת (מתאים גם למאגר פרטי כשהוגדר GITHUB_TOKEN).
+      </p>
+
       <div className="flex items-center justify-between border-b border-border py-2">
         <span className="text-muted-foreground">גרסה מותקנת:</span>
         <Badge variant="secondary" className="font-mono">
           v{currentVersion ?? '...'}
         </Badge>
       </div>
+
+      {errorHe ? (
+        <div className="flex gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive">
+          <AlertCircle className="h-5 w-5 shrink-0" />
+          <p className="text-sm">{errorHe}</p>
+        </div>
+      ) : null}
 
       {latestRelease ? (
         <div className="flex items-center justify-between border-b border-border py-2">
@@ -139,6 +167,12 @@ export function VersionChecker() {
           >
             {latestRelease.tag_name}
           </Badge>
+        </div>
+      ) : null}
+
+      {checked && !errorHe && !latestRelease && infoHe ? (
+        <div className="rounded-lg bg-muted/50 p-3 text-center text-sm text-muted-foreground">
+          {infoHe}
         </div>
       ) : null}
 
@@ -214,9 +248,9 @@ export function VersionChecker() {
         </div>
       ) : null}
 
-      {!latestRelease && !busy && comparison === null ? (
+      {!checked && !busy ? (
         <p className="py-4 text-center text-sm text-muted-foreground">
-          לחץ &quot;בדוק עדכונים&quot; לבדיקת גרסאות ב-GitHub
+          לחץ &quot;בדוק עדכונים&quot; לבדיקת גרסאות ב-GitHub (באמצעות השרת)
         </p>
       ) : null}
     </div>
