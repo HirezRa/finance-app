@@ -1,15 +1,32 @@
 <!doctype html>
-<html lang="he" dir="rtl" class="dark">
+<html lang="he" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ניהול פיננסי</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#3B82F6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0F1117" media="(prefers-color-scheme: dark)" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <title>ניהול פיננסי אישי</title>
+    <script>
+      (function () {
+        const theme = localStorage.getItem('theme') || 'system';
+        const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle(
+          'dark',
+          theme === 'dark' || (theme === 'system' && systemDark),
+        );
+        const fontSize = localStorage.getItem('fontSize') || 'base';
+        document.documentElement.setAttribute('data-font-size', fontSize);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

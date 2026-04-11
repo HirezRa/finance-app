@@ -20,7 +20,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { Amount } from '@/components/Amount';
 import { getAccountDisplayName } from '@/lib/accountDisplay';
 import { TransactionCategoryBadge } from '@/components/TransactionCategoryBadge';
 
@@ -109,6 +110,12 @@ function txnAmount(v: number | string): number {
   return typeof v === 'number' ? v : Number(v);
 }
 
+function getCategoryColor(category?: { color?: string | null } | null): string {
+  const c = category?.color?.trim();
+  if (c && /^#[0-9A-Fa-f]{3,8}$/.test(c)) return c;
+  return 'hsl(var(--muted))';
+}
+
 function isCreditInstitution(name: string | undefined): boolean {
   if (!name) return false;
   return (
@@ -154,7 +161,6 @@ export function TransactionRow({
   const [isHovered, setIsHovered] = useState(false);
 
   const amount = txnAmount(transaction.amount);
-  const isIncome = amount > 0;
   const isExcluded = transaction.isExcludedFromCashFlow;
   const isPending = transaction.status === 'PENDING';
   const instTotal =
@@ -178,6 +184,7 @@ export function TransactionRow({
 
   const typeInfo = getTransactionTypeLabel(transaction.type);
   const showTypeBadge = (transaction.type || 'NORMAL') !== 'NORMAL';
+  const categoryTint = getCategoryColor(transaction.category);
 
   const orig =
     transaction.originalAmount != null ? Number(transaction.originalAmount) : null;
@@ -186,33 +193,26 @@ export function TransactionRow({
   return (
     <div
       className={cn(
-        'group relative flex items-center gap-4 border-b p-4 transition-colors',
+        'group relative flex items-start gap-3 border-b border-border p-4 transition-colors sm:items-center sm:gap-4',
         'hover:bg-muted/50',
         isSelected && 'bg-primary/5',
         isExcluded && 'opacity-60',
-        isPending && 'border-e-2 border-yellow-500 bg-yellow-500/5',
+        isPending && 'border-e-2 border-pending bg-pending/10',
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* סכום */}
-      <div className="w-24 shrink-0 text-start tabular-nums" dir="ltr">
-        <p
-          className={cn(
-            'text-lg font-bold tabular-nums',
-            isIncome ? 'text-green-500' : 'text-red-500',
-          )}
-        >
-          {formatCurrency(amount)}
-        </p>
-        {orig != null && !Number.isNaN(orig) && origCur !== 'ILS' ? (
-          <p className="text-xs text-muted-foreground tabular-nums">
-            {origCur} {orig.toFixed(2)}
-          </p>
-        ) : null}
+      <div
+        className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg sm:mt-0"
+        style={{
+          backgroundColor:
+            categoryTint.startsWith('#') ? `${categoryTint}33` : 'hsl(var(--muted) / 0.2)',
+          color: categoryTint,
+        }}
+      >
+        {transaction.category?.icon || '❓'}
       </div>
 
-      {/* תוכן */}
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="max-w-md truncate font-medium">{transaction.description}</p>
@@ -227,13 +227,10 @@ export function TransactionRow({
             </span>
           ) : null}
           {isPending ? (
-            <Badge
-              variant="outline"
-              className="border-yellow-500 text-xs text-yellow-600 dark:text-yellow-400"
-            >
-              <Clock className="ms-1 h-3 w-3" />
+            <span className="badge-pending inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
               בתהליך
-            </Badge>
+            </span>
           ) : null}
           {hasInstallments ? (
             <Badge variant="outline" className="text-xs">
@@ -286,14 +283,61 @@ export function TransactionRow({
             </p>
           </div>
         ) : null}
+
+        <div className="pt-1 sm:hidden">
+          {isEditingCategory && categoryOptions && onPickCategory && onCancelEditCategory ? (
+            <div className="flex flex-wrap items-center gap-1">
+              <select
+                className="max-w-full rounded border border-border bg-background px-2 py-1 text-sm"
+                defaultValue=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v) onPickCategory(v);
+                }}
+              >
+                <option value="">בחר קטגוריה</option>
+                {categoryOptions.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.icon} {cat.nameHe}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={onCancelEditCategory}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onChangeCategory(transaction.id)}
+              className="w-full text-start transition-opacity hover:opacity-80"
+            >
+              <TransactionCategoryBadge transaction={transaction} />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* קטגוריה */}
-      <div className="w-36 shrink-0">
+      <div className="w-24 shrink-0 text-start sm:w-28" dir="ltr">
+        <Amount value={amount} size="lg" showSign={false} />
+        {orig != null && !Number.isNaN(orig) && origCur !== 'ILS' ? (
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {origCur} {orig.toFixed(2)}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="hidden w-36 shrink-0 sm:block">
         {isEditingCategory && categoryOptions && onPickCategory && onCancelEditCategory ? (
           <div className="flex items-center gap-1">
             <select
-              className="max-w-full rounded border bg-background px-2 py-1 text-sm"
+              className="max-w-full rounded border border-border bg-background px-2 py-1 text-sm"
               defaultValue=""
               onChange={(e) => {
                 const v = e.target.value;
