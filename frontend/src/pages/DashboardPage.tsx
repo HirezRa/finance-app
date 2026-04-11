@@ -782,29 +782,21 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>חשבונות פעילים</CardTitle>
-            <CardDescription>
-              {accounts?.count ?? 0} חשבונות • יתרה כוללת{' '}
-              {formatCurrency(accounts?.totalBalance ?? 0)}
-            </CardDescription>
+            <CardDescription>{accounts?.count ?? 0} חשבונות</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
               {accounts?.accounts?.map((acc) => (
-                <div key={acc.id} className="flex items-center justify-between p-4">
-                  <div>
-                    <p className="font-medium">{getAccountDisplayName(acc)}</p>
-                    {acc.nickname?.trim() ? (
-                      <p className="text-xs text-muted-foreground">{acc.institutionName}</p>
-                    ) : null}
-                    {acc.description?.trim() ? (
-                      <p className="text-xs text-muted-foreground">{acc.description}</p>
-                    ) : null}
-                    <p className="text-sm text-muted-foreground tabular-nums" dir="ltr">
-                      {acc.accountNumber}
-                    </p>
-                  </div>
-                  <p className="font-semibold tabular-nums">
-                    {formatCurrency(num(acc.balance))}
+                <div key={acc.id} className="p-4">
+                  <p className="font-medium">{getAccountDisplayName(acc)}</p>
+                  {acc.nickname?.trim() ? (
+                    <p className="text-xs text-muted-foreground">{acc.institutionName}</p>
+                  ) : null}
+                  {acc.description?.trim() ? (
+                    <p className="text-xs text-muted-foreground">{acc.description}</p>
+                  ) : null}
+                  <p className="text-sm text-muted-foreground tabular-nums" dir="ltr">
+                    {acc.accountNumber}
                   </p>
                 </div>
               ))}
