@@ -177,7 +177,8 @@ export class AlertsService {
     return null;
   }
 
-  async getUserAlerts(userId: string): Promise<Alert[]> {
+  /** Raw alerts (isRead always false); merged with dismissed ids in getUserAlerts. */
+  private async gatherAlerts(userId: string): Promise<Alert[]> {
     const alerts: Alert[] = [];
 
     const budgetAlerts = await this.checkUserBudgetAlerts(userId);
@@ -215,6 +216,50 @@ export class AlertsService {
     alerts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return alerts;
+  }
+
+  async getUserAlerts(userId: string): Promise<Alert[]> {
+    const [alerts, settings] = await Promise.all([
+      this.gatherAlerts(userId),
+      this.prisma.userSettings.findUnique({
+        where: { userId },
+        select: { dismissedAlertIds: true },
+      }),
+    ]);
+    const dismissed = new Set(settings?.dismissedAlertIds ?? []);
+    return alerts.map((a) => ({ ...a, isRead: dismissed.has(a.id) }));
+  }
+
+  async markAlertRead(userId: string, alertId: string): Promise<void> {
+    const settings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+      select: { dismissedAlertIds: true },
+    });
+    const current = settings?.dismissedAlertIds ?? [];
+    if (current.includes(alertId)) return;
+    const next = [...current, alertId].slice(-500);
+    await this.prisma.userSettings.upsert({
+      where: { userId },
+      create: { userId, dismissedAlertIds: [alertId] },
+      update: { dismissedAlertIds: { set: next } },
+    });
+  }
+
+  async markAllAlertsRead(userId: string): Promise<void> {
+    const alerts = await this.gatherAlerts(userId);
+    const ids = alerts.map((a) => a.id);
+    if (ids.length === 0) return;
+    const settings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+      select: { dismissedAlertIds: true },
+    });
+    const current = settings?.dismissedAlertIds ?? [];
+    const merged = [...new Set([...current, ...ids])].slice(-500);
+    await this.prisma.userSettings.upsert({
+      where: { userId },
+      create: { userId, dismissedAlertIds: merged },
+      update: { dismissedAlertIds: { set: merged } },
+    });
   }
 
   private formatCurrency(amount: number): string {

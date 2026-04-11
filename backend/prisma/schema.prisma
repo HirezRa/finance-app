@@ -155,6 +155,7 @@ model UserSettings {
   budgetCycleStartDay              Int      @default(1)
   monthlySavingsGoal               Decimal  @default(0) @db.Decimal(12, 2)
   showInactiveAccounts             Boolean  @default(false)
+  dismissedAlertIds                String[] @default([])
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 }
