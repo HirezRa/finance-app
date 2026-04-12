@@ -261,6 +261,9 @@ export const ollamaApi = {
 export const settingsApi = {
   get: () => api.get('/settings'),
   update: (data: Record<string, unknown>) => api.patch('/settings', data),
+  saveGithubReleaseToken: (token: string) =>
+    api.post('/settings/github-release-token', { token }),
+  clearGithubReleaseToken: () => api.delete('/settings/github-release-token'),
   getProfile: () => api.get('/settings/profile'),
   updateProfile: (data: Record<string, unknown>) =>
     api.patch('/settings/profile', data),

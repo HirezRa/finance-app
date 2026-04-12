@@ -17,4 +17,6 @@ export interface UserSettings {
   theme: string;
   language: string;
   dateFormat: string;
+  /** True when an encrypted GitHub PAT is stored (for private release checks). */
+  githubReleaseTokenConfigured?: boolean;
 }
