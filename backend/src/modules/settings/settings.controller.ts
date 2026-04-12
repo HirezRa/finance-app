@@ -1,6 +1,16 @@
-import { Controller, Get, Patch, Post, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Delete,
+  Body,
+  UseGuards,
+  HttpCode,
+} from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { UpdateUserSettingsDto } from './dto/update-user-settings.dto';
+import { SaveGithubReleaseTokenDto } from './dto/save-github-release-token.dto';
 import {
   UpdateOllamaSettingsDto,
   UpdateN8nSettingsDto,
@@ -25,6 +35,21 @@ export class SettingsController {
     @Body() dto: UpdateUserSettingsDto,
   ) {
     return this.settingsService.updateUserSettings(userId, dto);
+  }
+
+  @Post('github-release-token')
+  @HttpCode(200)
+  saveGithubReleaseToken(
+    @CurrentUser('id') userId: string,
+    @Body() dto: SaveGithubReleaseTokenDto,
+  ) {
+    return this.settingsService.saveGithubReleaseToken(userId, dto.token);
+  }
+
+  @Delete('github-release-token')
+  @HttpCode(200)
+  clearGithubReleaseToken(@CurrentUser('id') userId: string) {
+    return this.settingsService.clearGithubReleaseToken(userId);
   }
 
   @Get('profile')

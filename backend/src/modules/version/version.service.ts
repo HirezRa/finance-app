@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SettingsService } from '../settings/settings.service';
 
 export interface GithubReleaseDto {
   tag_name: string;
@@ -30,13 +31,22 @@ export interface GithubReleaseResponse {
 export class VersionService {
   private readonly logger = new Logger(VersionService.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly settingsService: SettingsService,
+  ) {}
 
-  async getLatestGithubRelease(): Promise<GithubReleaseResponse> {
+  async getLatestGithubRelease(userId: string): Promise<GithubReleaseResponse> {
     const repo = this.config
       .get<string>('GITHUB_REPO', 'HirezRa/finance-app')
       .trim();
-    const token = (this.config.get<string>('GITHUB_TOKEN') ?? '').trim();
+    const stored = await this.settingsService.getDecryptedGithubReleaseToken(
+      userId,
+    );
+    const token = (
+      stored ??
+      (this.config.get<string>('GITHUB_TOKEN') ?? '')
+    ).trim();
 
     const url = `https://api.github.com/repos/${repo}/releases/latest`;
     const headers: Record<string, string> = {
@@ -73,8 +83,8 @@ export class VersionService {
           success: false,
           release: null,
           messageHe: token
-            ? 'הטוקן ל-GitHub נדחה. בדוק את GITHUB_TOKEN.'
-            : 'מאגר פרטי או דורש הרשאה. הגדר GITHUB_TOKEN בשרת (משתנה סביבה) כדי לבדוק עדכונים.',
+            ? 'הטוקן ל-GitHub נדחה. בדוק את הטוקן בהגדרות > תצוגה.'
+            : 'מאגר פרטי או דורש הרשאה. הגדר טוקן GitHub בהגדרות > תצוגה > בדיקת עדכונים.',
           code: token ? 'unauthorized' : 'no_token',
         };
       }
@@ -86,7 +96,7 @@ export class VersionService {
             success: false,
             release: null,
             messageHe:
-              'חרגת ממגבלת הבקשות ל-GitHub. נסה שוב מאוחר יותר או הגדר GITHUB_TOKEN להגבלה גבוהה יותר.',
+              'חרגת ממגבלת הבקשות ל-GitHub. נסה שוב מאוחר יותר או הגדר טוקן בהגדרות.',
             code: 'rate_limit',
           };
         }
