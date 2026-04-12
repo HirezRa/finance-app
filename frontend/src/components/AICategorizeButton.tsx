@@ -204,12 +204,12 @@ export function AICategorizeButton({ mode, onComplete }: AICategorizeButtonProps
           }
         }}
       >
-        <DialogContent className="flex max-h-[80vh] max-w-2xl flex-col overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="flex max-h-[85vh] w-[min(42rem,calc(100vw-2rem))] max-w-2xl flex-col overflow-hidden">
+          <DialogHeader className="shrink-0 text-center sm:text-center">
+            <DialogTitle className="text-center">
               {mode === 'uncategorized' ? 'סיווג אוטומטי' : 'שיפור סיווג'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-center">
               {mode === 'uncategorized'
                 ? 'ה-AI יסווג עסקאות ללא קטגוריה'
                 : 'ה-AI ינסה לשפר את הסיווג של עסקאות קיימות'}
@@ -308,7 +308,7 @@ export function AICategorizeButton({ mode, onComplete }: AICategorizeButtonProps
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 flex-row-reverse gap-2 sm:flex-row-reverse sm:justify-start">
             {step === 'reviewing' && (
               <>
                 <Button
