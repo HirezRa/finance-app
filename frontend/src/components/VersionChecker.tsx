@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   RefreshCw,
   ExternalLink,
@@ -9,10 +11,14 @@ import {
   AlertCircle,
   Download,
   Github,
+  Eye,
+  EyeOff,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import api from '@/services/api';
+import api, { settingsApi } from '@/services/api';
 import { isAxiosError } from 'axios';
+import { toast } from 'sonner';
 
 interface GitHubRelease {
   tag_name: string;
@@ -80,8 +86,52 @@ function formatQueryError(err: unknown): string {
   return 'שגיאה לא ידועה בבדיקת עדכונים.';
 }
 
+function formatSaveTokenError(err: unknown): string {
+  if (isAxiosError(err)) {
+    const d = err.response?.data as { message?: string | string[] } | undefined;
+    if (d?.message) {
+      return Array.isArray(d.message) ? (d.message[0] ?? '') : d.message;
+    }
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return 'שמירת הטוקן נכשלה.';
+}
+
 export function VersionChecker() {
+  const queryClient = useQueryClient();
   const [isChecking, setIsChecking] = useState(false);
+  const [tokenDraft, setTokenDraft] = useState('');
+  const [showToken, setShowToken] = useState(false);
+
+  const { data: settings } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: () => settingsApi.get().then((res) => res.data as { githubReleaseTokenConfigured?: boolean }),
+  });
+
+  const tokenConfigured = settings?.githubReleaseTokenConfigured === true;
+
+  const saveTokenMutation = useMutation({
+    mutationFn: (token: string) => settingsApi.saveGithubReleaseToken(token),
+    onSuccess: () => {
+      toast.success('הטוקן נשמר בהצלחה');
+      setTokenDraft('');
+      void queryClient.invalidateQueries({ queryKey: ['user-settings'] });
+    },
+    onError: (err) => {
+      toast.error(formatSaveTokenError(err));
+    },
+  });
+
+  const clearTokenMutation = useMutation({
+    mutationFn: () => settingsApi.clearGithubReleaseToken(),
+    onSuccess: () => {
+      toast.success('הטוקן הוסר');
+      void queryClient.invalidateQueries({ queryKey: ['user-settings'] });
+    },
+    onError: () => {
+      toast.error('הסרת הטוקן נכשלה');
+    },
+  });
 
   const { data: currentVersion, refetch: refetchCurrent } = useQuery({
     queryKey: ['current-version'],
@@ -126,13 +176,19 @@ export function VersionChecker() {
   const isNewer = comparison === -1;
   const busy = isChecking || latestFetching;
   const checked = checkResult !== undefined || latestIsError;
+  const savingToken = saveTokenMutation.isPending || clearTokenMutation.isPending;
 
   return (
     <div className="finance-card space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Github className="h-5 w-5" />
           <h3 className="font-medium">בדיקת עדכונים</h3>
+          {tokenConfigured ? (
+            <Badge variant="secondary" className="text-xs">
+              טוקן GitHub מוגדר
+            </Badge>
+          ) : null}
         </div>
         <Button type="button" variant="outline" size="sm" onClick={checkForUpdates} disabled={busy}>
           <RefreshCw className={cn('me-2 h-4 w-4', busy && 'animate-spin')} />
@@ -140,9 +196,61 @@ export function VersionChecker() {
         </Button>
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        הבדיקה מתבצעת דרך השרת (מתאים גם למאגר פרטי כשהוגדר GITHUB_TOKEN).
-      </p>
+      <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+        <Label htmlFor="github-release-token" className="text-sm font-medium">
+          טוקן GitHub (למאגר פרטי)
+        </Label>
+        <div className="relative">
+          <Input
+            id="github-release-token"
+            type={showToken ? 'text' : 'password'}
+            value={tokenDraft}
+            onChange={(e) => setTokenDraft(e.target.value)}
+            placeholder={tokenConfigured ? 'הזן טוקן חדש כדי להחליף' : 'ghp_… או fine-grained token'}
+            dir="ltr"
+            autoComplete="off"
+            className="pe-10 text-start font-mono text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => setShowToken(!showToken)}
+            className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label={showToken ? 'הסתר טוקן' : 'הצג טוקן'}
+          >
+            {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            disabled={savingToken || !tokenDraft.trim()}
+            onClick={() => saveTokenMutation.mutate(tokenDraft.trim())}
+          >
+            {saveTokenMutation.isPending ? (
+              <Loader2 className="me-2 h-4 w-4 animate-spin" />
+            ) : null}
+            שמור טוקן
+          </Button>
+          {tokenConfigured ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={savingToken}
+              onClick={() => clearTokenMutation.mutate()}
+            >
+              {clearTokenMutation.isPending ? (
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
+              ) : null}
+              הסר טוקן
+            </Button>
+          ) : null}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          הטוקן נשמר מוצפן בשרת ונבדק מול GitHub לפני השמירה.
+        </p>
+      </div>
 
       <div className="flex items-center justify-between border-b border-border py-2">
         <span className="text-muted-foreground">גרסה מותקנת:</span>

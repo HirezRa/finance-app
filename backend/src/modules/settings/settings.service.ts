@@ -1,7 +1,13 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { createHmac } from 'crypto';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserSettings as UserSettingsRow } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EncryptionService } from '../../common/encryption/encryption.service';
 import { UpdateUserSettingsDto } from './dto/update-user-settings.dto';
 import { computeSalaryEffectiveDateForBankDate } from '../../common/utils/salary-effective-date';
 import {
@@ -13,7 +19,135 @@ import {
 export class SettingsService {
   private readonly logger = new Logger(SettingsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private encryption: EncryptionService,
+  ) {}
+
+  private toPublicUserSettings(row: UserSettingsRow) {
+    const {
+      githubReleaseTokenEncrypted,
+      githubReleaseTokenIv,
+      githubReleaseTokenTag,
+      ...rest
+    } = row;
+    return {
+      ...rest,
+      githubReleaseTokenConfigured: Boolean(
+        githubReleaseTokenEncrypted &&
+          githubReleaseTokenIv &&
+          githubReleaseTokenTag,
+      ),
+    };
+  }
+
+  private async verifyGithubPat(token: string): Promise<void> {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 12_000);
+    try {
+      const res = await fetch('https://api.github.com/user', {
+        method: 'GET',
+        headers: {
+          Accept: 'application/vnd.github.v3+json',
+          Authorization: `Bearer ${token}`,
+          'User-Agent': 'finance-app-github-token-verify',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(t);
+      if (res.status === 401) {
+        throw new BadRequestException('הטוקן נדחה על ידי GitHub.');
+      }
+      if (res.status === 403) {
+        const remaining = res.headers.get('x-ratelimit-remaining');
+        if (remaining === '0') {
+          throw new BadRequestException(
+            'מגבלת בקשות ל-GitHub. נסה שוב בעוד כמה דקות.',
+          );
+        }
+      }
+      if (!res.ok) {
+        throw new BadRequestException(
+          `לא ניתן לאמת את הטוקן (קוד ${res.status}).`,
+        );
+      }
+    } catch (err: unknown) {
+      clearTimeout(t);
+      if (err instanceof BadRequestException) throw err;
+      const name = err instanceof Error ? err.name : '';
+      if (name === 'AbortError') {
+        throw new BadRequestException('פג הזמן בחיבור ל-GitHub.');
+      }
+      this.logger.warn('GitHub PAT verify failed', err);
+      throw new BadRequestException('שגיאת רשת באימות הטוקן.');
+    }
+  }
+
+  async saveGithubReleaseToken(userId: string, rawToken: string) {
+    const token = rawToken.trim();
+    if (!token) {
+      throw new BadRequestException('נא להזין טוקן.');
+    }
+    await this.verifyGithubPat(token);
+    const enc = this.encryption.encrypt(token);
+    const row = await this.prisma.userSettings.upsert({
+      where: { userId },
+      update: {
+        githubReleaseTokenEncrypted: enc.encryptedData,
+        githubReleaseTokenIv: enc.iv,
+        githubReleaseTokenTag: enc.authTag,
+      },
+      create: {
+        userId,
+        githubReleaseTokenEncrypted: enc.encryptedData,
+        githubReleaseTokenIv: enc.iv,
+        githubReleaseTokenTag: enc.authTag,
+      },
+    });
+    return this.toPublicUserSettings(row);
+  }
+
+  async clearGithubReleaseToken(userId: string) {
+    const row = await this.prisma.userSettings.upsert({
+      where: { userId },
+      update: {
+        githubReleaseTokenEncrypted: null,
+        githubReleaseTokenIv: null,
+        githubReleaseTokenTag: null,
+      },
+      create: { userId },
+    });
+    return this.toPublicUserSettings(row);
+  }
+
+  /** Decrypted PAT for GitHub API, or null if none stored. */
+  async getDecryptedGithubReleaseToken(userId: string): Promise<string | null> {
+    const row = await this.prisma.userSettings.findUnique({
+      where: { userId },
+      select: {
+        githubReleaseTokenEncrypted: true,
+        githubReleaseTokenIv: true,
+        githubReleaseTokenTag: true,
+      },
+    });
+    if (
+      !row?.githubReleaseTokenEncrypted ||
+      !row.githubReleaseTokenIv ||
+      !row.githubReleaseTokenTag
+    ) {
+      return null;
+    }
+    try {
+      return this.encryption.decrypt(
+        row.githubReleaseTokenEncrypted,
+        row.githubReleaseTokenIv,
+        row.githubReleaseTokenTag,
+      );
+    } catch (e) {
+      this.logger.error('Failed to decrypt GitHub release token', e);
+      return null;
+    }
+  }
 
   async getUserSettings(userId: string) {
     let settings = await this.prisma.userSettings.findUnique({
@@ -26,7 +160,7 @@ export class SettingsService {
       });
     }
 
-    return settings;
+    return this.toPublicUserSettings(settings);
   }
 
   async updateUserSettings(userId: string, dto: UpdateUserSettingsDto) {
@@ -157,7 +291,7 @@ export class SettingsService {
       );
     }
 
-    return settings;
+    return this.toPublicUserSettings(settings);
   }
 
   private async recomputeIncomeEffectiveDates(
