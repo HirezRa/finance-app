@@ -1,9 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import {
   RefreshCw,
   ExternalLink,
@@ -14,9 +25,10 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Rocket,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import api, { settingsApi } from '@/services/api';
+import api, { settingsApi, versionApi } from '@/services/api';
 import { isAxiosError } from 'axios';
 import { toast } from 'sonner';
 
@@ -100,8 +112,10 @@ function formatSaveTokenError(err: unknown): string {
 export function VersionChecker() {
   const queryClient = useQueryClient();
   const [isChecking, setIsChecking] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [tokenDraft, setTokenDraft] = useState('');
   const [showToken, setShowToken] = useState(false);
+  const sawInProgressRef = useRef(false);
 
   const { data: settings } = useQuery({
     queryKey: ['user-settings'],
@@ -132,6 +146,68 @@ export function VersionChecker() {
       toast.error('הסרת הטוקן נכשלה');
     },
   });
+
+  const { data: updateStatus } = useQuery({
+    queryKey: ['self-update-status'],
+    queryFn: () => versionApi.getUpdateStatus().then((res) => res.data),
+    refetchInterval: isUpdating ? 2500 : false,
+    enabled: isUpdating,
+  });
+
+  const performUpdateMutation = useMutation({
+    mutationFn: () => versionApi.performSelfUpdate().then((res) => res.data),
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.messageHe);
+        sawInProgressRef.current = true;
+        setIsUpdating(true);
+        void queryClient.invalidateQueries({ queryKey: ['self-update-status'] });
+      } else {
+        toast.error(data.messageHe);
+      }
+    },
+    onError: (err: unknown) => {
+      if (isAxiosError(err) && err.response?.status === 403) {
+        const m = err.response?.data as { message?: string } | undefined;
+        toast.error(m?.message ?? 'עדכון אוטומטי אינו מופעל בשרת.');
+        return;
+      }
+      toast.error('שגיאה בהפעלת העדכון');
+    },
+  });
+
+  useEffect(() => {
+    if (!updateStatus) return;
+    if (updateStatus.inProgress) {
+      sawInProgressRef.current = true;
+      return;
+    }
+    if (!isUpdating || !sawInProgressRef.current) return;
+
+    setIsUpdating(false);
+    sawInProgressRef.current = false;
+
+    if (updateStatus.stage === 'failed' || updateStatus.error) {
+      toast.error(
+        updateStatus.message ??
+          updateStatus.error ??
+          'העדכון נכשל. בדוק לוגים בשרת (/tmp/finance-app-update.log).',
+      );
+      return;
+    }
+    if (updateStatus.stage === 'stale') {
+      toast.message(
+        updateStatus.message ?? 'סטטוס העדכון לא ברור — בדוק ידנית את השרת.',
+      );
+      return;
+    }
+    if (updateStatus.stage === 'done') {
+      toast.success(updateStatus.message ?? 'העדכון הושלם.');
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 4000);
+    }
+  }, [updateStatus, isUpdating]);
 
   const { data: currentVersion, refetch: refetchCurrent } = useQuery({
     queryKey: ['current-version'],
@@ -174,7 +250,7 @@ export function VersionChecker() {
   const hasUpdate = comparison === 1;
   const isUpToDate = comparison === 0;
   const isNewer = comparison === -1;
-  const busy = isChecking || latestFetching;
+  const busy = isChecking || latestFetching || performUpdateMutation.isPending;
   const checked = checkResult !== undefined || latestIsError;
   const savingToken = saveTokenMutation.isPending || clearTokenMutation.isPending;
 
@@ -190,7 +266,13 @@ export function VersionChecker() {
             </Badge>
           ) : null}
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={checkForUpdates} disabled={busy}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={checkForUpdates}
+          disabled={busy || isUpdating}
+        >
           <RefreshCw className={cn('me-2 h-4 w-4', busy && 'animate-spin')} />
           בדוק עדכונים
         </Button>
@@ -284,6 +366,31 @@ export function VersionChecker() {
         </div>
       ) : null}
 
+      {isUpdating && updateStatus?.inProgress ? (
+        <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-primary">מעדכן את המערכת...</p>
+              <p className="text-sm text-muted-foreground">
+                {updateStatus.message ?? 'מתבצע עדכון ברקע'}
+              </p>
+            </div>
+          </div>
+          {typeof updateStatus.progress === 'number' ? (
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.max(0, updateStatus.progress))}%` }}
+              />
+            </div>
+          ) : null}
+          <p className="text-center text-xs text-muted-foreground">
+            הבנייה וההפעלה מחדש עשויים לקחת מספר דקות; אפשר להמתין או לבדוק לוגים בשרת.
+          </p>
+        </div>
+      ) : null}
+
       {comparison !== null ? (
         <div
           className={cn(
@@ -330,12 +437,52 @@ export function VersionChecker() {
             </div>
           ) : null}
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  className="min-w-0 flex-1 bg-income text-white hover:bg-income/90"
+                  disabled={isUpdating}
+                >
+                  <Rocket className="me-2 h-4 w-4 shrink-0" />
+                  עדכן אוטומטית
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="max-h-[85vh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>עדכון המערכת מהשרת</AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-2 text-start">
+                    <p>
+                      תופעל פקודת עדכון על השרת (git + docker compose). גרסת יעד:{' '}
+                      <span className="font-mono">{latestRelease.tag_name}</span>
+                    </p>
+                    <ul className="list-inside list-disc text-sm">
+                      <li>נדרש ש-SELF_UPDATE_ENABLED=true בשרת</li>
+                      <li>התהליך עלול לקחת מספר דקות</li>
+                      <li>במהלך העדכון השירות עלול להיות לא זמין לרגעים</li>
+                    </ul>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse sm:justify-start">
+                  <AlertDialogAction
+                    type="button"
+                    className="bg-income text-white hover:bg-income/90"
+                    onClick={() => performUpdateMutation.mutate()}
+                  >
+                    <Rocket className="me-2 h-4 w-4" />
+                    התחל עדכון
+                  </AlertDialogAction>
+                  <AlertDialogCancel type="button">ביטול</AlertDialogCancel>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="flex-1"
+              className="shrink-0"
               onClick={() => window.open(latestRelease.html_url, '_blank', 'noopener,noreferrer')}
             >
               <ExternalLink className="me-2 h-4 w-4" />
@@ -344,7 +491,7 @@ export function VersionChecker() {
           </div>
 
           <div className="rounded-lg bg-muted p-3">
-            <p className="mb-2 text-xs text-muted-foreground">להתקנת העדכון, הרץ על השרת:</p>
+            <p className="mb-2 text-xs text-muted-foreground">או ידנית על השרת:</p>
             <code
               className="block rounded border border-border bg-background p-2 font-mono text-xs"
               dir="ltr"
