@@ -278,3 +278,19 @@ export const settingsApi = {
   testN8n: (data: { url: string; secret?: string }) =>
     api.post('/settings/integrations/n8n/test', data),
 };
+
+export interface SelfUpdateStatusPayload {
+  inProgress: boolean;
+  stage?: string;
+  message?: string;
+  progress?: number;
+  error?: string;
+  updatedAt?: string;
+}
+
+export const versionApi = {
+  performSelfUpdate: () =>
+    api.post<{ success: boolean; messageHe: string }>('/version/perform-update'),
+  getUpdateStatus: () =>
+    api.get<SelfUpdateStatusPayload>('/version/update-status'),
+};
