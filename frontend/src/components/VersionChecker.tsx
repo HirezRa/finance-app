@@ -186,7 +186,7 @@ export function VersionChecker() {
           <h3 className="font-medium">בדיקת עדכונים</h3>
           {tokenConfigured ? (
             <Badge variant="secondary" className="text-xs">
-              טוקן GitHub מוגדר
+              מוגדר
             </Badge>
           ) : null}
         </div>
