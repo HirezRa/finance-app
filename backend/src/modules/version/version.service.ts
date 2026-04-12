@@ -1,5 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { spawn } from 'child_process';
+import { join } from 'path';
 import { SettingsService } from '../settings/settings.service';
 
 export interface GithubReleaseDto {
@@ -27,9 +34,23 @@ export interface GithubReleaseResponse {
   code?: GithubReleaseErrorCode;
 }
 
+export interface SelfUpdateStatusDto {
+  inProgress: boolean;
+  stage?: string;
+  message?: string;
+  progress?: number;
+  error?: string;
+  updatedAt?: string;
+}
+
 @Injectable()
 export class VersionService {
   private readonly logger = new Logger(VersionService.name);
+
+  private readonly updateStatusPath =
+    process.env.UPDATE_STATUS_FILE ?? '/tmp/finance-app-update-status.json';
+  private readonly updateLockPath =
+    process.env.UPDATE_LOCK_FILE ?? '/tmp/finance-app-update.lock';
 
   constructor(
     private readonly config: ConfigService,
@@ -160,5 +181,124 @@ export class VersionService {
         code: 'network',
       };
     }
+  }
+
+  private writeLocalUpdateStatus(payload: SelfUpdateStatusDto): void {
+    try {
+      writeFileSync(
+        this.updateStatusPath,
+        JSON.stringify({
+          ...payload,
+          updatedAt: new Date().toISOString(),
+        }),
+        'utf-8',
+      );
+    } catch (e) {
+      this.logger.warn('Failed to write update status file', e);
+    }
+  }
+
+  getSelfUpdateStatus(): SelfUpdateStatusDto {
+    try {
+      if (existsSync(this.updateStatusPath)) {
+        const raw = readFileSync(this.updateStatusPath, 'utf-8');
+        const status = JSON.parse(raw) as SelfUpdateStatusDto & {
+          updatedAt?: string;
+        };
+        if (status.inProgress && status.updatedAt) {
+          const ageMin =
+            (Date.now() - new Date(status.updatedAt).getTime()) / 60_000;
+          if (ageMin > 45) {
+            return {
+              inProgress: false,
+              stage: 'stale',
+              message:
+                'סטטוס העדכון לא התעדכן זמן רב — ייתכן שהתהליך נתקע. בדוק ידנית את השרת.',
+              progress: 0,
+            };
+          }
+        }
+        return status;
+      }
+    } catch (e) {
+      this.logger.warn('Failed to read update status', e);
+    }
+    return { inProgress: false };
+  }
+
+  /**
+   * Starts scripts/self-update.sh detached (requires APP_DIR mount + docker.sock + SELF_UPDATE_ENABLED=true).
+   */
+  performSelfUpdate(): { success: boolean; messageHe: string } {
+    const enabled = this.config
+      .get<string>('SELF_UPDATE_ENABLED', 'false')
+      .toLowerCase();
+    if (enabled !== 'true') {
+      throw new ForbiddenException(
+        'עדכון אוטומטי כבוי בשרת. הגדר SELF_UPDATE_ENABLED=true ובטל רק אם סומכים על הרצת Docker מהממשק.',
+      );
+    }
+
+    const appDir = this.config.get<string>('APP_DIR', '/opt/finance-app').trim();
+    const scriptPath = join(appDir, 'scripts', 'self-update.sh');
+
+    if (!existsSync(scriptPath)) {
+      return {
+        success: false,
+        messageHe: 'קובץ scripts/self-update.sh לא נמצא. ודא שהריפו מעודכן וש-APP_DIR נכון.',
+      };
+    }
+    if (!existsSync('/var/run/docker.sock')) {
+      return {
+        success: false,
+        messageHe: 'Docker socket לא זמין בקונטיינר — הוסף mount ל-/var/run/docker.sock ב-docker-compose.',
+      };
+    }
+    if (existsSync(this.updateLockPath)) {
+      return {
+        success: false,
+        messageHe: 'עדכון כבר מתבצע. נסה שוב מאוחר יותר.',
+      };
+    }
+
+    this.writeLocalUpdateStatus({
+      inProgress: true,
+      stage: 'queued',
+      message: 'מפעיל סקריפט עדכון...',
+      progress: 2,
+    });
+
+    const child = spawn('sh', [scriptPath], {
+      detached: true,
+      stdio: 'ignore',
+      cwd: appDir,
+      env: {
+        ...process.env,
+        APP_DIR: appDir,
+        UPDATE_STATUS_FILE: this.updateStatusPath,
+        UPDATE_LOCK_FILE: this.updateLockPath,
+      },
+    });
+    child.unref();
+
+    if (child.pid === undefined) {
+      this.writeLocalUpdateStatus({
+        inProgress: false,
+        stage: 'failed',
+        message: 'לא ניתן להפעיל את תהליך העדכון.',
+        progress: 0,
+        error: 'spawn failed',
+      });
+      return {
+        success: false,
+        messageHe: 'לא ניתן להפעיל את תהליך העדכון.',
+      };
+    }
+
+    return {
+      success: true,
+      messageHe:
+        'העדכון החל ברקע. הבנייה וההפעלה מחדש עשויים לקחת מספר דקות; אל תסגור את הדפדפן.',
+    };
   }
 }

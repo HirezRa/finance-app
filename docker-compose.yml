@@ -64,6 +64,8 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
       LARGE_EXPENSE_THRESHOLD: ${LARGE_EXPENSE_THRESHOLD:-500}
       DAILY_SYNC_CRON: ${DAILY_SYNC_CRON:-0 6 * * *}
+      SELF_UPDATE_ENABLED: ${SELF_UPDATE_ENABLED:-false}
+      APP_DIR: ${APP_DIR:-/opt/finance-app}
     depends_on:
       db:
         condition: service_healthy
@@ -71,8 +73,13 @@ services:
         condition: service_healthy
     security_opt:
       - seccomp:unconfined
+    group_add:
+      - docker
     volumes:
       - ./logs:/app/logs
+      # Self-update from UI: host repo + Docker socket (set SELF_UPDATE_ENABLED=true)
+      - ${FINANCE_HOST_APP_DIR:-.}:/opt/finance-app
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - finance-network
 

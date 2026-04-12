@@ -1,8 +1,18 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  UseGuards,
+  HttpCode,
+} from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { VersionService, type GithubReleaseResponse } from './version.service';
+import {
+  VersionService,
+  type GithubReleaseResponse,
+  type SelfUpdateStatusDto,
+} from './version.service';
 
 @Controller('version')
 @SkipThrottle()
@@ -18,5 +28,19 @@ export class VersionGithubController {
     @CurrentUser('id') userId: string,
   ): Promise<GithubReleaseResponse> {
     return this.versionService.getLatestGithubRelease(userId);
+  }
+
+  /** Background self-update (scripts/self-update.sh); requires SELF_UPDATE_ENABLED=true and mounts. */
+  @Post('perform-update')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  performSelfUpdate(): { success: boolean; messageHe: string } {
+    return this.versionService.performSelfUpdate();
+  }
+
+  @Get('update-status')
+  @UseGuards(JwtAuthGuard)
+  getSelfUpdateStatus(): SelfUpdateStatusDto {
+    return this.versionService.getSelfUpdateStatus();
   }
 }
