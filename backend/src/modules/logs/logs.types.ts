@@ -6,7 +6,9 @@ export type LogCategory =
   | 'auth'
   | 'scraper'
   | 'ollama'
-  | 'system';
+  | 'system'
+  | 'api'
+  | 'webhook';
 
 export interface AppLogEntry {
   id: string;

@@ -18,6 +18,8 @@ const CATEGORIES: LogCategory[] = [
   'scraper',
   'ollama',
   'system',
+  'api',
+  'webhook',
 ];
 
 export class ListLogsQueryDto {
