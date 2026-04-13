@@ -5,7 +5,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
+import { promisify } from 'util';
 import { join } from 'path';
 import { SettingsService } from '../settings/settings.service';
 import { LogsService } from '../logs/logs.service';
@@ -44,6 +45,15 @@ export interface SelfUpdateStatusDto {
   updatedAt?: string;
 }
 
+export interface PerformSelfUpdateResult {
+  success: boolean;
+  messageHe: string;
+  /** הוראות עדכון ידני כשהאוטומטי נכשל או לא זמין */
+  instructionsHe?: string;
+}
+
+const execFileAsync = promisify(execFile);
+
 @Injectable()
 export class VersionService {
   private readonly logger = new Logger(VersionService.name);
@@ -52,6 +62,12 @@ export class VersionService {
     process.env.UPDATE_STATUS_FILE ?? '/tmp/finance-app-update-status.json';
   private readonly updateLockPath =
     process.env.UPDATE_LOCK_FILE ?? '/tmp/finance-app-update.lock';
+
+  private readonly manualUpdateInstructionsHe = `להתקנה ידנית על שרת Proxmox / LXC (מההוסט, לא מתוך הקונטיינר):
+
+pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && docker compose build --no-cache backend frontend && docker compose up -d'
+
+או מתוך CT אחרי pct enter: cd /opt/finance-app && git pull origin main && docker compose build --no-cache backend frontend && docker compose up -d`;
 
   constructor(
     private readonly config: ConfigService,
@@ -102,6 +118,10 @@ export class VersionService {
       }
 
       if (res.status === 401) {
+        this.appLogs.add('WARN', 'system', 'בדיקת GitHub release נכשלה (401)', {
+          repo,
+          hadToken: Boolean(token),
+        });
         return {
           success: false,
           release: null,
@@ -115,6 +135,9 @@ export class VersionService {
       if (res.status === 403) {
         const remaining = res.headers.get('x-ratelimit-remaining');
         if (remaining === '0') {
+          this.appLogs.add('WARN', 'system', 'בדיקת GitHub release — rate limit', {
+            repo,
+          });
           return {
             success: false,
             release: null,
@@ -123,6 +146,9 @@ export class VersionService {
             code: 'rate_limit',
           };
         }
+        this.appLogs.add('WARN', 'system', 'בדיקת GitHub release נחסמה (403)', {
+          repo,
+        });
         return {
           success: false,
           release: null,
@@ -134,6 +160,10 @@ export class VersionService {
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         this.logger.warn(`GitHub API ${res.status}: ${text.slice(0, 200)}`);
+        this.appLogs.add('WARN', 'system', `בדיקת GitHub release — קוד ${res.status}`, {
+          repo,
+          snippet: text.slice(0, 300),
+        });
         return {
           success: false,
           release: null,
@@ -168,6 +198,7 @@ export class VersionService {
       clearTimeout(timer);
       const name = err instanceof Error ? err.name : '';
       if (name === 'AbortError') {
+        this.appLogs.add('WARN', 'system', 'בדיקת GitHub release — timeout', { repo });
         return {
           success: false,
           release: null,
@@ -176,12 +207,45 @@ export class VersionService {
         };
       }
       this.logger.error('GitHub release fetch failed', err);
+      this.appLogs.add('ERROR', 'system', 'שגיאת רשת בבדיקת GitHub release', {
+        repo,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return {
         success: false,
         release: null,
         messageHe: 'שגיאת רשת בבדיקת עדכונים. נסה שוב מאוחר יותר.',
         code: 'network',
       };
+    }
+  }
+
+  private async probeGitFetch(appDir: string): Promise<
+    { ok: true } | { ok: false; detail: string }
+  > {
+    try {
+      await execFileAsync('git', ['-C', appDir, 'fetch', 'origin'], {
+        timeout: 35_000,
+        maxBuffer: 512 * 1024,
+      });
+      this.appLogs.add('DEBUG', 'system', 'בדיקת git fetch לפני self-update הצליחה', {
+        appDir,
+      });
+      return { ok: true };
+    } catch (e: unknown) {
+      const ex = e as { stderr?: Buffer | string; message?: string };
+      const stderr =
+        typeof ex.stderr === 'string'
+          ? ex.stderr
+          : Buffer.isBuffer(ex.stderr)
+            ? ex.stderr.toString('utf-8')
+            : '';
+      const detail = String(stderr || ex.message || e).trim().slice(0, 2500);
+      this.appLogs.add('ERROR', 'system', 'git fetch נכשל לפני הפעלת self-update', {
+        appDir,
+        detail: detail || '(אין פלט)',
+      });
+      return { ok: false, detail };
     }
   }
 
@@ -229,9 +293,10 @@ export class VersionService {
   }
 
   /**
-   * Starts scripts/self-update.sh detached (requires APP_DIR mount + docker.sock + SELF_UPDATE_ENABLED=true).
+   * מתחיל scripts/self-update.sh ברקע (בדרך כלל מתוך קונטיינר backend עם APP_DIR + docker.sock).
+   * מומלץ לטווח ארוך להריץ עדכון מההוסט (cron) — כאן מתועדות שגיאות ב-LogsService ונשלחות הוראות ידניות.
    */
-  performSelfUpdate(): { success: boolean; messageHe: string } {
+  async performSelfUpdate(): Promise<PerformSelfUpdateResult> {
     const enabled = this.config
       .get<string>('SELF_UPDATE_ENABLED', 'false')
       .toLowerCase();
@@ -243,23 +308,45 @@ export class VersionService {
 
     const appDir = this.config.get<string>('APP_DIR', '/opt/finance-app').trim();
     const scriptPath = join(appDir, 'scripts', 'self-update.sh');
+    const hostLogFile = join(appDir, 'logs', 'self-update.log');
 
     if (!existsSync(scriptPath)) {
+      this.appLogs.add('ERROR', 'system', 'סקריפט self-update לא נמצא', {
+        scriptPath,
+      });
       return {
         success: false,
-        messageHe: 'קובץ scripts/self-update.sh לא נמצא. ודא שהריפו מעודכן וש-APP_DIR נכון.',
+        messageHe:
+          'קובץ scripts/self-update.sh לא נמצא. ודא שהריפו מעודכן וש-APP_DIR נכון.',
+        instructionsHe: this.manualUpdateInstructionsHe,
       };
     }
     if (!existsSync('/var/run/docker.sock')) {
+      this.appLogs.add('WARN', 'system', 'self-update בוטל — אין docker.sock בקונטיינר', {
+        appDir,
+      });
       return {
         success: false,
-        messageHe: 'Docker socket לא זמין בקונטיינר — הוסף mount ל-/var/run/docker.sock ב-docker-compose.',
+        messageHe:
+          'Docker socket לא זמין בקונטיינר. מומלץ להריץ עדכון מההוסט (pct exec) או לעדכן docker-compose.',
+        instructionsHe: this.manualUpdateInstructionsHe,
       };
     }
     if (existsSync(this.updateLockPath)) {
       return {
         success: false,
         messageHe: 'עדכון כבר מתבצע. נסה שוב מאוחר יותר.',
+        instructionsHe: this.manualUpdateInstructionsHe,
+      };
+    }
+
+    const fetchProbe = await this.probeGitFetch(appDir);
+    if (!fetchProbe.ok) {
+      return {
+        success: false,
+        messageHe:
+          'שגיאת git fetch — ייתכן מפתח SSH, הרשאות או רשת. פרטים בלוגי המערכת ובקובץ הלוג אם קיים.',
+        instructionsHe: this.manualUpdateInstructionsHe,
       };
     }
 
@@ -272,6 +359,8 @@ export class VersionService {
 
     this.appLogs.add('INFO', 'system', 'הופעל עדכון אוטומטי מהממשק', {
       appDir,
+      logFile: hostLogFile,
+      note: 'הסקריפט רץ בהקשר הקונטיינר; לוג מומלץ: APP_DIR/logs/self-update.log על ההוסט',
     });
 
     const child = spawn('sh', [scriptPath], {
@@ -283,6 +372,7 @@ export class VersionService {
         APP_DIR: appDir,
         UPDATE_STATUS_FILE: this.updateStatusPath,
         UPDATE_LOCK_FILE: this.updateLockPath,
+        UPDATE_LOG_FILE: hostLogFile,
       },
     });
     child.unref();
@@ -295,16 +385,18 @@ export class VersionService {
         progress: 0,
         error: 'spawn failed',
       });
+      this.appLogs.add('ERROR', 'system', 'spawn ל-self-update נכשל', { appDir });
       return {
         success: false,
         messageHe: 'לא ניתן להפעיל את תהליך העדכון.',
+        instructionsHe: this.manualUpdateInstructionsHe,
       };
     }
 
     return {
       success: true,
       messageHe:
-        'העדכון החל ברקע. הבנייה וההפעלה מחדש עשויים לקחת מספר דקות; אל תסגור את הדפדפן.',
+        'העדכון החל ברקע. הבנייה וההפעלה מחדש עשויים לקחת מספר דקות; לוג: logs/self-update.log תחת תיקיית האפליקציה (על ההוסט).',
     };
   }
 }
