@@ -41,6 +41,7 @@ import {
   Eye,
   EyeOff,
   Pencil,
+  AlertCircle,
 } from 'lucide-react';
 
 interface Account {
@@ -76,6 +77,28 @@ interface Institution {
 function accBalance(a: Account): number {
   const b = a.balance;
   return typeof b === 'number' ? b : Number(b ?? 0);
+}
+
+function shortenError(error: string): string {
+  if (error.includes('Block Automation')) {
+    return 'הבנק חסם גישה אוטומטית - נסה מאוחר יותר';
+  }
+  if (
+    error.includes('Invalid credentials') ||
+    error.toLowerCase().includes('wrong credentials')
+  ) {
+    return 'פרטי התחברות שגויים';
+  }
+  if (error.includes('timeout') || error.includes('ETIMEDOUT')) {
+    return 'תם הזמן - הבנק לא הגיב';
+  }
+  if (error.includes('fetchPostWithinPage parse error')) {
+    return 'שגיאת תקשורת עם הבנק';
+  }
+  if (error.length > 60) {
+    return `${error.slice(0, 60)}...`;
+  }
+  return error;
 }
 
 export default function AccountsPage() {
@@ -462,9 +485,27 @@ export default function AccountsPage() {
                 </CardHeader>
                 <CardContent>
                   {config.lastError ? (
-                    <p className="mb-2 text-sm text-destructive">
-                      {config.lastError}
-                    </p>
+                    <div className="mb-2 rounded-lg bg-expense/10 p-2">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-expense" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-expense">
+                            {shortenError(config.lastError)}
+                          </p>
+                          {(config.lastError.length > 50 ||
+                            shortenError(config.lastError) !== config.lastError) && (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer text-xs text-muted-foreground">
+                                פרטים נוספים
+                              </summary>
+                              <p className="mt-1 break-all text-xs text-muted-foreground">
+                                {config.lastError}
+                              </p>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   ) : null}
                   {totalBalance !== 0 ? (
                     <div className="text-2xl font-bold tabular-nums">
