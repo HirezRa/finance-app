@@ -326,9 +326,15 @@ export interface SelfUpdateStatusPayload {
   updatedAt?: string;
 }
 
+export interface PerformSelfUpdateResponse {
+  success: boolean;
+  messageHe: string;
+  instructionsHe?: string;
+}
+
 export const versionApi = {
   performSelfUpdate: () =>
-    api.post<{ success: boolean; messageHe: string }>('/version/perform-update'),
+    api.post<PerformSelfUpdateResponse>('/version/perform-update'),
   getUpdateStatus: () =>
     api.get<SelfUpdateStatusPayload>('/version/update-status'),
 };
