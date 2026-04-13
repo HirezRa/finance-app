@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { settingsApi, authApi, transactionsApi, categoriesApi } from '@/services/api';
+import {
+  settingsApi,
+  authApi,
+  transactionsApi,
+  categoriesApi,
+  logsApi,
+  type AppLogLevel,
+  type AppLogCategory,
+} from '@/services/api';
 import { useAuthStore } from '@/store/auth.store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +51,8 @@ import {
   Moon,
   Sun,
   Monitor,
+  ScrollText,
+  Download,
 } from 'lucide-react';
 import type { AuthUser } from '@/store/auth.store';
 import { toast } from 'sonner';
@@ -51,6 +61,13 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { FontSizeSelector } from '@/components/FontSizeSelector';
 import { VersionChecker } from '@/components/VersionChecker';
 import { useTheme } from '@/contexts/ThemeContext';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<
@@ -61,6 +78,7 @@ export default function SettingsPage() {
     | 'budget'
     | 'ollama'
     | 'n8n'
+    | 'logs'
     | 'data'
   >('profile');
 
@@ -72,6 +90,7 @@ export default function SettingsPage() {
     { id: 'budget' as const, label: 'תקציב', icon: PieChart },
     { id: 'ollama' as const, label: 'OLLAMA', icon: Cpu },
     { id: 'n8n' as const, label: 'n8n', icon: Webhook },
+    { id: 'logs' as const, label: 'לוגים', icon: ScrollText },
     { id: 'data' as const, label: 'נתונים', icon: Trash2 },
   ];
 
@@ -103,6 +122,7 @@ export default function SettingsPage() {
       {activeTab === 'budget' ? <BudgetSettings /> : null}
       {activeTab === 'ollama' ? <OllamaSettings /> : null}
       {activeTab === 'n8n' ? <N8nSettings /> : null}
+      {activeTab === 'logs' ? <LogsSettings /> : null}
       {activeTab === 'data' ? <DataSettings /> : null}
     </div>
   );
@@ -171,6 +191,279 @@ function DisplaySettings() {
         <VersionChecker />
       </div>
     </div>
+  );
+}
+
+const LOG_LEVELS: AppLogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
+const LOG_CATEGORIES: AppLogCategory[] = [
+  'sync',
+  'account',
+  'auth',
+  'scraper',
+  'ollama',
+  'system',
+];
+
+const CATEGORY_LABELS: Record<AppLogCategory, string> = {
+  sync: 'סנכרון',
+  account: 'חשבונות',
+  auth: 'אימות',
+  scraper: 'סקרייפר',
+  ollama: 'OLLAMA',
+  system: 'מערכת',
+};
+
+function logLevelClass(level: AppLogLevel): string {
+  switch (level) {
+    case 'DEBUG':
+      return 'text-slate-500 dark:text-slate-400';
+    case 'INFO':
+      return 'text-sky-600 dark:text-sky-400';
+    case 'WARN':
+      return 'text-amber-600 dark:text-amber-400';
+    case 'ERROR':
+      return 'text-red-600 dark:text-red-400';
+    default:
+      return 'text-muted-foreground';
+  }
+}
+
+function LogsSettings() {
+  const queryClient = useQueryClient();
+  const [level, setLevel] = useState<string>('__all__');
+  const [category, setCategory] = useState<string>('__all__');
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedQ, setDebouncedQ] = useState('');
+  const [autoRefresh, setAutoRefresh] = useState(false);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedQ(searchInput), 350);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
+
+  const {
+    data: logs,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['app-logs', level, category, debouncedQ],
+    queryFn: () =>
+      logsApi
+        .get({
+          level: level === '__all__' ? undefined : (level as AppLogLevel),
+          category:
+            category === '__all__' ? undefined : (category as AppLogCategory),
+          q: debouncedQ.trim() || undefined,
+          limit: 1000,
+        })
+        .then((res) => res.data.logs),
+    refetchInterval: autoRefresh ? 4000 : false,
+  });
+
+  const clearMutation = useMutation({
+    mutationFn: () => logsApi.clear(),
+    onSuccess: (res) => {
+      toast.success(res.data.messageHe ?? 'הלוגים נוקו');
+      void queryClient.invalidateQueries({ queryKey: ['app-logs'] });
+    },
+    onError: () => toast.error('שגיאה בניקוי הלוגים'),
+  });
+
+  const exportLogs = () => {
+    const blob = new Blob([JSON.stringify(logs ?? [], null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `finance-app-logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('הקובץ הורד');
+  };
+
+  const errMsg =
+    error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof (error as { message?: string }).message === 'string'
+      ? (error as { message: string }).message
+      : null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ScrollText className="h-5 w-5" />
+          יומן מערכת
+        </CardTitle>
+        <CardDescription>
+          סנכרון, שגיאות ופעילות — עד 1000 רשומות אחרונות
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">
+          <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2">
+              <Label>רמת לוג</Label>
+              <Select value={level} onValueChange={setLevel}>
+                <SelectTrigger dir="rtl">
+                  <SelectValue placeholder="הכל" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">הכל</SelectItem>
+                  {LOG_LEVELS.map((lv) => (
+                    <SelectItem key={lv} value={lv}>
+                      {lv}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>קטגוריה</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger dir="rtl">
+                  <SelectValue placeholder="הכל" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">הכל</SelectItem>
+                  {LOG_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {CATEGORY_LABELS[c]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="logs-search">חיפוש</Label>
+              <Input
+                id="logs-search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="טקסט בהודעה או ב־meta..."
+                dir="rtl"
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
+              <Switch
+                id="logs-auto-refresh"
+                checked={autoRefresh}
+                onCheckedChange={setAutoRefresh}
+              />
+              <Label htmlFor="logs-auto-refresh" className="cursor-pointer text-sm">
+                רענון אוטומטי (4 שנ׳)
+              </Label>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              {isFetching ? (
+                <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+              ) : null}
+              רענן
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={exportLogs}
+              disabled={!logs?.length}
+            >
+              <Download className="ms-2 h-4 w-4" />
+              ייצוא JSON
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={clearMutation.isPending}
+                >
+                  <Trash2 className="ms-2 h-4 w-4" />
+                  נקה לוגים
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>למחוק את כל הלוגים?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    הפעולה תמחק את יומן האירועים השמור בשרת. לא ניתן לשחזר רשומות
+                    שנמחקו.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>ביטול</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={() => clearMutation.mutate()}
+                  >
+                    נקה
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+
+        {errMsg ? (
+          <p className="text-sm text-red-500" dir="ltr">
+            {errMsg}
+          </p>
+        ) : null}
+
+        <div className="max-h-[min(28rem,55vh)] overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-xs leading-relaxed">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              טוען…
+            </div>
+          ) : !logs?.length ? (
+            <p className="text-muted-foreground">אין רשומות להצגה</p>
+          ) : (
+            <ul className="space-y-2">
+              {logs.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="rounded border border-border/60 bg-background/80 px-2 py-1.5"
+                >
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span className="text-[10px] text-muted-foreground" dir="ltr">
+                      {entry.ts}
+                    </span>
+                    <span className={cn('font-semibold', logLevelClass(entry.level))}>
+                      {entry.level}
+                    </span>
+                    <span className="text-violet-600 dark:text-violet-400">
+                      {CATEGORY_LABELS[entry.category] ?? entry.category}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words">{entry.message}</p>
+                  {entry.meta && Object.keys(entry.meta).length > 0 ? (
+                    <pre
+                      className="mt-1 max-h-24 overflow-auto rounded bg-muted/50 p-1 text-[10px] opacity-90"
+                      dir="ltr"
+                    >
+                      {JSON.stringify(entry.meta, null, 2)}
+                    </pre>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
