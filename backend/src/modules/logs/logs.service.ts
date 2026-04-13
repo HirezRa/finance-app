@@ -12,6 +12,19 @@ import type { AppLogEntry, LogCategory, LogLevel } from './logs.types';
 
 const MAX_LOGS = 1000;
 
+const SENSITIVE_META_KEYS = new Set([
+  'password',
+  'token',
+  'accessToken',
+  'refreshToken',
+  'secret',
+  'passwordHash',
+  'authorization',
+  'encryptedCredentials',
+  'credentialsIv',
+  'credentialsAuthTag',
+]);
+
 @Injectable()
 export class LogsService implements OnModuleInit {
   private readonly logger = new Logger(LogsService.name);
@@ -69,19 +82,77 @@ export class LogsService implements OnModuleInit {
     }
   }
 
+  /** הסתרת אימייל ב-meta (למשל auth) */
+  maskEmailInString(email: string): string {
+    const e = email.trim();
+    if (!e.includes('@')) return '***@***';
+    const [local, ...rest] = e.split('@');
+    const domain = rest.join('@');
+    if (!domain) return '***@***';
+    const maskedLocal =
+      local.length > 2 ? `${local.substring(0, 2)}***` : '***';
+    return `${maskedLocal}@${domain}`;
+  }
+
+  private sanitizeMeta(
+    meta: Record<string, unknown> | undefined,
+    depth = 0,
+  ): Record<string, unknown> | undefined {
+    if (!meta || depth > 8) {
+      return meta;
+    }
+    const out: Record<string, unknown> = {};
+    for (const [key, raw] of Object.entries(meta)) {
+      const lower = key.toLowerCase();
+      if (key === 'email' && typeof raw === 'string') {
+        out[key] = this.maskEmailInString(raw);
+        continue;
+      }
+      if (
+        SENSITIVE_META_KEYS.has(key) ||
+        lower.includes('password') ||
+        (lower.includes('secret') && key !== 'message')
+      ) {
+        out[key] = '***';
+        continue;
+      }
+      if (key === 'credentials' || key === 'encryptedCredentials') {
+        out[key] = '[REDACTED]';
+        continue;
+      }
+      if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
+        out[key] = this.sanitizeMeta(raw as Record<string, unknown>, depth + 1) as unknown;
+        continue;
+      }
+      if (Array.isArray(raw)) {
+        out[key] = raw.map((item) =>
+          item !== null &&
+          typeof item === 'object' &&
+          !Array.isArray(item)
+            ? this.sanitizeMeta(item as Record<string, unknown>, depth + 1)
+            : item,
+        ) as unknown;
+        continue;
+      }
+      out[key] = raw;
+    }
+    return out;
+  }
+
   add(
     level: LogLevel,
     category: LogCategory,
     message: string,
     meta?: Record<string, unknown>,
   ): void {
+    const safeMeta = this.sanitizeMeta(meta);
     const entry: AppLogEntry = {
       id: randomUUID(),
       ts: new Date().toISOString(),
       level,
       category,
       message,
-      meta,
+      meta: safeMeta,
     };
     this.entries.push(entry);
     if (this.entries.length > MAX_LOGS) {

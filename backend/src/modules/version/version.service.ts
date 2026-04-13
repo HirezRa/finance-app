@@ -99,6 +99,7 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
     const controller = new AbortController();
     const timeoutMs = 12_000;
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const apiStart = Date.now();
 
     try {
       const res = await fetch(url, {
@@ -107,8 +108,13 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
         signal: controller.signal,
       });
       clearTimeout(timer);
+      const durationMs = Date.now() - apiStart;
 
       if (res.status === 404) {
+        this.appLogs.add('DEBUG', 'system', 'בדיקת GitHub release — אין release (404)', {
+          repo,
+          durationMs,
+        });
         return {
           success: true,
           release: null,
@@ -193,6 +199,12 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
         body: typeof raw.body === 'string' ? raw.body : '',
       };
 
+      this.appLogs.add('DEBUG', 'system', 'בדיקת GitHub release הצליחה', {
+        repo,
+        tag: tag_name,
+        durationMs,
+      });
+
       return { success: true, release };
     } catch (err: unknown) {
       clearTimeout(timer);
@@ -220,19 +232,31 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
     }
   }
 
+  private readVersionFromAppDir(appDir: string): string {
+    try {
+      return readFileSync(join(appDir, 'VERSION'), 'utf-8').trim();
+    } catch {
+      return '0.0.0';
+    }
+  }
+
   private async probeGitFetch(appDir: string): Promise<
-    { ok: true } | { ok: false; detail: string }
+    { ok: true; durationMs: number } | { ok: false; detail: string; durationMs: number }
   > {
+    const t0 = Date.now();
     try {
       await execFileAsync('git', ['-C', appDir, 'fetch', 'origin'], {
         timeout: 35_000,
         maxBuffer: 512 * 1024,
       });
-      this.appLogs.add('DEBUG', 'system', 'בדיקת git fetch לפני self-update הצליחה', {
+      const durationMs = Date.now() - t0;
+      this.appLogs.add('INFO', 'system', 'שלב 1/4: git fetch (בדיקה לפני self-update) הצליח', {
         appDir,
+        durationMs,
       });
-      return { ok: true };
+      return { ok: true, durationMs };
     } catch (e: unknown) {
+      const durationMs = Date.now() - t0;
       const ex = e as { stderr?: Buffer | string; message?: string };
       const stderr =
         typeof ex.stderr === 'string'
@@ -243,9 +267,10 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
       const detail = String(stderr || ex.message || e).trim().slice(0, 2500);
       this.appLogs.add('ERROR', 'system', 'git fetch נכשל לפני הפעלת self-update', {
         appDir,
+        durationMs,
         detail: detail || '(אין פלט)',
       });
-      return { ok: false, detail };
+      return { ok: false, detail, durationMs };
     }
   }
 
@@ -333,12 +358,25 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
       };
     }
     if (existsSync(this.updateLockPath)) {
+      this.appLogs.add('WARN', 'system', 'ניסיון עדכון נדחה — נעילה פעילה (עדכון כבר רץ)', {
+        appDir,
+        lockPath: this.updateLockPath,
+      });
       return {
         success: false,
         messageHe: 'עדכון כבר מתבצע. נסה שוב מאוחר יותר.',
         instructionsHe: this.manualUpdateInstructionsHe,
       };
     }
+
+    const updateFlowT0 = Date.now();
+    const versionBefore = this.readVersionFromAppDir(appDir);
+    this.appLogs.add('INFO', 'system', '=== תחילת תהליך עדכון (מהממשק) ===', {
+      appDir,
+      versionBefore,
+      scriptPath,
+      logFile: hostLogFile,
+    });
 
     const fetchProbe = await this.probeGitFetch(appDir);
     if (!fetchProbe.ok) {
@@ -357,10 +395,10 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
       progress: 2,
     });
 
-    this.appLogs.add('INFO', 'system', 'הופעל עדכון אוטומטי מהממשק', {
+    this.appLogs.add('INFO', 'system', 'שלב 2/4: מפעיל סקריפט self-update ברקע (fetch כבר אומת)', {
       appDir,
       logFile: hostLogFile,
-      note: 'הסקריפט רץ בהקשר הקונטיינר; לוג מומלץ: APP_DIR/logs/self-update.log על ההוסט',
+      fetchDurationMs: fetchProbe.durationMs,
     });
 
     const child = spawn('sh', [scriptPath], {
@@ -392,6 +430,14 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
         instructionsHe: this.manualUpdateInstructionsHe,
       };
     }
+
+    const apiPhaseMs = Date.now() - updateFlowT0;
+    this.appLogs.add('INFO', 'system', 'שלב 3/4: סקריפט self-update הופעל ברקע (PID)', {
+      pid: child.pid,
+      appDir,
+      apiPhaseDurationMs: apiPhaseMs,
+      note: 'שלב 4 (build/up) מתועד ב-APP_DIR/logs/self-update.log ובקובץ סטטוס',
+    });
 
     return {
       success: true,

@@ -443,6 +443,10 @@ export class ScraperService {
 
     const supported = this.getSupportedInstitutions().some((i) => i.id === config.companyId);
     if (!supported) {
+      this.appLogs.add('ERROR', 'sync', `סנכרון נחסם: מוסד לא נתמך (${config.companyId})`, {
+        configId,
+        companyId: config.companyId,
+      });
       throw new Error(`Unsupported companyId: ${config.companyId}`);
     }
 
@@ -456,6 +460,7 @@ export class ScraperService {
     this.logger.log(
       `Starting scraper for ${config.companyId} (config: ${configId}), startDate: ${startDate.toISOString()}`,
     );
+    const syncT0 = Date.now();
     this.appLogs.add('INFO', 'sync', `סנכרון התחיל: ${displayName}`, {
       companyId: config.companyId,
       configId,
@@ -508,6 +513,8 @@ export class ScraperService {
         this.appLogs.add('ERROR', 'sync', `סנכרון נכשל: ${displayName} — ${shortMsg}`, {
           companyId: config.companyId,
           configId,
+          errorType: result.errorType,
+          durationMs: Date.now() - syncT0,
           errorFull: errMsg,
         });
         await this.configService.updateSyncStatus(configId, 'error', errMsg);
@@ -567,6 +574,7 @@ export class ScraperService {
         newTransactionsCount,
         updatedAccountsCount,
         companyId: config.companyId,
+        durationMs: Date.now() - syncT0,
       });
 
       if (newTransactionsCount > 0) {
@@ -596,6 +604,7 @@ export class ScraperService {
         {
           configId,
           companyId: config.companyId,
+          durationMs: Date.now() - syncT0,
           errorFull: message,
           stackHead,
         },

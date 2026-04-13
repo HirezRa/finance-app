@@ -18,6 +18,7 @@ export class ScraperProcessor {
   async handleSync(job: Job<{ configId: string; userId: string }>) {
     const { configId, userId } = job.data;
     this.logger.log(`Processing sync job: ${job.id}`);
+    const jobT0 = Date.now();
     this.appLogs.add('DEBUG', 'sync', 'התקבלה משימת סנכרון', {
       jobId: String(job.id),
       configId,
@@ -34,6 +35,7 @@ export class ScraperProcessor {
         jobId: String(job.id),
         configId,
         newTransactionsCount: result.newTransactionsCount,
+        durationMs: Date.now() - jobT0,
       });
       return result;
     } catch (error: unknown) {
@@ -46,6 +48,7 @@ export class ScraperProcessor {
         {
           jobId: String(job.id),
           configId,
+          durationMs: Date.now() - jobT0,
           errorFull: message,
         },
       );
