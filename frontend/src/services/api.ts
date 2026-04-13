@@ -258,6 +258,44 @@ export const ollamaApi = {
     api.post('/ollama/apply', { suggestions }).then((res) => res.data),
 };
 
+export type AppLogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+export type AppLogCategory =
+  | 'sync'
+  | 'account'
+  | 'auth'
+  | 'scraper'
+  | 'ollama'
+  | 'system';
+
+export interface AppLogEntry {
+  id: string;
+  ts: string;
+  level: AppLogLevel;
+  category: AppLogCategory;
+  message: string;
+  meta?: Record<string, unknown>;
+}
+
+export const logsApi = {
+  get: (params?: {
+    level?: AppLogLevel;
+    category?: AppLogCategory;
+    q?: string;
+    limit?: number;
+  }) => {
+    const p: Record<string, string | number> = {};
+    if (params?.level) p.level = params.level;
+    if (params?.category) p.category = params.category;
+    if (params?.q?.trim()) p.q = params.q.trim();
+    if (params?.limit != null && !Number.isNaN(params.limit)) {
+      p.limit = params.limit;
+    }
+    return api.get<{ logs: AppLogEntry[] }>('/logs', { params: p });
+  },
+  clear: () =>
+    api.delete<{ success: boolean; messageHe: string }>('/logs'),
+};
+
 export const settingsApi = {
   get: () => api.get('/settings'),
   update: (data: Record<string, unknown>) => api.patch('/settings', data),

@@ -54,9 +54,10 @@ data/
 *.dump
 
 # ========================================
-# Logs
+# Logs (runtime only — not backend/src/modules/logs source)
 # ========================================
-logs/
+/logs/
+backend/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*

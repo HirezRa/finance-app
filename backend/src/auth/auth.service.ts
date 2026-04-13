@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AccountLockoutService } from './services/account-lockout.service';
+import { LogsService } from '../modules/logs/logs.service';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly lockout: AccountLockoutService,
+    private readonly appLogs: LogsService,
   ) {}
 
   async register(dto: RegisterDto): Promise<{ userId: string; email: string }> {
@@ -48,15 +50,22 @@ export class AuthService {
     });
     if (!user) {
       await this.lockout.recordFailedAttempt(identifier);
+      this.appLogs.add('WARN', 'auth', 'התחברות נכשלה — משתמש לא נמצא', {
+        email: identifier,
+      });
       throw new UnauthorizedException('invalid credentials');
     }
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
     if (!ok) {
       await this.lockout.recordFailedAttempt(identifier);
+      this.appLogs.add('WARN', 'auth', 'התחברות נכשלה — סיסמה שגויה', {
+        email: identifier,
+      });
       throw new UnauthorizedException('invalid credentials');
     }
 
     await this.lockout.resetAttempts(identifier);
+    this.appLogs.add('INFO', 'auth', 'התחברות מוצלחת', { email: user.email });
     const payload = { sub: user.id, email: user.email };
     const accessToken = await this.jwt.signAsync(payload);
     const refreshSecret = this.config.getOrThrow<string>('JWT_REFRESH_SECRET');

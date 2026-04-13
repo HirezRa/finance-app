@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { LogsService } from '../logs/logs.service';
 
 export interface CategorySuggestion {
   transactionId: string;
@@ -57,7 +58,10 @@ const DEFAULT_OLLAMA_MODEL = 'qwen2.5:7b';
 export class OllamaService {
   private readonly logger = new Logger(OllamaService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly appLogs: LogsService,
+  ) {}
 
   async categorizeTransactions(
     userId: string,
@@ -79,6 +83,11 @@ export class OllamaService {
     if (transactionIds.length === 0) {
       return [];
     }
+
+    this.appLogs.add('INFO', 'ollama', 'בקשת סיווג AI', {
+      count: transactionIds.length,
+      mode,
+    });
 
     const categories = await this.prisma.category.findMany({
       where: {

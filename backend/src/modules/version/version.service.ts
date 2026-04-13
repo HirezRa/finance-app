@@ -8,6 +8,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { join } from 'path';
 import { SettingsService } from '../settings/settings.service';
+import { LogsService } from '../logs/logs.service';
 
 export interface GithubReleaseDto {
   tag_name: string;
@@ -55,6 +56,7 @@ export class VersionService {
   constructor(
     private readonly config: ConfigService,
     private readonly settingsService: SettingsService,
+    private readonly appLogs: LogsService,
   ) {}
 
   async getLatestGithubRelease(userId: string): Promise<GithubReleaseResponse> {
@@ -266,6 +268,10 @@ export class VersionService {
       stage: 'queued',
       message: 'מפעיל סקריפט עדכון...',
       progress: 2,
+    });
+
+    this.appLogs.add('INFO', 'system', 'הופעל עדכון אוטומטי מהממשק', {
+      appDir,
     });
 
     const child = spawn('sh', [scriptPath], {

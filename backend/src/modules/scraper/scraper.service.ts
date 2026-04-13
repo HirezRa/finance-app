@@ -21,6 +21,7 @@ import {
   getIsraelDayOfMonth,
   getIsraelYearMonth,
 } from '../../common/utils/israel-calendar';
+import { LogsService } from '../logs/logs.service';
 
 @Injectable()
 export class ScraperService {
@@ -31,6 +32,7 @@ export class ScraperService {
     private readonly configService: ScraperConfigService,
     private readonly n8nWebhook: N8nWebhookService,
     private readonly ollamaCategorizer: OllamaCategorizerService,
+    private readonly appLogs: LogsService,
   ) {}
 
   getSupportedInstitutions() {
@@ -390,6 +392,10 @@ export class ScraperService {
         },
       });
       this.logger.log(`Created new account: ${num} for ${institutionId}`);
+      this.appLogs.add('INFO', 'account', 'נוצר חשבון חדש מסנכרון', {
+        institutionId,
+        accountNumber: num,
+      });
     }
 
     return account;
@@ -449,6 +455,10 @@ export class ScraperService {
     this.logger.log(
       `Starting scraper for ${config.companyId} (config: ${configId}), startDate: ${startDate.toISOString()}`,
     );
+    this.appLogs.add('INFO', 'sync', `סנכרון התחיל: ${displayName}`, {
+      companyId: config.companyId,
+      configId,
+    });
 
     const options: ScraperOptions = {
       companyId: config.companyId as CompanyTypes,
@@ -546,6 +556,11 @@ export class ScraperService {
       this.logger.log(
         `Scraper completed: ${newTransactionsCount} new transactions, ${updatedAccountsCount} accounts`,
       );
+      this.appLogs.add('INFO', 'sync', `סנכרון הושלם: ${displayName}`, {
+        newTransactionsCount,
+        updatedAccountsCount,
+        companyId: config.companyId,
+      });
 
       if (newTransactionsCount > 0) {
         void this.n8nWebhook.sendSyncCompleteAlert(
@@ -564,6 +579,11 @@ export class ScraperService {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Scraper error: ${message}`, stack);
+      this.appLogs.add('ERROR', 'scraper', `שגיאת סקרייפר: ${displayName}`, {
+        error: message,
+        companyId: config.companyId,
+        configId,
+      });
       await this.configService.updateSyncStatus(configId, 'error', message);
       void this.n8nWebhook.sendSyncErrorAlert(userId, displayName, message);
       throw error;
