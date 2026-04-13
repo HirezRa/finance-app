@@ -5,7 +5,14 @@ set -eu
 APP_DIR="${APP_DIR:-/opt/finance-app}"
 STATUS_FILE="${UPDATE_STATUS_FILE:-/tmp/finance-app-update-status.json}"
 LOCK_FILE="${UPDATE_LOCK_FILE:-/tmp/finance-app-update.lock}"
-LOG_FILE="${UPDATE_LOG_FILE:-/tmp/finance-app-update.log}"
+# לוג בעדיפות תחת APP_DIR/logs (נראה מההוסט כשהריפו ממורכב); אחרת /tmp בתוך הקונטיינר
+if [ -n "${UPDATE_LOG_FILE:-}" ]; then
+  LOG_FILE="$UPDATE_LOG_FILE"
+elif mkdir -p "$APP_DIR/logs" 2>/dev/null && touch "$APP_DIR/logs/.wtest" 2>/dev/null && rm -f "$APP_DIR/logs/.wtest" 2>/dev/null; then
+  LOG_FILE="$APP_DIR/logs/self-update.log"
+else
+  LOG_FILE="/tmp/finance-app-update.log"
+fi
 
 export STATUS_FILE
 

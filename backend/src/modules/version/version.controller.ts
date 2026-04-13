@@ -11,6 +11,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import {
   VersionService,
   type GithubReleaseResponse,
+  type PerformSelfUpdateResult,
   type SelfUpdateStatusDto,
 } from './version.service';
 
@@ -34,7 +35,7 @@ export class VersionGithubController {
   @Post('perform-update')
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)
-  performSelfUpdate(): { success: boolean; messageHe: string } {
+  performSelfUpdate(): Promise<PerformSelfUpdateResult> {
     return this.versionService.performSelfUpdate();
   }
 

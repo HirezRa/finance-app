@@ -28,7 +28,7 @@ import {
   Rocket,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import api, { settingsApi, versionApi } from '@/services/api';
+import api, { settingsApi, versionApi, type PerformSelfUpdateResponse } from '@/services/api';
 import { isAxiosError } from 'axios';
 import { toast } from 'sonner';
 
@@ -98,6 +98,9 @@ function formatQueryError(err: unknown): string {
   return 'שגיאה לא ידועה בבדיקת עדכונים.';
 }
 
+const MANUAL_UPDATE_ONE_LINER =
+  'cd /opt/finance-app && git pull origin main && docker compose build --no-cache backend frontend && docker compose up -d';
+
 function formatSaveTokenError(err: unknown): string {
   if (isAxiosError(err)) {
     const d = err.response?.data as { message?: string | string[] } | undefined;
@@ -115,6 +118,7 @@ export function VersionChecker() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [tokenDraft, setTokenDraft] = useState('');
   const [showToken, setShowToken] = useState(false);
+  const [manualUpdateBlock, setManualUpdateBlock] = useState<string | null>(null);
   const sawInProgressRef = useRef(false);
 
   const { data: settings } = useQuery({
@@ -156,23 +160,27 @@ export function VersionChecker() {
 
   const performUpdateMutation = useMutation({
     mutationFn: () => versionApi.performSelfUpdate().then((res) => res.data),
-    onSuccess: (data) => {
+    onSuccess: (data: PerformSelfUpdateResponse) => {
       if (data.success) {
         toast.success(data.messageHe);
+        setManualUpdateBlock(null);
         sawInProgressRef.current = true;
         setIsUpdating(true);
         void queryClient.invalidateQueries({ queryKey: ['self-update-status'] });
       } else {
         toast.error(data.messageHe);
+        setManualUpdateBlock(data.instructionsHe ?? MANUAL_UPDATE_ONE_LINER);
       }
     },
     onError: (err: unknown) => {
       if (isAxiosError(err) && err.response?.status === 403) {
         const m = err.response?.data as { message?: string } | undefined;
         toast.error(m?.message ?? 'עדכון אוטומטי אינו מופעל בשרת.');
+        setManualUpdateBlock(MANUAL_UPDATE_ONE_LINER);
         return;
       }
       toast.error('שגיאה בהפעלת העדכון');
+      setManualUpdateBlock(MANUAL_UPDATE_ONE_LINER);
     },
   });
 
@@ -191,8 +199,9 @@ export function VersionChecker() {
       toast.error(
         updateStatus.message ??
           updateStatus.error ??
-          'העדכון נכשל. בדוק לוגים בשרת (/tmp/finance-app-update.log).',
+          'העדכון נכשל. בדוק לוגים בשרת (logs/self-update.log או /tmp).',
       );
+      setManualUpdateBlock(MANUAL_UPDATE_ONE_LINER);
       return;
     }
     if (updateStatus.stage === 'stale') {
@@ -366,6 +375,42 @@ export function VersionChecker() {
         </div>
       ) : null}
 
+      {manualUpdateBlock ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <p className="mb-2 font-medium text-amber-800 dark:text-amber-200">
+            עדכון ידני (מההוסט / LXC)
+          </p>
+          <pre
+            className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded border border-border bg-background p-2 font-mono text-xs"
+            dir="ltr"
+          >
+            {manualUpdateBlock}
+          </pre>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void navigator.clipboard.writeText(manualUpdateBlock);
+                toast.success('הטקסט הועתק');
+              }}
+            >
+              העתק הוראות
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => setManualUpdateBlock(null)}
+            >
+              סגור
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {isUpdating && updateStatus?.inProgress ? (
         <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
           <div className="flex items-center gap-3">
@@ -386,7 +431,8 @@ export function VersionChecker() {
             </div>
           ) : null}
           <p className="text-center text-xs text-muted-foreground">
-            הבנייה וההפעלה מחדש עשויים לקחת מספר דקות; אפשר להמתין או לבדוק לוגים בשרת.
+            הבנייה וההפעלה מחדש עשויים לקחת מספר דקות; לוג על ההוסט:{' '}
+            <span className="font-mono">logs/self-update.log</span> תחת תיקיית האפליקציה.
           </p>
         </div>
       ) : null}
