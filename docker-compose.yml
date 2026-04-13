@@ -74,7 +74,7 @@ services:
     security_opt:
       - seccomp:unconfined
     group_add:
-      - docker
+      - ${DOCKER_HOST_DOCKER_GID:-996}
     volumes:
       - ./logs:/app/logs
       # Self-update from UI: host repo + Docker socket (set SELF_UPDATE_ENABLED=true)
