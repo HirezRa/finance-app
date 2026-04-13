@@ -22,6 +22,7 @@ import {
   getIsraelYearMonth,
 } from '../../common/utils/israel-calendar';
 import { LogsService } from '../logs/logs.service';
+import { shortenSyncErrorMessage } from '../../common/utils/sync-error-message';
 
 @Injectable()
 export class ScraperService {
@@ -503,6 +504,12 @@ export class ScraperService {
       if (!result.success) {
         const errMsg =
           result.errorMessage || String(result.errorType || '') || 'Scrape failed';
+        const shortMsg = shortenSyncErrorMessage(errMsg);
+        this.appLogs.add('ERROR', 'sync', `סנכרון נכשל: ${displayName} — ${shortMsg}`, {
+          companyId: config.companyId,
+          configId,
+          errorFull: errMsg,
+        });
         await this.configService.updateSyncStatus(configId, 'error', errMsg);
         throw new Error(errMsg);
       }
@@ -578,12 +585,21 @@ export class ScraperService {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
+      const stackHead =
+        stack?.split('\n').slice(0, 5).join('\n') ?? undefined;
+      const shortMsg = shortenSyncErrorMessage(message);
       this.logger.error(`Scraper error: ${message}`, stack);
-      this.appLogs.add('ERROR', 'scraper', `שגיאת סקרייפר: ${displayName}`, {
-        error: message,
-        companyId: config.companyId,
-        configId,
-      });
+      this.appLogs.add(
+        'ERROR',
+        'sync',
+        `שגיאה בסנכרון ${displayName}: ${shortMsg}`,
+        {
+          configId,
+          companyId: config.companyId,
+          errorFull: message,
+          stackHead,
+        },
+      );
       await this.configService.updateSyncStatus(configId, 'error', message);
       void this.n8nWebhook.sendSyncErrorAlert(userId, displayName, message);
       throw error;

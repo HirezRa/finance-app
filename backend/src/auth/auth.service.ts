@@ -12,6 +12,12 @@ import { LoginDto } from './dto/login.dto';
 import { AccountLockoutService } from './services/account-lockout.service';
 import { LogsService } from '../modules/logs/logs.service';
 
+function maskEmail(email: string): string {
+  const e = email.trim();
+  if (!e.includes('@')) return '***';
+  return e.replace(/(.{2}).*(@.*)/, '$1***$2');
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -51,7 +57,7 @@ export class AuthService {
     if (!user) {
       await this.lockout.recordFailedAttempt(identifier);
       this.appLogs.add('WARN', 'auth', 'התחברות נכשלה — משתמש לא נמצא', {
-        email: identifier,
+        email: maskEmail(identifier),
       });
       throw new UnauthorizedException('invalid credentials');
     }
@@ -59,13 +65,15 @@ export class AuthService {
     if (!ok) {
       await this.lockout.recordFailedAttempt(identifier);
       this.appLogs.add('WARN', 'auth', 'התחברות נכשלה — סיסמה שגויה', {
-        email: identifier,
+        email: maskEmail(identifier),
       });
       throw new UnauthorizedException('invalid credentials');
     }
 
     await this.lockout.resetAttempts(identifier);
-    this.appLogs.add('INFO', 'auth', 'התחברות מוצלחת', { email: user.email });
+    this.appLogs.add('INFO', 'auth', 'התחברות מוצלחת', {
+      email: maskEmail(user.email),
+    });
     const payload = { sub: user.id, email: user.email };
     const accessToken = await this.jwt.signAsync(payload);
     const refreshSecret = this.config.getOrThrow<string>('JWT_REFRESH_SECRET');

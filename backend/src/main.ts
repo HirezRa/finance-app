@@ -7,6 +7,8 @@ import {
 import { ValidationPipe } from '@nestjs/common';
 import helmet from '@fastify/helmet';
 import { AppModule } from './app.module';
+import { LogsService } from './modules/logs/logs.service';
+import { getVersion } from './version';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -28,6 +30,12 @@ async function bootstrap(): Promise<void> {
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port, '0.0.0.0');
+  const appLogs = app.get(LogsService);
+  appLogs.add('INFO', 'system', 'שרת ה-API זמין', {
+    port,
+    version: getVersion(),
+    nodeEnv: process.env.NODE_ENV ?? 'development',
+  });
 }
 
 bootstrap().catch((err) => {
