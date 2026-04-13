@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LogsService } from '../logs/logs.service';
@@ -50,6 +51,27 @@ function parseOllamaJsonResponse(responseText: string): Record<string, unknown> 
   const inner = fence ? fence[1].trim() : trimmed;
   const parsed = JSON.parse(inner) as Record<string, unknown>;
   return parsed;
+}
+
+function parseOllamaErrorHe(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes('econnrefused')) {
+    return 'לא ניתן להתחבר לשרת Ollama';
+  }
+  if (
+    m.includes('etimedout') ||
+    m.includes('timeout') ||
+    m.includes('abort')
+  ) {
+    return 'תם הזמן — Ollama לא הגיב';
+  }
+  if (m.includes('enotfound')) {
+    return 'כתובת Ollama לא נמצאה';
+  }
+  if (m.includes('fetch failed')) {
+    return 'שגיאת רשת בפנייה ל-Ollama';
+  }
+  return message.length > 120 ? `${message.slice(0, 120)}…` : message;
 }
 
 const DEFAULT_OLLAMA_MODEL = 'qwen2.5:7b';
@@ -116,6 +138,11 @@ export class OllamaService {
 
     for (const tx of transactions) {
       try {
+        this.appLogs.add('DEBUG', 'ollama', 'מעבד עסקה לסיווג', {
+          transactionId: tx.id,
+          descriptionPreview: (tx.description || '').slice(0, 80),
+        });
+
         const currentCategory = tx.category?.nameHe || tx.category?.name;
         const baseFields = {
           description: tx.description,
@@ -159,8 +186,18 @@ export class OllamaService {
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.error(`Failed to classify transaction ${tx.id}: ${msg}`);
+        this.appLogs.add('ERROR', 'ollama', 'שגיאה בסיווג עסקה בודדת', {
+          transactionId: tx.id,
+          error: msg,
+        });
       }
     }
+
+    this.appLogs.add('INFO', 'ollama', 'סיווג אצווה הושלם', {
+      requested: transactionIds.length,
+      suggestionsReturned: results.length,
+      mode,
+    });
 
     return results;
   }
@@ -302,8 +339,26 @@ Analyze the transaction description and choose the MOST APPROPRIATE category.
 Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
 {"category": "category_name_in_english", "confidence": 0.0-1.0, "reasoning": "brief reason in Hebrew"}`;
 
+    const t0 = Date.now();
+    this.appLogs.add('INFO', 'ollama', 'שליחת בקשת סיווג ל-Ollama', {
+      transactionId: transaction.id,
+      mode,
+      model: ollamaModel,
+      ollamaBaseUrl: ollamaUrl,
+      descriptionPreview: transactionDesc.slice(0, 100),
+      amount: transactionAmount,
+      isExpense,
+      promptLength: prompt.length,
+      categoriesInPrompt: relevantCategories.length,
+    });
+    this.appLogs.add('DEBUG', 'ollama', 'תוכן Prompt (קטוע)', {
+      transactionId: transaction.id,
+      promptPreview:
+        prompt.length > 1500 ? `${prompt.slice(0, 1500)}…` : prompt,
+    });
+
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 90_000);
+    const timer = setTimeout(() => controller.abort(), 90_000);
 
     let response: Response;
     try {
@@ -321,20 +376,58 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
         }),
         signal: controller.signal,
       });
+    } catch (err: unknown) {
+      const durationMs = Date.now() - t0;
+      const msg = err instanceof Error ? err.message : String(err);
+      this.appLogs.add('ERROR', 'ollama', 'כשל רשת/timeout בקריאה ל-Ollama', {
+        transactionId: transaction.id,
+        errorHe: parseOllamaErrorHe(msg),
+        rawError: msg,
+        durationMs,
+        model: ollamaModel,
+      });
+      return null;
     } finally {
-      clearTimeout(t);
+      clearTimeout(timer);
     }
 
     if (!response.ok) {
+      const durationMs = Date.now() - t0;
+      let errBody = '';
+      try {
+        errBody = (await response.text()).slice(0, 300);
+      } catch {
+        /* ignore */
+      }
+      this.appLogs.add('ERROR', 'ollama', 'תשובת שגיאה מ-Ollama (HTTP)', {
+        transactionId: transaction.id,
+        status: response.status,
+        bodyPreview: errBody,
+        durationMs,
+        model: ollamaModel,
+      });
       throw new Error(`Ollama request failed: ${response.status}`);
     }
 
-    const data = (await response.json()) as { response?: string };
+    const data = (await response.json()) as {
+      response?: string;
+      total_duration?: number;
+      eval_count?: number;
+    };
     let responseText = data.response?.trim() || '';
 
     this.logger.log(
       `Ollama response for "${transactionDesc.slice(0, 80)}": ${responseText.slice(0, 300)}`,
     );
+
+    const durationAfterHttp = Date.now() - t0;
+    this.appLogs.add('DEBUG', 'ollama', 'תשובה גולמית מ-Ollama (קטועה)', {
+      transactionId: transaction.id,
+      rawResponsePreview: responseText.slice(0, 600),
+      ollamaTotalDurationNs: data.total_duration,
+      evalCount: data.eval_count,
+      durationMs: durationAfterHttp,
+    });
 
     responseText = responseText
       .replace(/```json\n?/gi, '')
@@ -346,10 +439,20 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
       const catRaw = parsed.category;
       if (typeof catRaw !== 'string') {
         this.logger.warn('No category in response');
+        this.appLogs.add('WARN', 'ollama', 'אין שדה category בתשובת המודל', {
+          transactionId: transaction.id,
+          durationMs: Date.now() - t0,
+          responsePreview: responseText.slice(0, 200),
+        });
         return null;
       }
 
       if (catRaw === 'KEEP') {
+        this.appLogs.add('INFO', 'ollama', 'המודל החזיר KEEP — ללא שינוי קטגוריה', {
+          transactionId: transaction.id,
+          durationMs: Date.now() - t0,
+          model: ollamaModel,
+        });
         return null;
       }
 
@@ -377,6 +480,14 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
           }
           const reasoning =
             typeof parsed.reasoning === 'string' ? parsed.reasoning : '';
+          this.appLogs.add('INFO', 'ollama', 'סיווג הושלם (התאמה חלקית)', {
+            transactionId: transaction.id,
+            category: partialMatch.nameHe || partialMatch.name,
+            confidence,
+            durationMs: Date.now() - t0,
+            model: ollamaModel,
+            modelCategoryRaw: catRaw,
+          });
           return {
             transactionId: transaction.id,
             suggestedCategoryId: partialMatch.id,
@@ -385,6 +496,11 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
             reasoning,
           };
         }
+        this.appLogs.add('WARN', 'ollama', 'לא נמצאה קטגוריה תואמת לתשובת המודל', {
+          transactionId: transaction.id,
+          modelCategoryRaw: catRaw,
+          durationMs: Date.now() - t0,
+        });
         return null;
       }
 
@@ -395,6 +511,14 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
       }
       const reasoning =
         typeof parsed.reasoning === 'string' ? parsed.reasoning : '';
+
+      this.appLogs.add('INFO', 'ollama', 'סיווג הושלם', {
+        transactionId: transaction.id,
+        category: matchedCategory.nameHe || matchedCategory.name,
+        confidence,
+        durationMs: Date.now() - t0,
+        model: ollamaModel,
+      });
 
       return {
         transactionId: transaction.id,
@@ -408,6 +532,12 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
       this.logger.error(
         `Failed to classify "${transactionDesc}": ${msg}`,
       );
+      this.appLogs.add('ERROR', 'ollama', 'כשל בפרסור JSON מתשובת Ollama', {
+        transactionId: transaction.id,
+        error: msg,
+        responsePreview: responseText.slice(0, 400),
+        durationMs: Date.now() - t0,
+      });
       return null;
     }
   }
@@ -624,6 +754,265 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
     });
 
     return transactions.map((t) => t.id);
+  }
+
+  async getOllamaConnectionStatus(userId: string): Promise<{
+    enabled: boolean;
+    url: string | null;
+    model: string | null;
+    reachable: boolean;
+    modelsSample?: string[];
+    errorHe?: string;
+    modelListed?: boolean;
+  }> {
+    const settings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+    });
+    const hasUrl = Boolean(settings?.ollamaUrl?.trim());
+    const enabled = Boolean(settings?.ollamaEnabled && hasUrl);
+    if (!enabled) {
+      return {
+        enabled: false,
+        url: settings?.ollamaUrl ?? null,
+        model: settings?.ollamaModel ?? null,
+        reachable: false,
+        errorHe: 'Ollama לא מופעל או שחסר URL בהגדרות המשתמש',
+      };
+    }
+    const url = settings!.ollamaUrl!.replace(/\/+$/, '');
+    const model = settings!.ollamaModel?.trim() || DEFAULT_OLLAMA_MODEL;
+    try {
+      const res = await fetch(`${url}/api/tags`, {
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) {
+        return {
+          enabled: true,
+          url,
+          model,
+          reachable: false,
+          errorHe: `שרת החזיר HTTP ${res.status}`,
+        };
+      }
+      const body = (await res.json()) as { models?: { name: string }[] };
+      const names = (body.models ?? []).map((m) => m.name);
+      const modelBase = model.split(':')[0] ?? model;
+      const modelListed = names.some(
+        (n) => n === model || n.startsWith(modelBase),
+      );
+      return {
+        enabled: true,
+        url,
+        model,
+        reachable: true,
+        modelsSample: names.slice(0, 20),
+        modelListed,
+        errorHe: modelListed
+          ? undefined
+          : `המודל "${model}" לא מופיע ברשימת המודלים בשרת`,
+      };
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return {
+        enabled: true,
+        url,
+        model,
+        reachable: false,
+        errorHe: parseOllamaErrorHe(msg),
+      };
+    }
+  }
+
+  async testOllamaConnection(userId: string): Promise<{
+    ok: boolean;
+    messageHe?: string;
+    models?: string[];
+    testResponsePreview?: string;
+  }> {
+    this.appLogs.add('INFO', 'ollama', 'בדיקת חיבור ידנית — התחלה', {});
+    const settings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+    });
+    if (!settings?.ollamaEnabled || !settings?.ollamaUrl?.trim()) {
+      this.appLogs.add('WARN', 'ollama', 'בדיקת חיבור — Ollama לא מוגדר', {});
+      return { ok: false, messageHe: 'Ollama לא מופעל או שחסר URL בהגדרות' };
+    }
+    const ollamaUrl = settings.ollamaUrl.replace(/\/+$/, '');
+    const ollamaModel =
+      settings.ollamaModel?.trim() || DEFAULT_OLLAMA_MODEL;
+
+    let names: string[] = [];
+    try {
+      const tagsRes = await fetch(`${ollamaUrl}/api/tags`, {
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!tagsRes.ok) {
+        this.appLogs.add('ERROR', 'ollama', 'בדיקת חיבור — /api/tags נכשל', {
+          status: tagsRes.status,
+        });
+        return {
+          ok: false,
+          messageHe: `לא ניתן לקרוא מודלים (HTTP ${tagsRes.status})`,
+        };
+      }
+      const tagsJson = (await tagsRes.json()) as {
+        models?: { name: string }[];
+      };
+      names = (tagsJson.models ?? []).map((m) => m.name);
+      this.appLogs.add('INFO', 'ollama', 'בדיקת חיבור — /api/tags OK', {
+        modelsCount: names.length,
+        modelsSample: names.slice(0, 12),
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.appLogs.add('ERROR', 'ollama', 'בדיקת חיבור — שגיאת רשת ב-/api/tags', {
+        errorHe: parseOllamaErrorHe(msg),
+        rawError: msg,
+      });
+      return { ok: false, messageHe: parseOllamaErrorHe(msg) };
+    }
+
+    const modelBase = ollamaModel.split(':')[0] ?? ollamaModel;
+    const modelOk = names.some(
+      (n) => n === ollamaModel || n.startsWith(modelBase),
+    );
+    if (!modelOk) {
+      this.appLogs.add('WARN', 'ollama', 'בדיקת חיבור — המודל לא נמצא', {
+        requestedModel: ollamaModel,
+      });
+      return {
+        ok: false,
+        models: names,
+        messageHe: `המודל "${ollamaModel}" לא נמצא בשרת`,
+      };
+    }
+
+    try {
+      const genRes = await fetch(`${ollamaUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: ollamaModel,
+          prompt: 'Reply with exactly: OK',
+          stream: false,
+          options: { num_predict: 16, temperature: 0 },
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!genRes.ok) {
+        this.appLogs.add('ERROR', 'ollama', 'בדיקת חיבור — generate נכשל', {
+          status: genRes.status,
+        });
+        return {
+          ok: false,
+          models: names,
+          messageHe: `קריאת generate נכשלה (HTTP ${genRes.status})`,
+        };
+      }
+      const genJson = (await genRes.json()) as { response?: string };
+      const preview = (genJson.response ?? '').trim().slice(0, 80);
+      this.appLogs.add('INFO', 'ollama', 'בדיקת חיבור — generate הצליח', {
+        testResponsePreview: preview,
+        model: ollamaModel,
+      });
+      return { ok: true, models: names, testResponsePreview: preview };
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.appLogs.add('ERROR', 'ollama', 'בדיקת חיבור — שגיאה ב-generate', {
+        errorHe: parseOllamaErrorHe(msg),
+        rawError: msg,
+      });
+      return {
+        ok: false,
+        models: names,
+        messageHe: parseOllamaErrorHe(msg),
+      };
+    }
+  }
+
+  async testOllamaCategorize(
+    userId: string,
+    description: string,
+    amount: number,
+    categoryFilter?: string[],
+  ): Promise<
+    | (Omit<
+        CategorySuggestion,
+        'description' | 'amount' | 'currentCategory'
+      > & {
+        description: string;
+        amount: number;
+      })
+    | { error: string }
+  > {
+    this.appLogs.add('INFO', 'ollama', 'בדיקת קטגוריזציה ידנית', {
+      descriptionPreview: description.slice(0, 80),
+      amount,
+      filterSize: categoryFilter?.length ?? 0,
+    });
+
+    const settings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+    });
+    if (!settings?.ollamaEnabled || !settings?.ollamaUrl?.trim()) {
+      return { error: 'Ollama לא מוגדר' };
+    }
+    const ollamaUrl = settings.ollamaUrl.replace(/\/+$/, '');
+    const ollamaModel =
+      settings.ollamaModel?.trim() || DEFAULT_OLLAMA_MODEL;
+
+    let categories = await this.prisma.category.findMany({
+      where: {
+        OR: [{ userId }, { isSystem: true, userId: null }],
+      },
+      select: {
+        id: true,
+        name: true,
+        nameHe: true,
+        keywords: true,
+        isIncome: true,
+      },
+    });
+
+    if (categoryFilter?.length) {
+      const set = new Set(categoryFilter.map((c) => c.toLowerCase()));
+      categories = categories.filter(
+        (c) =>
+          set.has(c.name.toLowerCase()) ||
+          set.has((c.nameHe || '').toLowerCase()),
+      );
+    }
+
+    if (categories.length === 0) {
+      return {
+        error: 'אין קטגוריות זמינות (אולי הסינון ריק או לא תואם)',
+      };
+    }
+
+    const testId = `test-${randomUUID().slice(0, 8)}`;
+    const suggestion = await this.classifyTransaction(
+      {
+        id: testId,
+        description,
+        amount: new Prisma.Decimal(amount),
+        note: null,
+        notes: null,
+        category: null,
+      },
+      categories,
+      ollamaUrl,
+      ollamaModel,
+      'uncategorized',
+    );
+
+    if (!suggestion) {
+      return { error: 'לא התקבלה הצעה מהמודל' };
+    }
+    return {
+      ...suggestion,
+      description,
+      amount,
+    };
   }
 
   async applySuggestions(

@@ -202,6 +202,8 @@ const LOG_CATEGORIES: AppLogCategory[] = [
   'scraper',
   'ollama',
   'system',
+  'api',
+  'webhook',
 ];
 
 const CATEGORY_LABELS: Record<AppLogCategory, string> = {
@@ -211,6 +213,8 @@ const CATEGORY_LABELS: Record<AppLogCategory, string> = {
   scraper: 'סקרייפר',
   ollama: 'OLLAMA',
   system: 'מערכת',
+  api: 'API',
+  webhook: 'Webhooks',
 };
 
 function logLevelClass(level: AppLogLevel): string {

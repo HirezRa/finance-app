@@ -7,6 +7,7 @@ import {
 import { ValidationPipe } from '@nestjs/common';
 import helmet from '@fastify/helmet';
 import { AppModule } from './app.module';
+import { registerRequestLogging } from './common/http/register-request-logging';
 import { LogsService } from './modules/logs/logs.service';
 import { getVersion } from './version';
 
@@ -28,9 +29,11 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix('api/v1');
 
+  const appLogs = app.get(LogsService);
+  registerRequestLogging(app, appLogs);
+
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port, '0.0.0.0');
-  const appLogs = app.get(LogsService);
   appLogs.add('INFO', 'system', 'שרת ה-API זמין', {
     port,
     version: getVersion(),
