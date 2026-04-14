@@ -20,12 +20,58 @@ import {
   withDefaultTransactionCategory,
   uncategorizedTransactionFilter,
 } from '../../common/utils/transaction-category-default';
+import { formatForeignCurrency } from '../../common/utils/foreign-currency';
 
 @Injectable()
 export class TransactionsService {
   private readonly logger = new Logger(TransactionsService.name);
 
   constructor(private prisma: PrismaService) {}
+
+  private enrichTransactionForApi<
+    T extends Record<string, unknown> & {
+      amount: unknown;
+      originalAmount?: unknown;
+      originalCurrency?: string | null;
+      exchangeRate?: unknown;
+      isAbroad?: boolean;
+    },
+  >(
+    tx: T,
+  ): T & {
+    foreignCurrencyDisplay: string | null;
+    amount: number;
+    originalAmount: number | null;
+    exchangeRate: number | null;
+  } {
+    const isAbroad = Boolean(tx.isAbroad);
+    const origCur = (tx.originalCurrency || 'ILS').toString();
+    const origNum =
+      tx.originalAmount != null
+        ? Number(tx.originalAmount as string | number)
+        : NaN;
+    const foreignCurrencyDisplay =
+      isAbroad &&
+      origNum != null &&
+      Number.isFinite(origNum) &&
+      origCur.toUpperCase() !== 'ILS'
+        ? formatForeignCurrency(origNum, origCur)
+        : null;
+    return {
+      ...tx,
+      amount: Number(tx.amount),
+      originalAmount:
+        tx.originalAmount != null &&
+        Number.isFinite(Number(tx.originalAmount))
+          ? Number(tx.originalAmount)
+          : null,
+      exchangeRate:
+        tx.exchangeRate != null && Number.isFinite(Number(tx.exchangeRate))
+          ? Number(tx.exchangeRate)
+          : null,
+      foreignCurrencyDisplay,
+    };
+  }
 
   async findAll(userId: string, query: GetTransactionsDto) {
     const {
@@ -37,6 +83,8 @@ export class TransactionsService {
       status: statusQ,
       type: typeQ,
       hasInstallments,
+      isAbroad: isAbroadQ,
+      originalCurrency: originalCurrencyQ,
       accountTypes: accountTypesQ,
       page = 1,
       limit = 50,
@@ -105,6 +153,14 @@ export class TransactionsService {
       where.installmentTotal = { gt: 1 };
     }
 
+    if (isAbroadQ !== undefined) {
+      where.isAbroad = isAbroadQ;
+    }
+
+    if (originalCurrencyQ?.trim()) {
+      where.originalCurrency = originalCurrencyQ.trim().toUpperCase();
+    }
+
     if (startDate || endDate) {
       where.date = {};
       if (startDate) where.date.gte = new Date(startDate);
@@ -145,7 +201,9 @@ export class TransactionsService {
     ]);
 
     return {
-      data: transactions.map((tx) => withDefaultTransactionCategory(tx)),
+      data: transactions.map((tx) =>
+        this.enrichTransactionForApi(withDefaultTransactionCategory(tx)),
+      ),
       pagination: {
         page,
         limit,

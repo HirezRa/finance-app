@@ -29,6 +29,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { TransactionRow } from '@/components/TransactionRow';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Transaction {
   id: string;
@@ -60,6 +67,9 @@ interface Transaction {
   installmentTotal?: number | null;
   originalAmount?: string | number | null;
   originalCurrency?: string | null;
+  exchangeRate?: string | number | null;
+  isAbroad?: boolean;
+  foreignCurrencyDisplay?: string | null;
   effectiveDate?: string | null;
 }
 
@@ -85,6 +95,9 @@ export default function TransactionsPage() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [abroadScope, setAbroadScope] = useState<'all' | 'local' | 'abroad'>(
+    'all',
+  );
 
   const accountTypesFilter = useMemo(() => {
     const t: string[] = [];
@@ -94,7 +107,14 @@ export default function TransactionsPage() {
   }, [showBankTransactions, showCreditTransactions]);
 
   const { data, isPending } = useQuery({
-    queryKey: ['transactions', accountTypesFilter, page, search, selectedCategory],
+    queryKey: [
+      'transactions',
+      accountTypesFilter,
+      page,
+      search,
+      selectedCategory,
+      abroadScope,
+    ],
     enabled: accountTypesFilter.length > 0,
     queryFn: () =>
       transactionsApi
@@ -107,6 +127,11 @@ export default function TransactionsPage() {
               ? 'uncategorized'
               : selectedCategory || undefined,
           accountTypes: accountTypesFilter,
+          ...(abroadScope === 'abroad'
+            ? { isAbroad: true }
+            : abroadScope === 'local'
+              ? { isAbroad: false }
+              : {}),
         })
         .then((res) => res.data),
   });
@@ -388,17 +413,38 @@ export default function TransactionsPage() {
 
       <Card>
         <CardContent className="space-y-4 p-4">
-          <div className="relative max-w-md flex-1">
-            <Search className="absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="חיפוש עסקאות..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="pe-10"
-            />
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="relative max-w-md flex-1">
+              <Search className="absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="חיפוש עסקאות..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="pe-10"
+              />
+            </div>
+            <div className="flex min-w-[11rem] flex-col gap-1.5">
+              <span className="text-xs text-muted-foreground">מיקום עסקה</span>
+              <Select
+                value={abroadScope}
+                onValueChange={(v) => {
+                  setAbroadScope(v as 'all' | 'local' | 'abroad');
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger dir="rtl" className="w-full">
+                  <SelectValue placeholder="הכל" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">הכל</SelectItem>
+                  <SelectItem value="local">ארץ 🇮🇱</SelectItem>
+                  <SelectItem value="abroad">חו״ל 🌍</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="scrollbar-thin flex items-center gap-2 overflow-x-auto pb-2">

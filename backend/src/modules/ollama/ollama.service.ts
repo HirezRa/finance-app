@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LogsService } from '../logs/logs.service';
+import { buildAbroadPromptLine } from '../../common/utils/foreign-currency';
 
 export interface CategorySuggestion {
   transactionId: string;
@@ -237,6 +238,10 @@ export class OllamaService {
       amount: Prisma.Decimal;
       note: string | null;
       notes: string | null;
+      isAbroad?: boolean;
+      originalCurrency?: string | null;
+      originalAmount?: Prisma.Decimal | null;
+      exchangeRate?: Prisma.Decimal | null;
       category: {
         name: string;
         nameHe: string;
@@ -282,6 +287,13 @@ export class OllamaService {
       transaction.category?.name ||
       'לא מסווג';
 
+    const abroadLine = buildAbroadPromptLine({
+      isAbroad: transaction.isAbroad,
+      originalCurrency: transaction.originalCurrency,
+      originalAmount: transaction.originalAmount,
+      exchangeRate: transaction.exchangeRate,
+    });
+
     const rulesBlock = `CATEGORIZATION RULES:
 - Netflix, Spotify, Disney+, Apple TV = מנויים (subscriptions)
 - Supermarkets (שופרסל, רמי לוי, ויקטורי, מגה, יוחננוף, Carrefour) = סופר ומכולת (groceries)
@@ -298,7 +310,8 @@ export class OllamaService {
 - Electricity (חברת חשמל) = חשבון חשמל (electricity)
 - Water (מי X, תאגיד מים) = חשבון מים (water)
 - Municipality (עירייה, ארנונה) = ארנונה (arnona)
-- Pet stores, vets = חיות מחמד (pets)`;
+- Pet stores, vets = חיות מחמד (pets)
+- International / FX / travel / foreign online purchases: prefer travel, shopping, subscriptions, or closest match`;
 
     const prompt =
       mode === 'improve'
@@ -310,6 +323,7 @@ CURRENT TRANSACTION:
 - Note: "${transactionNote}"
 - Type: ${isExpense ? 'EXPENSE' : 'INCOME'}
 - CURRENT CATEGORY: "${currentCategoryHe}"
+- Context: ${abroadLine}
 
 AVAILABLE CATEGORIES (choose ONE, or use KEEP):
 ${categoriesList}
@@ -328,6 +342,7 @@ TRANSACTION TO CATEGORIZE:
 - Amount: ${transactionAmount} ILS
 - Note: "${transactionNote}"
 - Type: ${isExpense ? 'EXPENSE' : 'INCOME'}
+- Context: ${abroadLine}
 
 AVAILABLE CATEGORIES (choose ONE):
 ${categoriesList}
@@ -997,6 +1012,10 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
         amount: new Prisma.Decimal(amount),
         note: null,
         notes: null,
+        isAbroad: false,
+        originalCurrency: 'ILS',
+        originalAmount: null,
+        exchangeRate: null,
         category: null,
       },
       categories,

@@ -100,6 +100,9 @@ export const transactionsApi = {
     status?: 'all' | 'pending' | 'completed';
     type?: string;
     hasInstallments?: boolean;
+    /** סינון מיקום: חו"ל / ארץ (מטבע מקורי) */
+    isAbroad?: boolean;
+    originalCurrency?: string;
     /** שליחה ריקה (`[]`) שולחת `accountTypes=` לריקות מכוונת בשרת */
     accountTypes?: string[];
   }) => {
@@ -114,6 +117,9 @@ export const transactionsApi = {
     if (params?.status) p.status = params.status;
     if (params?.type) p.type = params.type;
     if (params?.hasInstallments) p.hasInstallments = true;
+    if (params?.isAbroad !== undefined) p.isAbroad = params.isAbroad;
+    if (params?.originalCurrency?.trim())
+      p.originalCurrency = params.originalCurrency.trim().toUpperCase();
     if (params?.accountTypes !== undefined) {
       p.accountTypes =
         params.accountTypes.length > 0 ? params.accountTypes.join(',') : '';
