@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { Amount } from '@/components/Amount';
 import { getAccountDisplayName } from '@/lib/accountDisplay';
 import { TransactionCategoryBadge } from '@/components/TransactionCategoryBadge';
+import { ForeignCurrencyBadge } from '@/components/ForeignCurrencyBadge';
 
 export interface TransactionRowTransaction {
   id: string;
@@ -53,6 +54,9 @@ export interface TransactionRowTransaction {
   };
   originalAmount?: string | number | null;
   originalCurrency?: string | null;
+  exchangeRate?: string | number | null;
+  isAbroad?: boolean;
+  foreignCurrencyDisplay?: string | null;
 }
 
 function getTransactionTypeLabel(type: string | undefined): {
@@ -216,6 +220,19 @@ export function TransactionRow({
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="max-w-md truncate font-medium">{transaction.description}</p>
+          {transaction.isAbroad &&
+          transaction.foreignCurrencyDisplay &&
+          transaction.originalCurrency ? (
+            <ForeignCurrencyBadge
+              originalCurrency={transaction.originalCurrency}
+              foreignCurrencyDisplay={transaction.foreignCurrencyDisplay}
+              exchangeRate={
+                transaction.exchangeRate != null
+                  ? Number(transaction.exchangeRate)
+                  : null
+              }
+            />
+          ) : null}
           {showTypeBadge ? (
             <span
               className={cn(
@@ -326,7 +343,10 @@ export function TransactionRow({
 
       <div className="w-24 shrink-0 text-start sm:w-28" dir="ltr">
         <Amount value={amount} size="lg" showSign={false} />
-        {orig != null && !Number.isNaN(orig) && origCur !== 'ILS' ? (
+        {!transaction.isAbroad &&
+        orig != null &&
+        !Number.isNaN(orig) &&
+        origCur !== 'ILS' ? (
           <p className="text-xs text-muted-foreground tabular-nums">
             {origCur} {orig.toFixed(2)}
           </p>

@@ -76,6 +76,58 @@ export class ScraperService {
       .replace(/[\u200f\u200e]/g, '');
   }
 
+  /** מטבע מקורי, סימון חו"ל ושער המרה משוער (חיוב בשקלים / סכום מקורי). */
+  private resolveForeignCurrencyFields(
+    txn: Record<string, unknown>,
+    chargedAmountIls: number,
+  ): {
+    originalAmount: Prisma.Decimal | null;
+    originalCurrency: string;
+    exchangeRate: Prisma.Decimal | null;
+    isAbroad: boolean;
+  } {
+    const currency =
+      String(txn.originalCurrency ?? 'ILS').trim().toUpperCase() || 'ILS';
+    const origRaw = txn.originalAmount;
+    const hasOrig =
+      origRaw !== undefined &&
+      origRaw !== null &&
+      Number.isFinite(Number(origRaw));
+    const originalAmount = hasOrig
+      ? new Prisma.Decimal(Number(origRaw))
+      : null;
+    const isAbroad = currency !== 'ILS';
+    let exchangeRate: Prisma.Decimal | null = null;
+    if (
+      isAbroad &&
+      originalAmount &&
+      !originalAmount.equals(0) &&
+      Number.isFinite(chargedAmountIls)
+    ) {
+      const denom = originalAmount.abs().toNumber();
+      if (denom > 0) {
+        const rate = Math.abs(chargedAmountIls) / denom;
+        if (Number.isFinite(rate) && rate > 0) {
+          exchangeRate = new Prisma.Decimal(rate);
+        }
+      }
+    }
+    if (!isAbroad) {
+      return {
+        originalAmount: null,
+        originalCurrency: 'ILS',
+        exchangeRate: null,
+        isAbroad: false,
+      };
+    }
+    return {
+      originalAmount,
+      originalCurrency: currency,
+      exchangeRate,
+      isAbroad: true,
+    };
+  }
+
   private generateTransactionHash(
     accountId: string,
     txn: Record<string, unknown>,
@@ -771,6 +823,15 @@ export class ScraperService {
               autoExcludeEnabled: autoExcludeCcCharges,
             });
             const txResolvedHash = this.resolveTransactionTypeAndInstallments(txn);
+            const fcHash = this.resolveForeignCurrencyFields(txn, amount);
+            if (fcHash.isAbroad) {
+              this.appLogs.add('DEBUG', 'sync', 'עסקת מחו"ל (השלמת pending לפי hash)', {
+                descriptionPreview: description.slice(0, 60),
+                originalAmount: fcHash.originalAmount?.toString(),
+                originalCurrency: fcHash.originalCurrency,
+                exchangeRate: fcHash.exchangeRate?.toString(),
+              });
+            }
 
             await this.prisma.transaction.update({
               where: { id: existingByHash.id },
@@ -786,6 +847,10 @@ export class ScraperService {
                 scraperIdentifier: identifier || null,
                 bankIdentifier: identifier || null,
                 rawData: txn as unknown as Prisma.InputJsonValue,
+                originalAmount: fcHash.originalAmount,
+                originalCurrency: fcHash.originalCurrency,
+                exchangeRate: fcHash.exchangeRate,
+                isAbroad: fcHash.isAbroad,
                 ...(ccEx.isExcludedFromCashFlow
                   ? { isExcludedFromCashFlow: true, note: ccEx.note }
                   : {}),
@@ -841,6 +906,15 @@ export class ScraperService {
               autoExcludeEnabled: autoExcludeCcCharges,
             });
             const txResolvedPending = this.resolveTransactionTypeAndInstallments(txn);
+            const fcPending = this.resolveForeignCurrencyFields(txn, amount);
+            if (fcPending.isAbroad) {
+              this.appLogs.add('DEBUG', 'sync', 'עסקת מחו"ל (התאמת pending)', {
+                descriptionPreview: description.slice(0, 60),
+                originalAmount: fcPending.originalAmount?.toString(),
+                originalCurrency: fcPending.originalCurrency,
+                exchangeRate: fcPending.exchangeRate?.toString(),
+              });
+            }
 
             await this.prisma.transaction.update({
               where: { id: pendingId },
@@ -863,6 +937,10 @@ export class ScraperService {
                   description,
                 ),
                 rawData: txn as unknown as Prisma.InputJsonValue,
+                originalAmount: fcPending.originalAmount,
+                originalCurrency: fcPending.originalCurrency,
+                exchangeRate: fcPending.exchangeRate,
+                isAbroad: fcPending.isAbroad,
                 ...(ccExPending.isExcludedFromCashFlow
                   ? { isExcludedFromCashFlow: true, note: ccExPending.note }
                   : {}),
@@ -911,8 +989,17 @@ export class ScraperService {
           installmentTotal,
         } = this.resolveTransactionTypeAndInstallments(txn);
 
-        const originalAmountRaw = txn.originalAmount;
         const processedDateRaw = txn.processedDate;
+        const fc = this.resolveForeignCurrencyFields(txn, amount);
+        if (fc.isAbroad) {
+          this.appLogs.add('DEBUG', 'sync', 'עסקת מחו"ל זוהתה', {
+            descriptionPreview: description.slice(0, 60),
+            originalAmount: fc.originalAmount?.toString(),
+            originalCurrency: fc.originalCurrency,
+            chargedAmountIls: amount,
+            exchangeRate: fc.exchangeRate?.toString(),
+          });
+        }
 
         const dateForRow = Number.isNaN(parsedDate.getTime()) ? new Date(rawDate) : parsedDate;
         const effectiveDate = await this.calculateEffectiveDate(
@@ -951,11 +1038,10 @@ export class ScraperService {
                 ? new Date(String(processedDateRaw))
                 : null,
             amount: amtDec,
-            originalAmount:
-              originalAmountRaw !== undefined && originalAmountRaw !== null
-                ? new Prisma.Decimal(Number(originalAmountRaw))
-                : null,
-            originalCurrency: String(txn.originalCurrency || 'ILS'),
+            originalAmount: fc.originalAmount,
+            originalCurrency: fc.originalCurrency,
+            exchangeRate: fc.exchangeRate,
+            isAbroad: fc.isAbroad,
             description,
             memo: memo || null,
             installmentNumber,

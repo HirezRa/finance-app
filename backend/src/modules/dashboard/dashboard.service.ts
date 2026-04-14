@@ -165,6 +165,17 @@ export class DashboardService {
       prefs.cycleStartDay,
     );
 
+    const abroadEmpty = {
+      totalSpentILS: 0,
+      transactionCount: 0,
+      byCurrency: [] as Array<{
+        currency: string;
+        totalILS: number;
+        totalOriginal: number;
+        count: number;
+      }>,
+    };
+
     if (userAccounts.length === 0) {
       return {
         month: month ?? calM,
@@ -179,6 +190,7 @@ export class DashboardService {
         monthlySavingsGoal: prefs.monthlySavingsGoal,
         budgetCycleStartDay: prefs.cycleStartDay,
         transactionCount: 0,
+        abroad: abroadEmpty,
       };
     }
 
@@ -242,6 +254,14 @@ export class DashboardService {
 
     const income = { total: 0, fixed: 0, variable: 0 };
     const expenses = { total: 0, fixed: 0, tracked: 0, variable: 0 };
+    const abroadAgg = {
+      totalSpentILS: 0,
+      transactionCount: 0,
+    };
+    const abroadByCurrency = new Map<
+      string,
+      { totalILS: number; totalOriginal: number; count: number }
+    >();
 
     for (const txn of transactions) {
       const amount = Number(txn.amount);
@@ -266,6 +286,23 @@ export class DashboardService {
         } else {
           expenses.variable += expenseAmount;
         }
+
+        if (txn.isAbroad) {
+          abroadAgg.totalSpentILS += expenseAmount;
+          abroadAgg.transactionCount += 1;
+          const cur = (txn.originalCurrency || '—').toUpperCase();
+          const bucket = abroadByCurrency.get(cur) ?? {
+            totalILS: 0,
+            totalOriginal: 0,
+            count: 0,
+          };
+          bucket.totalILS += expenseAmount;
+          if (txn.originalAmount != null) {
+            bucket.totalOriginal += Math.abs(Number(txn.originalAmount));
+          }
+          bucket.count += 1;
+          abroadByCurrency.set(cur, bucket);
+        }
       }
     }
 
@@ -287,6 +324,18 @@ export class DashboardService {
       monthlySavingsGoal: prefs.monthlySavingsGoal,
       budgetCycleStartDay: prefs.cycleStartDay,
       transactionCount: transactions.length,
+      abroad: {
+        totalSpentILS: abroadAgg.totalSpentILS,
+        transactionCount: abroadAgg.transactionCount,
+        byCurrency: Array.from(abroadByCurrency.entries()).map(
+          ([currency, v]) => ({
+            currency,
+            totalILS: v.totalILS,
+            totalOriginal: v.totalOriginal,
+            count: v.count,
+          }),
+        ),
+      },
     };
   }
 

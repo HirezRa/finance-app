@@ -9,6 +9,7 @@ import {
   IsBoolean,
   IsArray,
   IsEnum,
+  MaxLength,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { AccountType } from '@prisma/client';
@@ -67,6 +68,22 @@ export class GetTransactionsDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   hasInstallments?: boolean;
+
+  /** סינון עסקאות מחו"ל (מטבע מקורי ≠ ILS) */
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (value === true || value === 'true') return true;
+    if (value === false || value === 'false') return false;
+    return undefined;
+  })
+  @IsBoolean()
+  isAbroad?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  originalCurrency?: string;
 
   /** Comma-separated: BANK,CREDIT_CARD. Empty string = no account types (empty result). Omit = both. */
   @IsOptional()
