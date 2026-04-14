@@ -19,7 +19,7 @@ lxc_run() {
   local inner_timeout="$2"
   local guest_cmd="$3"
   ssh "${SSH_OPTS[@]}" "${PROXMOX}" \
-    "timeout ${outer_timeout} bash -c 'pct exec 115 -- timeout ${inner_timeout} bash -c \"${guest_cmd}\"'"
+    "timeout ${outer_timeout} bash -c 'pct exec 115 -- timeout ${inner_timeout} bash -lc \"${guest_cmd}\"'"
 }
 
 echo "=== Deploying to LXC 115 ==="
