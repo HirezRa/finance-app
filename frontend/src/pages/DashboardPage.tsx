@@ -30,6 +30,7 @@ import {
   RefreshCw,
   PiggyBank,
   Calendar,
+  Globe,
 } from 'lucide-react';
 import {
   BarChart,
@@ -77,6 +78,16 @@ interface CashFlowSummary {
   monthlySavingsGoal?: number;
   budgetCycleStartDay?: number;
   transactionCount: number;
+  abroad?: {
+    totalSpentILS: number;
+    transactionCount: number;
+    byCurrency: Array<{
+      currency: string;
+      totalILS: number;
+      totalOriginal: number;
+      count: number;
+    }>;
+  };
 }
 
 interface WeeklyRow {
@@ -466,6 +477,55 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {!summaryLoading && summary?.abroad && summary.abroad.transactionCount > 0 ? (
+        <Card className="border-sky-500/30 bg-sky-500/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Globe className="h-5 w-5 text-sky-600 dark:text-sky-400" aria-hidden />
+              הוצאות מחו״ל במחזור
+            </CardTitle>
+            <CardDescription>
+              סה״כ בשקלים לפי חיוב בכרטיס; פירוט לפי מטבע מקורי מהבנק
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-sm text-muted-foreground">סה״כ הוצאות חו״ל</span>
+              <Amount
+                value={-Number(summary.abroad.totalSpentILS)}
+                size="xl"
+                className="font-semibold"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {summary.abroad.transactionCount} עסקאות · לפי מטבע מקורי:
+            </p>
+            <ul className="flex flex-wrap gap-2 text-sm">
+              {summary.abroad.byCurrency.map((row) => (
+                <li
+                  key={row.currency}
+                  className="rounded-md border border-border bg-background/80 px-2 py-1 tabular-nums"
+                >
+                  <span className="font-medium">{row.currency}</span>
+                  {row.totalOriginal > 0 ? (
+                    <span className="text-muted-foreground">
+                      {' '}
+                      · {row.totalOriginal.toFixed(2)} →{' '}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground"> · </span>
+                  )}
+                  <span dir="ltr" className="inline-block">
+                    <Amount value={-row.totalILS} size="sm" showSign={false} />
+                  </span>
+                  <span className="text-muted-foreground"> ({row.count})</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {hasSavingsGoal && !summaryLoading ? (
         <div className="grid gap-4 sm:grid-cols-2">
