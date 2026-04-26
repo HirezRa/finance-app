@@ -50,7 +50,7 @@ export function ForeignCurrencyBadge({
     <span
       title={tip}
       className={cn(
-        'inline-flex max-w-full items-center gap-1 rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-800 dark:text-sky-300',
+        'inline-flex max-w-full items-center gap-1.5 rounded-full border border-sky-400/35 bg-sky-500/15 px-3 py-1 text-xs font-medium text-sky-900 shadow-sm backdrop-blur-sm dark:border-sky-400/30 dark:bg-sky-500/20 dark:text-sky-200',
         className,
       )}
     >
