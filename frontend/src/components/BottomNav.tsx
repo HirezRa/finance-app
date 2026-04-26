@@ -20,7 +20,7 @@ export function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="safe-area-inset-bottom fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card md:hidden">
+    <nav className="safe-area-inset-bottom fixed bottom-0 start-0 end-0 z-50 border-t border-white/15 bg-white/55 shadow-[0_-8px_32px_rgba(15,23,42,0.1)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.08] dark:shadow-[0_-8px_32px_rgba(0,0,0,0.35)] md:hidden">
       <div className="flex h-16 items-center justify-around">
         {navItems.map((item) => {
           const isActive =

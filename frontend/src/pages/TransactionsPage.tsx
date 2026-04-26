@@ -527,7 +527,7 @@ export default function TransactionsPage() {
               ))}
             </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border bg-card">
+            <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/50 shadow-[0_8px_32px_rgba(15,23,42,0.1)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06] dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
               <div className="hidden items-center gap-4 border-b bg-muted/30 p-4 text-sm font-medium text-muted-foreground md:flex">
                 <div className="w-24 shrink-0">סכום</div>
                 <div className="flex-1">פרטים</div>

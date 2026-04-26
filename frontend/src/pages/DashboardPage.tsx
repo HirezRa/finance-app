@@ -322,33 +322,43 @@ export default function DashboardPage() {
       </div>
 
       {!summaryLoading && summary ? (
-        <div className="finance-card-elevated bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
-          <div className="space-y-1">
-            <p className="text-sm text-primary-foreground/80">יתרה זמינה</p>
-            <Amount
-              value={spendable}
-              size="hero"
-              showSign={false}
-              className="text-primary-foreground"
-            />
-          </div>
-          <div className="mt-6 grid grid-cols-2 gap-4 border-t border-primary-foreground/20 pt-4">
-            <div>
-              <p className="text-xs text-primary-foreground/70">הכנסות החודש</p>
+        <div className="finance-card-elevated relative overflow-hidden border border-white/25 bg-gradient-to-br from-indigo-600/90 via-primary/85 to-indigo-800/90 text-primary-foreground shadow-[0_12px_48px_rgba(79,70,229,0.35)] backdrop-blur-md">
+          <div
+            className="pointer-events-none absolute -end-16 -top-20 h-48 w-48 rounded-full bg-white/20 blur-3xl"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute -bottom-24 -start-12 h-40 w-40 rounded-full bg-indigo-400/25 blur-3xl"
+            aria-hidden
+          />
+          <div className="relative">
+            <div className="space-y-1">
+              <p className="text-sm text-primary-foreground/80">יתרה זמינה</p>
               <Amount
-                value={Number(summary.income?.total ?? 0)}
-                size="lg"
+                value={spendable}
+                size="hero"
                 showSign={false}
                 className="text-primary-foreground"
               />
             </div>
-            <div>
-              <p className="text-xs text-primary-foreground/70">הוצאות החודש</p>
-              <Amount
-                value={-Number(summary.expenses?.total ?? 0)}
-                size="lg"
-                className="text-primary-foreground"
-              />
+            <div className="mt-6 grid grid-cols-2 gap-4 border-t border-primary-foreground/20 pt-4">
+              <div>
+                <p className="text-xs text-primary-foreground/70">הכנסות החודש</p>
+                <Amount
+                  value={Number(summary.income?.total ?? 0)}
+                  size="lg"
+                  showSign={false}
+                  className="text-primary-foreground"
+                />
+              </div>
+              <div>
+                <p className="text-xs text-primary-foreground/70">הוצאות החודש</p>
+                <Amount
+                  value={-Number(summary.expenses?.total ?? 0)}
+                  size="lg"
+                  className="text-primary-foreground"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -686,6 +696,16 @@ export default function DashboardPage() {
                   layout="vertical"
                   margin={{ top: 8, right: 16, left: 8, bottom: 8 }}
                 >
+                  <defs>
+                    <linearGradient id="dashWeeklyExpense" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#fb7185" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#ef4444" stopOpacity={0.55} />
+                    </linearGradient>
+                    <linearGradient id="dashWeeklyNeutral" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#cbd5e1" stopOpacity={0.7} />
+                      <stop offset="100%" stopColor="#94a3b8" stopOpacity={0.45} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal />
                   <XAxis
                     type="number"
@@ -701,9 +721,12 @@ export default function DashboardPage() {
                   />
                   <Tooltip
                     contentStyle={{
-                      background: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
+                      backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                      backdropFilter: 'blur(12px)',
+                      WebkitBackdropFilter: 'blur(12px)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: '12px',
+                      color: 'rgba(255,255,255,0.95)',
                     }}
                     formatter={(value) =>
                       typeof value === 'number'
@@ -721,7 +744,9 @@ export default function DashboardPage() {
                     {weekly.map((entry) => (
                       <Cell
                         key={entry.week}
-                        fill={entry.total > 0 ? '#ef4444' : '#d1d5db'}
+                        fill={
+                          entry.total > 0 ? 'url(#dashWeeklyExpense)' : 'url(#dashWeeklyNeutral)'
+                        }
                       />
                     ))}
                   </Bar>
@@ -772,9 +797,12 @@ export default function DashboardPage() {
                           typeof value === 'number' ? formatCurrency(value) : String(value ?? '')
                         }
                         contentStyle={{
-                          background: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
+                          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                          backdropFilter: 'blur(12px)',
+                          WebkitBackdropFilter: 'blur(12px)',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          borderRadius: '12px',
+                          color: 'rgba(255,255,255,0.95)',
                         }}
                       />
                     </PieChart>

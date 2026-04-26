@@ -1,4 +1,10 @@
 :root {
+  /* Glass / fintech accents (shared) */
+  --glass-blur: 16px;
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  --glass-shadow-dark: 0 8px 32px rgba(0, 0, 0, 0.38);
+  --accent-abroad: 217 91% 60%;
+
   /* === LIGHT MODE === */
 
   /* Backgrounds */
@@ -66,7 +72,7 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.12), 0 4px 6px -4px rgb(0 0 0 / 0.08);
 
   /* Spacing Scale (8px grid) */
   --space-1: 0.25rem;
@@ -93,11 +99,12 @@
 
 /* === DARK MODE === */
 .dark {
+  /* Slightly lifted surfaces for glass stacks on gradient */
   --background: 222 47% 7%;
   --background-secondary: 223 47% 10%;
   --background-tertiary: 223 39% 14%;
 
-  --card: 223 47% 10%;
+  --card: 223 47% 12%;
   --card-foreground: 210 40% 96%;
   --popover: 223 47% 10%;
   --popover-foreground: 210 40% 96%;
@@ -143,7 +150,7 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.45), 0 4px 6px -4px rgb(0 0 0 / 0.35);
 }
 
 /* === FONT SIZE SCALING === */
