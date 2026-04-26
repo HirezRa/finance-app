@@ -79,7 +79,17 @@ export function MonthlyComparisonChart({ data, isLoading }: MonthlyComparisonCha
             data={chartData}
             margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <defs>
+              <linearGradient id="mcIncome" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#34d399" stopOpacity={0.95} />
+                <stop offset="100%" stopColor="#10b981" stopOpacity={0.35} />
+              </linearGradient>
+              <linearGradient id="mcExpense" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#fb7185" stopOpacity={0.95} />
+                <stop offset="100%" stopColor="#ef4444" stopOpacity={0.35} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
             <XAxis
               dataKey="name"
               tick={{ fill: 'hsl(var(--muted-foreground))' }}
@@ -92,15 +102,18 @@ export function MonthlyComparisonChart({ data, isLoading }: MonthlyComparisonCha
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '8px',
+                backgroundColor: 'rgba(15, 23, 42, 0.82)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: '12px',
+                color: 'rgba(255,255,255,0.95)',
               }}
               formatter={(value: number) => formatCurrency(value)}
             />
             <Legend />
-            <Bar dataKey="הכנסות" fill="#22c55e" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="הוצאות" fill="#ef4444" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="הכנסות" fill="url(#mcIncome)" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="הוצאות" fill="url(#mcExpense)" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
