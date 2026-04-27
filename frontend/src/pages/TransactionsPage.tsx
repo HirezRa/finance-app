@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { transactionsApi, categoriesApi } from '@/services/api';
 import { AICategorizeButton } from '@/components/AICategorizeButton';
 import { CategorizationModal } from '@/components/categorization/CategorizationModal';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -265,86 +266,85 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">עסקאות</h1>
-          <p className="text-muted-foreground">
-            {accountTypesFilter.length === 0
-              ? 'בחר סוג חשבון'
-              : `${pagination.total} עסקאות`}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="show-bank"
-                  checked={showBankTransactions}
-                  onCheckedChange={(checked) => {
-                    setShowBankTransactions(checked === true);
-                    setPage(1);
-                  }}
-                />
-                <Label htmlFor="show-bank" className="cursor-pointer text-sm font-normal">
-                  🏦 בנק
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="show-credit"
-                  checked={showCreditTransactions}
-                  onCheckedChange={(checked) => {
-                    setShowCreditTransactions(checked === true);
-                    setPage(1);
-                  }}
-                />
-                <Label htmlFor="show-credit" className="cursor-pointer text-sm font-normal">
-                  💳 אשראי
-                </Label>
-              </div>
-            </div>
+      <PageHeader
+        title="עסקאות"
+        subtitle={
+          accountTypesFilter.length === 0 ? 'בחר סוג חשבון' : `${pagination.total} עסקאות`
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSmartCategorizationOpen(true)}
+            >
+              <Zap className="ms-2 h-4 w-4" />
+              סיווג חכם
+            </Button>
+            <AICategorizeButton mode="uncategorized" />
+            <AICategorizeButton mode="improve" />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleExport()}
+              disabled={exporting}
+            >
+              {exporting ? (
+                <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="ms-2 h-4 w-4" />
+              )}
+              ייצוא לאקסל
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => recategorizeMutation.mutate()}
+              disabled={recategorizeMutation.isPending}
+            >
+              {recategorizeMutation.isPending ? (
+                <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Tag className="ms-2 h-4 w-4" />
+              )}
+              סווג מחדש
+            </Button>
+            <Button type="button" onClick={() => setShowManual(true)}>
+              <Plus className="ms-2 h-4 w-4" />
+              עסקה ידנית
+            </Button>
+          </>
+        }
+      />
+
+      <div className="sticky top-[73px] z-10 -mx-4 border-b border-white/5 bg-slate-900/95 px-4 py-3 backdrop-blur-lg md:-mx-6 md:px-6">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="show-bank"
+              checked={showBankTransactions}
+              onCheckedChange={(checked) => {
+                setShowBankTransactions(checked === true);
+                setPage(1);
+              }}
+            />
+            <Label htmlFor="show-bank" className="cursor-pointer text-sm font-normal text-white/80">
+              🏦 בנק
+            </Label>
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setSmartCategorizationOpen(true)}
-          >
-            <Zap className="ms-2 h-4 w-4" />
-            סיווג חכם
-          </Button>
-          <AICategorizeButton mode="uncategorized" />
-          <AICategorizeButton mode="improve" />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void handleExport()}
-            disabled={exporting}
-          >
-            {exporting ? (
-              <Loader2 className="ms-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="ms-2 h-4 w-4" />
-            )}
-            ייצוא לאקסל
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => recategorizeMutation.mutate()}
-            disabled={recategorizeMutation.isPending}
-          >
-            {recategorizeMutation.isPending ? (
-              <Loader2 className="ms-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Tag className="ms-2 h-4 w-4" />
-            )}
-            סווג מחדש
-          </Button>
-          <Button type="button" onClick={() => setShowManual(true)}>
-            <Plus className="ms-2 h-4 w-4" />
-            עסקה ידנית
-          </Button>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="show-credit"
+              checked={showCreditTransactions}
+              onCheckedChange={(checked) => {
+                setShowCreditTransactions(checked === true);
+                setPage(1);
+              }}
+            />
+            <Label htmlFor="show-credit" className="cursor-pointer text-sm font-normal text-white/80">
+              💳 אשראי
+            </Label>
+          </div>
         </div>
       </div>
 

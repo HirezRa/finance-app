@@ -29,7 +29,6 @@ import {
   AlertTriangle,
   RefreshCw,
   PiggyBank,
-  Calendar,
   Globe,
 } from 'lucide-react';
 import {
@@ -44,6 +43,7 @@ import {
   PieChart,
   Pie,
 } from 'recharts';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const MONTH_NAMES_HE = [
   'ינואר',
@@ -287,39 +287,29 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold">לוח בקרה</h1>
-          <p className="flex flex-wrap items-center gap-2 text-muted-foreground">
-            <span>{nonCalendarCycle ? 'מחזור תקציב:' : 'סיכום חודשי:'}</span>
-            {nonCalendarCycle ? (
-              <span className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-xs text-foreground">
-                <Calendar className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="leading-snug">{periodTitle}</span>
-              </span>
-            ) : (
-              <span className="font-medium text-foreground">{periodTitle}</span>
-            )}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {!isCurrentMonth ? (
-            <Button type="button" variant="outline" size="sm" onClick={goToCurrentMonth}>
-              <RefreshCw className="ms-2 h-4 w-4" />
-              {nonCalendarCycle ? 'מחזור נוכחי' : 'חודש נוכחי'}
+      <PageHeader
+        title="לוח בקרה"
+        subtitle={`${nonCalendarCycle ? 'מחזור תקציב' : 'סיכום חודשי'}: ${periodTitle}`}
+        actions={
+          <>
+            {!isCurrentMonth ? (
+              <Button type="button" variant="outline" size="sm" onClick={goToCurrentMonth}>
+                <RefreshCw className="ms-2 h-4 w-4" />
+                {nonCalendarCycle ? 'מחזור נוכחי' : 'חודש נוכחי'}
+              </Button>
+            ) : null}
+            <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(-1)}>
+              <ChevronRight className="h-5 w-5" />
             </Button>
-          ) : null}
-          <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(-1)}>
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-          <span className="min-w-[10rem] max-w-[20rem] text-center text-sm font-medium leading-snug sm:text-base">
-            {periodTitle}
-          </span>
-          <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(1)}>
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
+            <span className="min-w-[10rem] max-w-[20rem] text-center text-sm font-medium leading-snug text-white sm:text-base">
+              {periodTitle}
+            </span>
+            <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(1)}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+          </>
+        }
+      />
 
       {!summaryLoading && summary ? (
         <div className="finance-card-elevated relative overflow-hidden border border-white/25 bg-gradient-to-br from-indigo-600/90 via-primary/85 to-indigo-800/90 text-primary-foreground shadow-[0_12px_48px_rgba(79,70,229,0.35)] backdrop-blur-md">

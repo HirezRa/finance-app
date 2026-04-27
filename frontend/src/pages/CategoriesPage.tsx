@@ -21,6 +21,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 interface Category {
   id: string;
@@ -377,18 +378,16 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">קטגוריות</h1>
-          <p className="text-muted-foreground">
-            {incomeCategories.length} הכנסות • {expenseCategories.length} הוצאות
-          </p>
-        </div>
-        <Button type="button" onClick={() => setShowAddModal(true)}>
-          <Plus className="ms-2 h-4 w-4" />
-          קטגוריה חדשה
-        </Button>
-      </div>
+      <PageHeader
+        title="קטגוריות"
+        subtitle={`${incomeCategories.length} הכנסות • ${expenseCategories.length} הוצאות`}
+        actions={
+          <Button type="button" onClick={() => setShowAddModal(true)}>
+            <Plus className="ms-2 h-4 w-4" />
+            קטגוריה חדשה
+          </Button>
+        }
+      />
 
       <div className="flex gap-2">
         <Button
