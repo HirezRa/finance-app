@@ -1,0 +1,19 @@
+[Unit]
+Description=Finance App Safe Updater
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/finance-app/scripts/safe-update.sh
+WorkingDirectory=/opt/finance-app
+User=root
+Group=root
+StandardOutput=append:/opt/finance-app/logs/update.log
+StandardError=append:/opt/finance-app/logs/update.log
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=HOME=/root
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

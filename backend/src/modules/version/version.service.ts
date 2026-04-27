@@ -1,12 +1,11 @@
-import {
-  ForbiddenException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { execFile, spawn } from 'child_process';
-import { promisify } from 'util';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  unlinkSync,
+} from 'fs';
 import { join } from 'path';
 import { SettingsService } from '../settings/settings.service';
 import { LogsService } from '../logs/logs.service';
@@ -36,6 +35,40 @@ export interface GithubReleaseResponse {
   code?: GithubReleaseErrorCode;
 }
 
+export interface UpdateStatusStep {
+  name: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  message?: string;
+}
+
+export interface UpdateStatus {
+  status:
+    | 'idle'
+    | 'pending'
+    | 'in-progress'
+    | 'completed'
+    | 'failed'
+    | 'rolled-back';
+  message: string;
+  currentVersion: string;
+  targetVersion?: string;
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+  progress?: number;
+  steps?: UpdateStatusStep[];
+  updatedAt?: string;
+}
+
+export interface UpdateHistoryEntry {
+  version: string;
+  previousVersion: string;
+  timestamp: string;
+  status: 'success' | 'failed' | 'rolled-back';
+  duration: number;
+  error?: string;
+}
+
 export interface SelfUpdateStatusDto {
   inProgress: boolean;
   stage?: string;
@@ -48,40 +81,45 @@ export interface SelfUpdateStatusDto {
 export interface PerformSelfUpdateResult {
   success: boolean;
   messageHe: string;
-  /** הוראות עדכון ידני כשהאוטומטי נכשל או לא זמין */
   instructionsHe?: string;
 }
-
-const execFileAsync = promisify(execFile);
 
 @Injectable()
 export class VersionService {
   private readonly logger = new Logger(VersionService.name);
-
-  private readonly updateStatusPath =
-    process.env.UPDATE_STATUS_FILE ?? '/tmp/finance-app-update-status.json';
-  private readonly updateLockPath =
-    process.env.UPDATE_LOCK_FILE ?? '/tmp/finance-app-update.lock';
-
-  private readonly manualUpdateInstructionsHe = `להתקנה ידנית על שרת Proxmox / LXC (מההוסט, לא מתוך הקונטיינר):
-
-pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && docker compose build --no-cache backend frontend && docker compose up -d'
-
-או מתוך CT אחרי pct enter: cd /opt/finance-app && git pull origin main && docker compose build --no-cache backend frontend && docker compose up -d`;
+  private readonly appDir: string;
+  private readonly triggerFile: string;
+  private readonly statusFile: string;
+  private readonly historyFile: string;
 
   constructor(
     private readonly config: ConfigService,
     private readonly settingsService: SettingsService,
     private readonly appLogs: LogsService,
-  ) {}
+  ) {
+    this.appDir = this.config.get<string>('APP_DIR', '/opt/finance-app').trim();
+    this.triggerFile = join(this.appDir, '.update-requested');
+    this.statusFile = join(this.appDir, '.update-status.json');
+    this.historyFile = join(this.appDir, '.update-history.json');
+  }
+
+  async getCurrentVersion(): Promise<{ version: string; buildDate?: string }> {
+    try {
+      const version = this.readVersionFromAppDir(this.appDir);
+      return { version };
+    } catch {
+      return { version: '0.0.0' };
+    }
+  }
 
   async getLatestGithubRelease(userId: string): Promise<GithubReleaseResponse> {
     const repo = this.config
       .get<string>('GITHUB_REPO', 'HirezRa/finance-app')
       .trim();
-    const stored = await this.settingsService.getDecryptedGithubReleaseToken(
-      userId,
-    );
+    const stored =
+      userId === 'system'
+        ? null
+        : await this.settingsService.getDecryptedGithubReleaseToken(userId);
     const token = (
       stored ??
       (this.config.get<string>('GITHUB_TOKEN') ?? '')
@@ -111,7 +149,7 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
       const durationMs = Date.now() - apiStart;
 
       if (res.status === 404) {
-        this.appLogs.add('DEBUG', 'system', 'בדיקת GitHub release — אין release (404)', {
+        this.appLogs.add('DEBUG', 'version', 'בדיקת GitHub release — אין release (404)', {
           repo,
           durationMs,
         });
@@ -124,7 +162,7 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
       }
 
       if (res.status === 401) {
-        this.appLogs.add('WARN', 'system', 'בדיקת GitHub release נכשלה (401)', {
+        this.appLogs.add('WARN', 'version', 'בדיקת GitHub release נכשלה (401)', {
           repo,
           hadToken: Boolean(token),
         });
@@ -141,7 +179,7 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
       if (res.status === 403) {
         const remaining = res.headers.get('x-ratelimit-remaining');
         if (remaining === '0') {
-          this.appLogs.add('WARN', 'system', 'בדיקת GitHub release — rate limit', {
+          this.appLogs.add('WARN', 'version', 'בדיקת GitHub release — rate limit', {
             repo,
           });
           return {
@@ -152,7 +190,7 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
             code: 'rate_limit',
           };
         }
-        this.appLogs.add('WARN', 'system', 'בדיקת GitHub release נחסמה (403)', {
+        this.appLogs.add('WARN', 'version', 'בדיקת GitHub release נחסמה (403)', {
           repo,
         });
         return {
@@ -166,7 +204,7 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         this.logger.warn(`GitHub API ${res.status}: ${text.slice(0, 200)}`);
-        this.appLogs.add('WARN', 'system', `בדיקת GitHub release — קוד ${res.status}`, {
+        this.appLogs.add('WARN', 'version', `בדיקת GitHub release — קוד ${res.status}`, {
           repo,
           snippet: text.slice(0, 300),
         });
@@ -179,8 +217,7 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
       }
 
       const raw = (await res.json()) as Record<string, unknown>;
-      const tag_name =
-        typeof raw.tag_name === 'string' ? raw.tag_name : null;
+      const tag_name = typeof raw.tag_name === 'string' ? raw.tag_name : null;
       if (!tag_name) {
         return {
           success: false,
@@ -193,13 +230,12 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
       const release: GithubReleaseDto = {
         tag_name,
         name: typeof raw.name === 'string' ? raw.name : tag_name,
-        published_at:
-          typeof raw.published_at === 'string' ? raw.published_at : '',
+        published_at: typeof raw.published_at === 'string' ? raw.published_at : '',
         html_url: typeof raw.html_url === 'string' ? raw.html_url : '',
         body: typeof raw.body === 'string' ? raw.body : '',
       };
 
-      this.appLogs.add('DEBUG', 'system', 'בדיקת GitHub release הצליחה', {
+      this.appLogs.add('DEBUG', 'version', 'בדיקת GitHub release הצליחה', {
         repo,
         tag: tag_name,
         durationMs,
@@ -210,7 +246,7 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
       clearTimeout(timer);
       const name = err instanceof Error ? err.name : '';
       if (name === 'AbortError') {
-        this.appLogs.add('WARN', 'system', 'בדיקת GitHub release — timeout', { repo });
+        this.appLogs.add('WARN', 'version', 'בדיקת GitHub release — timeout', { repo });
         return {
           success: false,
           release: null,
@@ -219,7 +255,7 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
         };
       }
       this.logger.error('GitHub release fetch failed', err);
-      this.appLogs.add('ERROR', 'system', 'שגיאת רשת בבדיקת GitHub release', {
+      this.appLogs.add('ERROR', 'version', 'שגיאת רשת בבדיקת GitHub release', {
         repo,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -232,6 +268,171 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
     }
   }
 
+  async checkForUpdate(): Promise<{
+    currentVersion: string;
+    latestVersion: string;
+    updateAvailable: boolean;
+    releaseNotes?: string;
+    releaseUrl?: string;
+  }> {
+    const { version: currentVersion } = await this.getCurrentVersion();
+    const releaseResp = await this.getLatestGithubRelease('system');
+    if (!releaseResp.success || !releaseResp.release) {
+      return {
+        currentVersion,
+        latestVersion: currentVersion,
+        updateAvailable: false,
+      };
+    }
+    const latestVersion = releaseResp.release.tag_name.replace(/^v/i, '');
+    const updateAvailable = this.compareVersions(latestVersion, currentVersion) > 0;
+    this.appLogs.add('INFO', 'version', 'בדיקת עדכון בוצעה', {
+      currentVersion,
+      latestVersion,
+      updateAvailable,
+    });
+    return {
+      currentVersion,
+      latestVersion,
+      updateAvailable,
+      releaseNotes: releaseResp.release.body,
+      releaseUrl: releaseResp.release.html_url,
+    };
+  }
+
+  async triggerUpdate(): Promise<{ triggered: boolean; message: string }> {
+    try {
+      const status = await this.getUpdateStatus();
+      if (status.status === 'in-progress' || status.status === 'pending') {
+        return { triggered: false, message: 'עדכון כבר בתהליך' };
+      }
+      const check = await this.checkForUpdate();
+      if (!check.updateAvailable) {
+        return { triggered: false, message: 'אין עדכון זמין' };
+      }
+
+      writeFileSync(
+        this.triggerFile,
+        JSON.stringify(
+          {
+            requestedAt: new Date().toISOString(),
+            targetVersion: check.latestVersion,
+            requestedBy: 'user',
+          },
+          null,
+          2,
+        ),
+        'utf-8',
+      );
+
+      await this.writeStatus({
+        status: 'pending',
+        message: 'העדכון ממתין להפעלה',
+        currentVersion: check.currentVersion,
+        targetVersion: check.latestVersion,
+        startedAt: new Date().toISOString(),
+        progress: 1,
+      });
+
+      this.appLogs.add('INFO', 'version', 'עדכון הופעל', {
+        targetVersion: check.latestVersion,
+      });
+
+      return {
+        triggered: true,
+        message: `עדכון לגרסה ${check.latestVersion} הופעל`,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.appLogs.add('ERROR', 'version', 'שגיאה בהפעלת עדכון', { error: msg });
+      return { triggered: false, message: `שגיאה: ${msg}` };
+    }
+  }
+
+  async getUpdateStatus(): Promise<UpdateStatus> {
+    try {
+      if (!existsSync(this.statusFile)) {
+        return {
+          status: 'idle',
+          message: 'לא מתבצע עדכון',
+          currentVersion: this.readVersionFromAppDir(this.appDir),
+        };
+      }
+      const content = readFileSync(this.statusFile, 'utf-8');
+      return JSON.parse(content) as UpdateStatus;
+    } catch {
+      return {
+        status: 'idle',
+        message: 'לא מתבצע עדכון',
+        currentVersion: this.readVersionFromAppDir(this.appDir),
+      };
+    }
+  }
+
+  async cancelUpdate(): Promise<{ cancelled: boolean; message: string }> {
+    try {
+      const status = await this.getUpdateStatus();
+      if (status.status !== 'pending') {
+        return {
+          cancelled: false,
+          message: 'לא ניתן לבטל עדכון שכבר התחיל',
+        };
+      }
+      if (existsSync(this.triggerFile)) {
+        unlinkSync(this.triggerFile);
+      }
+      await this.writeStatus({
+        status: 'idle',
+        message: 'העדכון בוטל',
+        currentVersion: status.currentVersion,
+      });
+      this.appLogs.add('INFO', 'version', 'עדכון בוטל');
+      return { cancelled: true, message: 'העדכון בוטל' };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { cancelled: false, message: `שגיאה: ${msg}` };
+    }
+  }
+
+  async getUpdateHistory(): Promise<UpdateHistoryEntry[]> {
+    try {
+      if (!existsSync(this.historyFile)) {
+        return [];
+      }
+      const content = readFileSync(this.historyFile, 'utf-8').trim();
+      if (!content) return [];
+
+      try {
+        const parsed = JSON.parse(content) as UpdateHistoryEntry[];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        const rows = content
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean);
+        return rows
+          .map((line) => {
+            try {
+              return JSON.parse(line) as UpdateHistoryEntry;
+            } catch {
+              return null;
+            }
+          })
+          .filter((x): x is UpdateHistoryEntry => Boolean(x));
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  private async writeStatus(status: UpdateStatus): Promise<void> {
+    const next: UpdateStatus = {
+      ...status,
+      updatedAt: new Date().toISOString(),
+    };
+    writeFileSync(this.statusFile, JSON.stringify(next, null, 2), 'utf-8');
+  }
+
   private readVersionFromAppDir(appDir: string): string {
     try {
       return readFileSync(join(appDir, 'VERSION'), 'utf-8').trim();
@@ -240,209 +441,46 @@ pct exec <CTID> -- bash -lc 'cd /opt/finance-app && git pull origin main && dock
     }
   }
 
-  private async probeGitFetch(appDir: string): Promise<
-    { ok: true; durationMs: number } | { ok: false; detail: string; durationMs: number }
-  > {
-    const t0 = Date.now();
-    try {
-      await execFileAsync('git', ['-C', appDir, 'fetch', 'origin'], {
-        timeout: 35_000,
-        maxBuffer: 512 * 1024,
-      });
-      const durationMs = Date.now() - t0;
-      this.appLogs.add('INFO', 'system', 'שלב 1/4: git fetch (בדיקה לפני self-update) הצליח', {
-        appDir,
-        durationMs,
-      });
-      return { ok: true, durationMs };
-    } catch (e: unknown) {
-      const durationMs = Date.now() - t0;
-      const ex = e as { stderr?: Buffer | string; message?: string };
-      const stderr =
-        typeof ex.stderr === 'string'
-          ? ex.stderr
-          : Buffer.isBuffer(ex.stderr)
-            ? ex.stderr.toString('utf-8')
-            : '';
-      const detail = String(stderr || ex.message || e).trim().slice(0, 2500);
-      this.appLogs.add('ERROR', 'system', 'git fetch נכשל לפני הפעלת self-update', {
-        appDir,
-        durationMs,
-        detail: detail || '(אין פלט)',
-      });
-      return { ok: false, detail, durationMs };
+  private compareVersions(a: string, b: string): number {
+    const partsA = a.replace(/^v/i, '').split('.').map((n) => Number(n || 0));
+    const partsB = b.replace(/^v/i, '').split('.').map((n) => Number(n || 0));
+    const len = Math.max(partsA.length, partsB.length);
+    for (let i = 0; i < len; i++) {
+      const pa = partsA[i] || 0;
+      const pb = partsB[i] || 0;
+      if (pa > pb) return 1;
+      if (pa < pb) return -1;
     }
+    return 0;
   }
 
-  private writeLocalUpdateStatus(payload: SelfUpdateStatusDto): void {
-    try {
-      writeFileSync(
-        this.updateStatusPath,
-        JSON.stringify({
-          ...payload,
-          updatedAt: new Date().toISOString(),
-        }),
-        'utf-8',
-      );
-    } catch (e) {
-      this.logger.warn('Failed to write update status file', e);
-    }
-  }
-
+  // Backward compatibility with existing frontend
   getSelfUpdateStatus(): SelfUpdateStatusDto {
+    const empty: SelfUpdateStatusDto = { inProgress: false };
     try {
-      if (existsSync(this.updateStatusPath)) {
-        const raw = readFileSync(this.updateStatusPath, 'utf-8');
-        const status = JSON.parse(raw) as SelfUpdateStatusDto & {
-          updatedAt?: string;
-        };
-        if (status.inProgress && status.updatedAt) {
-          const ageMin =
-            (Date.now() - new Date(status.updatedAt).getTime()) / 60_000;
-          if (ageMin > 45) {
-            return {
-              inProgress: false,
-              stage: 'stale',
-              message:
-                'סטטוס העדכון לא התעדכן זמן רב — ייתכן שהתהליך נתקע. בדוק ידנית את השרת.',
-              progress: 0,
-            };
-          }
-        }
-        return status;
-      }
-    } catch (e) {
-      this.logger.warn('Failed to read update status', e);
+      if (!existsSync(this.statusFile)) return empty;
+      const status = JSON.parse(readFileSync(this.statusFile, 'utf-8')) as UpdateStatus;
+      return {
+        inProgress: status.status === 'in-progress' || status.status === 'pending',
+        stage: status.status,
+        message: status.message,
+        progress: status.progress,
+        error: status.error,
+        updatedAt: status.updatedAt,
+      };
+    } catch {
+      return empty;
     }
-    return { inProgress: false };
   }
 
-  /**
-   * מתחיל scripts/self-update.sh ברקע (בדרך כלל מתוך קונטיינר backend עם APP_DIR + docker.sock).
-   * מומלץ לטווח ארוך להריץ עדכון מההוסט (cron) — כאן מתועדות שגיאות ב-LogsService ונשלחות הוראות ידניות.
-   */
   async performSelfUpdate(): Promise<PerformSelfUpdateResult> {
-    const enabled = this.config
-      .get<string>('SELF_UPDATE_ENABLED', 'false')
-      .toLowerCase();
-    if (enabled !== 'true') {
-      throw new ForbiddenException(
-        'עדכון אוטומטי כבוי בשרת. הגדר SELF_UPDATE_ENABLED=true ובטל רק אם סומכים על הרצת Docker מהממשק.',
-      );
-    }
-
-    const appDir = this.config.get<string>('APP_DIR', '/opt/finance-app').trim();
-    const scriptPath = join(appDir, 'scripts', 'self-update.sh');
-    const hostLogFile = join(appDir, 'logs', 'self-update.log');
-
-    if (!existsSync(scriptPath)) {
-      this.appLogs.add('ERROR', 'system', 'סקריפט self-update לא נמצא', {
-        scriptPath,
-      });
-      return {
-        success: false,
-        messageHe:
-          'קובץ scripts/self-update.sh לא נמצא. ודא שהריפו מעודכן וש-APP_DIR נכון.',
-        instructionsHe: this.manualUpdateInstructionsHe,
-      };
-    }
-    if (!existsSync('/var/run/docker.sock')) {
-      this.appLogs.add('WARN', 'system', 'self-update בוטל — אין docker.sock בקונטיינר', {
-        appDir,
-      });
-      return {
-        success: false,
-        messageHe:
-          'Docker socket לא זמין בקונטיינר. מומלץ להריץ עדכון מההוסט (pct exec) או לעדכן docker-compose.',
-        instructionsHe: this.manualUpdateInstructionsHe,
-      };
-    }
-    if (existsSync(this.updateLockPath)) {
-      this.appLogs.add('WARN', 'system', 'ניסיון עדכון נדחה — נעילה פעילה (עדכון כבר רץ)', {
-        appDir,
-        lockPath: this.updateLockPath,
-      });
-      return {
-        success: false,
-        messageHe: 'עדכון כבר מתבצע. נסה שוב מאוחר יותר.',
-        instructionsHe: this.manualUpdateInstructionsHe,
-      };
-    }
-
-    const updateFlowT0 = Date.now();
-    const versionBefore = this.readVersionFromAppDir(appDir);
-    this.appLogs.add('INFO', 'system', '=== תחילת תהליך עדכון (מהממשק) ===', {
-      appDir,
-      versionBefore,
-      scriptPath,
-      logFile: hostLogFile,
-    });
-
-    const fetchProbe = await this.probeGitFetch(appDir);
-    if (!fetchProbe.ok) {
-      return {
-        success: false,
-        messageHe:
-          'שגיאת git fetch — ייתכן מפתח SSH, הרשאות או רשת. פרטים בלוגי המערכת ובקובץ הלוג אם קיים.',
-        instructionsHe: this.manualUpdateInstructionsHe,
-      };
-    }
-
-    this.writeLocalUpdateStatus({
-      inProgress: true,
-      stage: 'queued',
-      message: 'מפעיל סקריפט עדכון...',
-      progress: 2,
-    });
-
-    this.appLogs.add('INFO', 'system', 'שלב 2/4: מפעיל סקריפט self-update ברקע (fetch כבר אומת)', {
-      appDir,
-      logFile: hostLogFile,
-      fetchDurationMs: fetchProbe.durationMs,
-    });
-
-    const child = spawn('sh', [scriptPath], {
-      detached: true,
-      stdio: 'ignore',
-      cwd: appDir,
-      env: {
-        ...process.env,
-        APP_DIR: appDir,
-        UPDATE_STATUS_FILE: this.updateStatusPath,
-        UPDATE_LOCK_FILE: this.updateLockPath,
-        UPDATE_LOG_FILE: hostLogFile,
-      },
-    });
-    child.unref();
-
-    if (child.pid === undefined) {
-      this.writeLocalUpdateStatus({
-        inProgress: false,
-        stage: 'failed',
-        message: 'לא ניתן להפעיל את תהליך העדכון.',
-        progress: 0,
-        error: 'spawn failed',
-      });
-      this.appLogs.add('ERROR', 'system', 'spawn ל-self-update נכשל', { appDir });
-      return {
-        success: false,
-        messageHe: 'לא ניתן להפעיל את תהליך העדכון.',
-        instructionsHe: this.manualUpdateInstructionsHe,
-      };
-    }
-
-    const apiPhaseMs = Date.now() - updateFlowT0;
-    this.appLogs.add('INFO', 'system', 'שלב 3/4: סקריפט self-update הופעל ברקע (PID)', {
-      pid: child.pid,
-      appDir,
-      apiPhaseDurationMs: apiPhaseMs,
-      note: 'שלב 4 (build/up) מתועד ב-APP_DIR/logs/self-update.log ובקובץ סטטוס',
-    });
-
+    const res = await this.triggerUpdate();
     return {
-      success: true,
-      messageHe:
-        'העדכון החל ברקע. הבנייה וההפעלה מחדש עשויים לקחת מספר דקות; לוג: logs/self-update.log תחת תיקיית האפליקציה (על ההוסט).',
+      success: res.triggered,
+      messageHe: res.message,
+      instructionsHe: res.triggered
+        ? undefined
+        : "העדכון לא הופעל. בדוק ש-service 'finance-app-updater.path' פעיל על ה-LXC.",
     };
   }
 }

@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch for Finance App update trigger
+After=docker.service
+
+[Path]
+PathExists=/opt/finance-app/.update-requested
+MakeDirectory=yes
+
+[Install]
+WantedBy=multi-user.target
