@@ -10,7 +10,8 @@ export type LogCategory =
   | 'system'
   | 'api'
   | 'webhook'
-  | 'categorization';
+  | 'categorization'
+  | 'version';
 
 export interface AppLogEntry {
   id: string;
@@ -20,3 +21,4 @@ export interface AppLogEntry {
   message: string;
   meta?: Record<string, unknown>;
 }
+

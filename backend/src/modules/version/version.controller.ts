@@ -13,6 +13,8 @@ import {
   type GithubReleaseResponse,
   type PerformSelfUpdateResult,
   type SelfUpdateStatusDto,
+  type UpdateStatus,
+  type UpdateHistoryEntry,
 } from './version.service';
 
 @Controller('version')
@@ -20,9 +22,44 @@ import {
 export class VersionGithubController {
   constructor(private readonly versionService: VersionService) {}
 
-  /**
-   * Latest GitHub release (user token in settings or GITHUB_TOKEN env).
-   */
+  @Get()
+  async getCurrentVersion() {
+    return this.versionService.getCurrentVersion();
+  }
+
+  @Get('check-update')
+  @UseGuards(JwtAuthGuard)
+  async checkForUpdate() {
+    return this.versionService.checkForUpdate();
+  }
+
+  @Post('trigger-update')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async triggerUpdate() {
+    return this.versionService.triggerUpdate();
+  }
+
+  @Get('update-status')
+  @UseGuards(JwtAuthGuard)
+  getUpdateStatus(): Promise<UpdateStatus> {
+    return this.versionService.getUpdateStatus();
+  }
+
+  @Post('cancel-update')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async cancelUpdate() {
+    return this.versionService.cancelUpdate();
+  }
+
+  @Get('update-history')
+  @UseGuards(JwtAuthGuard)
+  getUpdateHistory(): Promise<UpdateHistoryEntry[]> {
+    return this.versionService.getUpdateHistory();
+  }
+
+  // Backward compatibility
   @Get('github-release')
   @UseGuards(JwtAuthGuard)
   getGithubRelease(
@@ -31,7 +68,6 @@ export class VersionGithubController {
     return this.versionService.getLatestGithubRelease(userId);
   }
 
-  /** Background self-update (scripts/self-update.sh); requires SELF_UPDATE_ENABLED=true and mounts. */
   @Post('perform-update')
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)
@@ -39,7 +75,7 @@ export class VersionGithubController {
     return this.versionService.performSelfUpdate();
   }
 
-  @Get('update-status')
+  @Get('self-update-status')
   @UseGuards(JwtAuthGuard)
   getSelfUpdateStatus(): SelfUpdateStatusDto {
     return this.versionService.getSelfUpdateStatus();

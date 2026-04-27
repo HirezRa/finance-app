@@ -100,10 +100,10 @@ export const transactionsApi = {
     status?: 'all' | 'pending' | 'completed';
     type?: string;
     hasInstallments?: boolean;
-    /** סינון מיקום: חו"ל / ארץ (מטבע מקורי) */
+    /** ×¡×™× ×•×Ÿ ×ž×™×§×•×: ×—×•"×œ / ××¨×¥ (×ž×˜×‘×¢ ×ž×§×•×¨×™) */
     isAbroad?: boolean;
     originalCurrency?: string;
-    /** שליחה ריקה (`[]`) שולחת `accountTypes=` לריקות מכוונת בשרת */
+    /** ×©×œ×™×—×” ×¨×™×§×” (`[]`) ×©×•×œ×—×ª `accountTypes=` ×œ×¨×™×§×•×ª ×ž×›×•×•× ×ª ×‘×©×¨×ª */
     accountTypes?: string[];
   }) => {
     const p: Record<string, string | number | boolean> = {};
@@ -394,7 +394,8 @@ export type AppLogCategory =
   | 'system'
   | 'api'
   | 'webhook'
-  | 'categorization';
+  | 'categorization'
+  | 'version';
 
 export interface AppLogEntry {
   id: string;
@@ -464,9 +465,63 @@ export interface PerformSelfUpdateResponse {
   instructionsHe?: string;
 }
 
+export interface UpdateCheckResponse {
+  currentVersion: string;
+  latestVersion: string;
+  updateAvailable: boolean;
+  releaseNotes?: string;
+  releaseUrl?: string;
+}
+
+export interface UpdateStatusResponse {
+  status: 'idle' | 'pending' | 'in-progress' | 'completed' | 'failed' | 'rolled-back';
+  message: string;
+  currentVersion: string;
+  targetVersion?: string;
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+  progress?: number;
+  updatedAt?: string;
+}
+
+export interface UpdateTriggerResponse {
+  triggered: boolean;
+  message: string;
+}
+
+export interface UpdateCancelResponse {
+  cancelled: boolean;
+  message: string;
+}
+
+export interface UpdateHistoryEntry {
+  version: string;
+  previousVersion: string;
+  timestamp: string;
+  status: 'success' | 'failed' | 'rolled-back';
+  duration: number;
+  error?: string;
+}
+
 export const versionApi = {
+  getCurrentVersion: () =>
+    api.get<{ version: string; buildDate?: string }>('/version'),
+  checkForUpdate: () =>
+    api.get<UpdateCheckResponse>('/version/check-update'),
+  triggerUpdate: () =>
+    api.post<UpdateTriggerResponse>('/version/trigger-update'),
+  cancelUpdate: () =>
+    api.post<UpdateCancelResponse>('/version/cancel-update'),
+  getUpdateHistory: () =>
+    api.get<UpdateHistoryEntry[]>('/version/update-history'),
+  // New status payload
+  getUpdateStatus: () =>
+    api.get<UpdateStatusResponse>('/version/update-status'),
+  // Legacy endpoints kept for backwards compatibility
   performSelfUpdate: () =>
     api.post<PerformSelfUpdateResponse>('/version/perform-update'),
-  getUpdateStatus: () =>
-    api.get<SelfUpdateStatusPayload>('/version/update-status'),
+  getLegacySelfUpdateStatus: () =>
+    api.get<SelfUpdateStatusPayload>('/version/self-update-status'),
 };
+

@@ -60,6 +60,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { formatCurrency, cn } from '@/lib/utils';
 import { FontSizeSelector } from '@/components/FontSizeSelector';
 import { VersionChecker } from '@/components/VersionChecker';
+import { UpdateSection } from '@/components/settings/UpdateSection';
 import { useTheme } from '@/contexts/ThemeContext';
 import {
   Select,
@@ -85,20 +86,20 @@ export default function SettingsPage() {
   >('profile');
 
   const tabs = [
-    { id: 'profile' as const, label: 'פרופיל', icon: User },
-    { id: 'security' as const, label: 'אבטחה', icon: Shield },
-    { id: 'notifications' as const, label: 'התראות', icon: Bell },
-    { id: 'display' as const, label: 'תצוגה', icon: Palette },
-    { id: 'budget' as const, label: 'תקציב', icon: PieChart },
+    { id: 'profile' as const, label: '×¤×¨×•×¤×™×œ', icon: User },
+    { id: 'security' as const, label: '××‘×˜×—×”', icon: Shield },
+    { id: 'notifications' as const, label: '×”×ª×¨××•×ª', icon: Bell },
+    { id: 'display' as const, label: '×ª×¦×•×’×”', icon: Palette },
+    { id: 'budget' as const, label: '×ª×§×¦×™×‘', icon: PieChart },
     { id: 'ai' as const, label: 'AI', icon: Bot },
     { id: 'n8n' as const, label: 'n8n', icon: Webhook },
-    { id: 'logs' as const, label: 'לוגים', icon: ScrollText },
-    { id: 'data' as const, label: 'נתונים', icon: Trash2 },
+    { id: 'logs' as const, label: '×œ×•×’×™×', icon: ScrollText },
+    { id: 'data' as const, label: '× ×ª×•× ×™×', icon: Trash2 },
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader title="הגדרות" subtitle="ניהול החשבון והאינטגרציות" />
+      <PageHeader title="×”×’×“×¨×•×ª" subtitle="× ×™×”×•×œ ×”×—×©×‘×•×Ÿ ×•×”××™× ×˜×’×¨×¦×™×•×ª" />
 
       <div className="sticky top-[73px] z-10 -mx-4 flex flex-wrap gap-2 border-b border-white/10 bg-slate-900/95 px-4 pb-2 pt-2 backdrop-blur-lg md:-mx-6 md:px-6">
         {tabs.map((tab) => (
@@ -134,11 +135,11 @@ function DisplaySettings() {
     <div className="space-y-6">
       <h2 className="flex items-center gap-2 text-xl font-semibold">
         <Palette className="h-5 w-5" />
-        הגדרות תצוגה
+        ×”×’×“×¨×•×ª ×ª×¦×•×’×”
       </h2>
 
       <div className="finance-card space-y-4">
-        <h3 className="font-medium">ערכת נושא</h3>
+        <h3 className="font-medium">×¢×¨×›×ª × ×•×©×</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <button
             type="button"
@@ -151,7 +152,7 @@ function DisplaySettings() {
             )}
           >
             <Sun className="h-6 w-6" />
-            <span className="text-sm font-medium">בהיר</span>
+            <span className="text-sm font-medium">×‘×”×™×¨</span>
           </button>
           <button
             type="button"
@@ -164,7 +165,7 @@ function DisplaySettings() {
             )}
           >
             <Moon className="h-6 w-6" />
-            <span className="text-sm font-medium">כהה</span>
+            <span className="text-sm font-medium">×›×”×”</span>
           </button>
           <button
             type="button"
@@ -177,7 +178,7 @@ function DisplaySettings() {
             )}
           >
             <Monitor className="h-6 w-6" />
-            <span className="text-sm font-medium">מערכת</span>
+            <span className="text-sm font-medium">×ž×¢×¨×›×ª</span>
           </button>
         </div>
       </div>
@@ -188,6 +189,14 @@ function DisplaySettings() {
 
       <div className="border-t border-border pt-4">
         <VersionChecker />
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+          <Download className="h-5 w-5" />
+          ×¢×“×›×•× ×™ ×ž×¢×¨×›×ª
+        </h3>
+        <UpdateSection />
       </div>
     </div>
   );
@@ -205,19 +214,21 @@ const LOG_CATEGORIES: AppLogCategory[] = [
   'api',
   'webhook',
   'categorization',
+  'version',
 ];
 
 const CATEGORY_LABELS: Record<AppLogCategory, string> = {
-  sync: 'סנכרון',
-  account: 'חשבונות',
-  auth: 'אימות',
-  scraper: 'סקרייפר',
+  sync: '×¡× ×›×¨×•×Ÿ',
+  account: '×—×©×‘×•× ×•×ª',
+  auth: '××™×ž×•×ª',
+  scraper: '×¡×§×¨×™×™×¤×¨',
   ollama: 'OLLAMA',
   openrouter: 'OpenRouter',
-  system: 'מערכת',
+  system: '×ž×¢×¨×›×ª',
   api: 'API',
   webhook: 'Webhooks',
-  categorization: 'סיווג',
+  categorization: '×¡×™×•×•×’',
+  version: '×’×¨×¡××•×ª',
 };
 
 function logLevelClass(level: AppLogLevel): string {
@@ -272,10 +283,10 @@ function LogsSettings() {
   const clearMutation = useMutation({
     mutationFn: () => logsApi.clear(),
     onSuccess: (res) => {
-      toast.success(res.data.messageHe ?? 'הלוגים נוקו');
+      toast.success(res.data.messageHe ?? '×”×œ×•×’×™× × ×•×§×•');
       void queryClient.invalidateQueries({ queryKey: ['app-logs'] });
     },
-    onError: () => toast.error('שגיאה בניקוי הלוגים'),
+    onError: () => toast.error('×©×’×™××” ×‘× ×™×§×•×™ ×”×œ×•×’×™×'),
   });
 
   const exportLogs = () => {
@@ -288,7 +299,7 @@ function LogsSettings() {
     a.download = `finance-app-logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('הקובץ הורד');
+    toast.success('×”×§×•×‘×¥ ×”×•×¨×“');
   };
 
   const errMsg =
@@ -304,23 +315,23 @@ function LogsSettings() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <ScrollText className="h-5 w-5" />
-          יומן מערכת
+          ×™×•×ž×Ÿ ×ž×¢×¨×›×ª
         </CardTitle>
         <CardDescription>
-          סנכרון, שגיאות ופעילות — עד 1000 רשומות אחרונות
+          ×¡× ×›×¨×•×Ÿ, ×©×’×™××•×ª ×•×¤×¢×™×œ×•×ª â€” ×¢×“ 1000 ×¨×©×•×ž×•×ª ××—×¨×•× ×•×ª
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">
           <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
-              <Label>רמת לוג</Label>
+              <Label>×¨×ž×ª ×œ×•×’</Label>
               <Select value={level} onValueChange={setLevel}>
                 <SelectTrigger dir="rtl">
-                  <SelectValue placeholder="הכל" />
+                  <SelectValue placeholder="×”×›×œ" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__all__">הכל</SelectItem>
+                  <SelectItem value="__all__">×”×›×œ</SelectItem>
                   {LOG_LEVELS.map((lv) => (
                     <SelectItem key={lv} value={lv}>
                       {lv}
@@ -330,13 +341,13 @@ function LogsSettings() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>קטגוריה</Label>
+              <Label>×§×˜×’×•×¨×™×”</Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger dir="rtl">
-                  <SelectValue placeholder="הכל" />
+                  <SelectValue placeholder="×”×›×œ" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__all__">הכל</SelectItem>
+                  <SelectItem value="__all__">×”×›×œ</SelectItem>
                   {LOG_CATEGORIES.map((c) => (
                     <SelectItem key={c} value={c}>
                       {CATEGORY_LABELS[c]}
@@ -346,12 +357,12 @@ function LogsSettings() {
               </Select>
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="logs-search">חיפוש</Label>
+              <Label htmlFor="logs-search">×—×™×¤×•×©</Label>
               <Input
                 id="logs-search"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="טקסט בהודעה או ב־meta..."
+                placeholder="×˜×§×¡×˜ ×‘×”×•×“×¢×” ××• ×‘Ö¾meta..."
                 dir="rtl"
               />
             </div>
@@ -364,7 +375,7 @@ function LogsSettings() {
                 onCheckedChange={setAutoRefresh}
               />
               <Label htmlFor="logs-auto-refresh" className="cursor-pointer text-sm">
-                רענון אוטומטי (4 שנ׳)
+                ×¨×¢× ×•×Ÿ ××•×˜×•×ž×˜×™ (4 ×©× ×³)
               </Label>
             </div>
             <Button
@@ -377,7 +388,7 @@ function LogsSettings() {
               {isFetching ? (
                 <Loader2 className="ms-2 h-4 w-4 animate-spin" />
               ) : null}
-              רענן
+              ×¨×¢× ×Ÿ
             </Button>
             <Button
               type="button"
@@ -387,7 +398,7 @@ function LogsSettings() {
               disabled={!logs?.length}
             >
               <Download className="ms-2 h-4 w-4" />
-              ייצוא JSON
+              ×™×™×¦×•× JSON
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -398,24 +409,24 @@ function LogsSettings() {
                   disabled={clearMutation.isPending}
                 >
                   <Trash2 className="ms-2 h-4 w-4" />
-                  נקה לוגים
+                  × ×§×” ×œ×•×’×™×
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>למחוק את כל הלוגים?</AlertDialogTitle>
+                  <AlertDialogTitle>×œ×ž×—×•×§ ××ª ×›×œ ×”×œ×•×’×™×?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    הפעולה תמחק את יומן האירועים השמור בשרת. לא ניתן לשחזר רשומות
-                    שנמחקו.
+                    ×”×¤×¢×•×œ×” ×ª×ž×—×§ ××ª ×™×•×ž×Ÿ ×”××™×¨×•×¢×™× ×”×©×ž×•×¨ ×‘×©×¨×ª. ×œ× × ×™×ª×Ÿ ×œ×©×—×–×¨ ×¨×©×•×ž×•×ª
+                    ×©× ×ž×—×§×•.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>ביטול</AlertDialogCancel>
+                  <AlertDialogCancel>×‘×™×˜×•×œ</AlertDialogCancel>
                   <AlertDialogAction
                     className="bg-red-600 hover:bg-red-700"
                     onClick={() => clearMutation.mutate()}
                   >
-                    נקה
+                    × ×§×”
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -433,10 +444,10 @@ function LogsSettings() {
           {isLoading ? (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              טוען…
+              ×˜×•×¢×Ÿâ€¦
             </div>
           ) : !logs?.length ? (
-            <p className="text-muted-foreground">אין רשומות להצגה</p>
+            <p className="text-muted-foreground">××™×Ÿ ×¨×©×•×ž×•×ª ×œ×”×¦×’×”</p>
           ) : (
             <ul className="space-y-2">
               {logs.map((entry) => (
@@ -483,12 +494,12 @@ function DataSettings() {
     onSuccess: (response) => {
       const { created, skipped } = response.data;
       toast.success(
-        `נוצרו ${created} קטגוריות חדשות${skipped > 0 ? `, ${skipped} כבר קיימות` : ''}`,
+        `× ×•×¦×¨×• ${created} ×§×˜×’×•×¨×™×•×ª ×—×“×©×•×ª${skipped > 0 ? `, ${skipped} ×›×‘×¨ ×§×™×™×ž×•×ª` : ''}`,
       );
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
     onError: () => {
-      toast.error('שגיאה ביצירת קטגוריות');
+      toast.error('×©×’×™××” ×‘×™×¦×™×¨×ª ×§×˜×’×•×¨×™×•×ª');
     },
   });
 
@@ -513,7 +524,7 @@ function DataSettings() {
     onSuccess: (response) => {
       const deleted = response.data?.deleted ?? 0;
       console.log('=== DELETE SUCCESS ===', response.data);
-      toast.success(`נמחקו ${deleted} עסקאות בהצלחה`);
+      toast.success(`× ×ž×—×§×• ${deleted} ×¢×¡×§××•×ª ×‘×”×¦×œ×—×”`);
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['budget'] });
@@ -538,7 +549,7 @@ function DataSettings() {
             ? ax.message
             : null;
       toast.error(
-        detail ? `שגיאה במחיקת העסקאות: ${detail}` : 'שגיאה במחיקת העסקאות',
+        detail ? `×©×’×™××” ×‘×ž×—×™×§×ª ×”×¢×¡×§××•×ª: ${detail}` : '×©×’×™××” ×‘×ž×—×™×§×ª ×”×¢×¡×§××•×ª',
       );
     },
   });
@@ -546,8 +557,8 @@ function DataSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>ניהול נתונים</CardTitle>
-        <CardDescription>יצירה ומחיקה של נתונים במערכת</CardDescription>
+        <CardTitle>× ×™×”×•×œ × ×ª×•× ×™×</CardTitle>
+        <CardDescription>×™×¦×™×¨×” ×•×ž×—×™×§×” ×©×œ × ×ª×•× ×™× ×‘×ž×¢×¨×›×ª</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
@@ -555,11 +566,11 @@ function DataSettings() {
             <div>
               <h4 className="flex items-center gap-2 font-medium text-blue-500">
                 <Tags className="h-4 w-4" />
-                יצירת קטגוריות בסיס
+                ×™×¦×™×¨×ª ×§×˜×’×•×¨×™×•×ª ×‘×¡×™×¡
               </h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                יוצר כ־30 קטגוריות בסיסיות עם מילות מפתח לסיווג אוטומטי. קטגוריות
-                קיימות (כולל מערכת) לא יושפעו.
+                ×™×•×¦×¨ ×›Ö¾30 ×§×˜×’×•×¨×™×•×ª ×‘×¡×™×¡×™×•×ª ×¢× ×ž×™×œ×•×ª ×ž×¤×ª×— ×œ×¡×™×•×•×’ ××•×˜×•×ž×˜×™. ×§×˜×’×•×¨×™×•×ª
+                ×§×™×™×ž×•×ª (×›×•×œ×œ ×ž×¢×¨×›×ª) ×œ× ×™×•×©×¤×¢×•.
               </p>
             </div>
 
@@ -574,7 +585,7 @@ function DataSettings() {
               {createDefaultCategoriesMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                'צור קטגוריות'
+                '×¦×•×¨ ×§×˜×’×•×¨×™×•×ª'
               )}
             </Button>
           </div>
@@ -583,9 +594,9 @@ function DataSettings() {
         <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h4 className="font-medium text-red-500">מחיקת כל העסקאות</h4>
+              <h4 className="font-medium text-red-500">×ž×—×™×§×ª ×›×œ ×”×¢×¡×§××•×ª</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                פעולה זו תמחק את כל העסקאות מכל החשבונות. הפעולה בלתי הפיכה!
+                ×¤×¢×•×œ×” ×–×• ×ª×ž×—×§ ××ª ×›×œ ×”×¢×¡×§××•×ª ×ž×›×œ ×”×—×©×‘×•× ×•×ª. ×”×¤×¢×•×œ×” ×‘×œ×ª×™ ×”×¤×™×›×”!
               </p>
             </div>
 
@@ -593,45 +604,45 @@ function DataSettings() {
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm">
                   <Trash2 className="ms-2 h-4 w-4" />
-                  מחק הכל
+                  ×ž×—×§ ×”×›×œ
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle className="text-red-500">
-                    ⚠️ אזהרה: מחיקת כל העסקאות
+                    âš ï¸ ××–×”×¨×”: ×ž×—×™×§×ª ×›×œ ×”×¢×¡×§××•×ª
                   </AlertDialogTitle>
                   <AlertDialogDescription className="space-y-4">
                     <p>
-                      אתה עומד למחוק את <strong>כל העסקאות</strong> מבסיס הנתונים.
+                      ××ª×” ×¢×•×ž×“ ×œ×ž×—×•×§ ××ª <strong>×›×œ ×”×¢×¡×§××•×ª</strong> ×ž×‘×¡×™×¡ ×”× ×ª×•× ×™×.
                     </p>
                     <p>
-                      פעולה זו <strong>בלתי הפיכה</strong> ולא ניתן לשחזר את הנתונים.
+                      ×¤×¢×•×œ×” ×–×• <strong>×‘×œ×ª×™ ×”×¤×™×›×”</strong> ×•×œ× × ×™×ª×Ÿ ×œ×©×—×–×¨ ××ª ×”× ×ª×•× ×™×.
                     </p>
-                    <p className="font-medium">להמשך, הקלד "מחק הכל" בשדה למטה:</p>
+                    <p className="font-medium">×œ×”×ž×©×š, ×”×§×œ×“ "×ž×—×§ ×”×›×œ" ×‘×©×“×” ×œ×ž×˜×”:</p>
                     <Input
                       value={deleteConfirmText}
                       onChange={(e) => setDeleteConfirmText(e.target.value)}
-                      placeholder='הקלד "מחק הכל"'
+                      placeholder='×”×§×œ×“ "×ž×—×§ ×”×›×œ"'
                       className="mt-2"
                     />
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel onClick={() => setDeleteConfirmText('')}>
-                    ביטול
+                    ×‘×™×˜×•×œ
                   </AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() => deleteAllTransactionsMutation.mutate()}
                     disabled={
-                      deleteConfirmText !== 'מחק הכל' ||
+                      deleteConfirmText !== '×ž×—×§ ×”×›×œ' ||
                       deleteAllTransactionsMutation.isPending
                     }
                     className="bg-red-500 hover:bg-red-600"
                   >
                     {deleteAllTransactionsMutation.isPending
-                      ? 'מוחק...'
-                      : 'אישור מחיקה'}
+                      ? '×ž×•×—×§...'
+                      : '××™×©×•×¨ ×ž×—×™×§×”'}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -656,16 +667,16 @@ function ProfileInactiveAccountsToggle() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-settings'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      toast.success('ההגדרה נשמרה');
+      toast.success('×”×”×’×“×¨×” × ×©×ž×¨×”');
     },
-    onError: () => toast.error('שגיאה בשמירה'),
+    onError: () => toast.error('×©×’×™××” ×‘×©×ž×™×¨×”'),
   });
   return (
     <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
       <div className="space-y-1">
-        <Label htmlFor="settings-show-inactive-accounts">הצג חשבונות לא פעילים</Label>
+        <Label htmlFor="settings-show-inactive-accounts">×”×¦×’ ×—×©×‘×•× ×•×ª ×œ× ×¤×¢×™×œ×™×</Label>
         <p className="text-xs text-muted-foreground">
-          כרטיסים וחשבונות שסומנו כלא פעילים יופיעו בדף החשבונות (ברירת מחדל: מוסתרים)
+          ×›×¨×˜×™×¡×™× ×•×—×©×‘×•× ×•×ª ×©×¡×•×ž× ×• ×›×œ× ×¤×¢×™×œ×™× ×™×•×¤×™×¢×• ×‘×“×£ ×”×—×©×‘×•× ×•×ª (×‘×¨×™×¨×ª ×ž×—×“×œ: ×ž×•×¡×ª×¨×™×)
         </p>
       </div>
       <Switch
@@ -715,26 +726,26 @@ function ProfileSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>פרופיל</CardTitle>
-        <CardDescription>פרטי החשבון שלך</CardDescription>
+        <CardTitle>×¤×¨×•×¤×™×œ</CardTitle>
+        <CardDescription>×¤×¨×˜×™ ×”×—×©×‘×•×Ÿ ×©×œ×š</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">שם</label>
+          <label className="text-sm font-medium">×©×</label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="השם שלך"
+            placeholder="×”×©× ×©×œ×š"
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">אימייל</label>
+          <label className="text-sm font-medium">××™×ž×™×™×œ</label>
           <Input value={profile?.email ?? ''} disabled dir="ltr" className="text-start" />
         </div>
         <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-          <span>{profile?._count?.accounts ?? 0} חשבונות</span>
-          <span>•</span>
-          <span>{profile?._count?.categories ?? 0} קטגוריות</span>
+          <span>{profile?._count?.accounts ?? 0} ×—×©×‘×•× ×•×ª</span>
+          <span>â€¢</span>
+          <span>{profile?._count?.categories ?? 0} ×§×˜×’×•×¨×™×•×ª</span>
         </div>
         <ProfileInactiveAccountsToggle />
         <Button
@@ -745,7 +756,7 @@ function ProfileSettings() {
           {updateMutation.isPending ? (
             <Loader2 className="ms-2 h-4 w-4 animate-spin" />
           ) : null}
-          שמור שינויים
+          ×©×ž×•×¨ ×©×™× ×•×™×™×
         </Button>
       </CardContent>
     </Card>
@@ -799,8 +810,8 @@ function SecuritySettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>אימות דו-שלבי (2FA)</CardTitle>
-        <CardDescription>הוסף שכבת אבטחה נוספת לחשבון שלך</CardDescription>
+        <CardTitle>××™×ž×•×ª ×“×•-×©×œ×‘×™ (2FA)</CardTitle>
+        <CardDescription>×”×•×¡×£ ×©×›×‘×ª ××‘×˜×—×” × ×•×¡×¤×ª ×œ×—×©×‘×•×Ÿ ×©×œ×š</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-4">
@@ -816,10 +827,10 @@ function SecuritySettings() {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-medium">{status?.enabled ? 'מופעל' : 'לא מופעל'}</p>
+            <p className="font-medium">{status?.enabled ? '×ž×•×¤×¢×œ' : '×œ× ×ž×•×¤×¢×œ'}</p>
             {status?.enabled && status?.remainingRecoveryCodes !== undefined ? (
               <p className="text-sm text-muted-foreground">
-                {status.remainingRecoveryCodes} קודי שחזור נותרו
+                {status.remainingRecoveryCodes} ×§×•×“×™ ×©×—×–×•×¨ × ×•×ª×¨×•
               </p>
             ) : null}
           </div>
@@ -834,7 +845,7 @@ function SecuritySettings() {
             {setupMutation.isPending ? (
               <Loader2 className="ms-2 h-4 w-4 animate-spin" />
             ) : null}
-            הפעל 2FA
+            ×”×¤×¢×œ 2FA
           </Button>
         ) : null}
 
@@ -844,10 +855,10 @@ function SecuritySettings() {
               <img src={setupData.qrCode} alt="QR Code" className="h-48 w-48" />
             </div>
             <p className="text-center text-sm text-muted-foreground">
-              סרוק את הקוד באפליקציית האימות שלך
+              ×¡×¨×•×§ ××ª ×”×§×•×“ ×‘××¤×œ×™×§×¦×™×™×ª ×”××™×ž×•×ª ×©×œ×š
             </p>
             <div className="space-y-2">
-              <label className="text-sm font-medium">או הכנס ידנית:</label>
+              <label className="text-sm font-medium">××• ×”×›× ×¡ ×™×“× ×™×ª:</label>
               <div className="flex gap-2">
                 <Input
                   value={setupData.secret}
@@ -866,7 +877,7 @@ function SecuritySettings() {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">קוד אימות:</label>
+              <label className="text-sm font-medium">×§×•×“ ××™×ž×•×ª:</label>
               <Input
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
@@ -887,10 +898,10 @@ function SecuritySettings() {
                 {enableMutation.isPending ? (
                   <Loader2 className="ms-2 h-4 w-4 animate-spin" />
                 ) : null}
-                אמת והפעל
+                ××ž×ª ×•×”×¤×¢×œ
               </Button>
               <Button type="button" variant="outline" onClick={() => setShowSetup(false)}>
-                ביטול
+                ×‘×™×˜×•×œ
               </Button>
             </div>
           </div>
@@ -898,9 +909,9 @@ function SecuritySettings() {
 
         {recoveryCodes.length > 0 ? (
           <div className="space-y-2 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
-            <p className="font-medium text-yellow-500">שמור את קודי השחזור!</p>
+            <p className="font-medium text-yellow-500">×©×ž×•×¨ ××ª ×§×•×“×™ ×”×©×—×–×•×¨!</p>
             <p className="text-sm text-muted-foreground">
-              קודים אלו יאפשרו לך להתחבר אם תאבד גישה לאפליקציית האימות
+              ×§×•×“×™× ××œ×• ×™××¤×©×¨×• ×œ×š ×œ×”×ª×—×‘×¨ ×× ×ª××‘×“ ×’×™×©×” ×œ××¤×œ×™×§×¦×™×™×ª ×”××™×ž×•×ª
             </p>
             <div className="grid grid-cols-2 gap-2 font-mono text-sm">
               {recoveryCodes.map((code, i) => (
@@ -916,19 +927,19 @@ function SecuritySettings() {
               onClick={() => void navigator.clipboard.writeText(recoveryCodes.join('\n'))}
             >
               <Copy className="ms-2 h-4 w-4" />
-              העתק הכל
+              ×”×¢×ª×§ ×”×›×œ
             </Button>
           </div>
         ) : null}
 
         {status?.enabled ? (
           <div className="space-y-2 border-t pt-4">
-            <p className="text-sm font-medium text-destructive">כיבוי 2FA</p>
+            <p className="text-sm font-medium text-destructive">×›×™×‘×•×™ 2FA</p>
             <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="הכנס סיסמה לאימות"
+              placeholder="×”×›× ×¡ ×¡×™×¡×ž×” ×œ××™×ž×•×ª"
               dir="ltr"
               className="text-start"
             />
@@ -941,7 +952,7 @@ function SecuritySettings() {
               {disableMutation.isPending ? (
                 <Loader2 className="ms-2 h-4 w-4 animate-spin" />
               ) : null}
-              כבה 2FA
+              ×›×‘×” 2FA
             </Button>
           </div>
         ) : null}
@@ -983,12 +994,12 @@ function NotificationSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>הגדרות התראות</CardTitle>
-        <CardDescription>הגדר מתי לקבל התראות</CardDescription>
+        <CardTitle>×”×’×“×¨×•×ª ×”×ª×¨××•×ª</CardTitle>
+        <CardDescription>×”×’×“×¨ ×ž×ª×™ ×œ×§×‘×œ ×”×ª×¨××•×ª</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <label className="text-sm font-medium">סף הוצאה גדולה (₪)</label>
+          <label className="text-sm font-medium">×¡×£ ×”×•×¦××” ×’×“×•×œ×” (â‚ª)</label>
           <div className="flex flex-wrap gap-2">
             <Input
               type="number"
@@ -1008,16 +1019,16 @@ function NotificationSettings() {
               {updateMutation.isPending ? (
                 <Loader2 className="ms-2 h-4 w-4 animate-spin" />
               ) : null}
-              שמור
+              ×©×ž×•×¨
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            תקבל התראה על כל הוצאה מעל סכום זה
+            ×ª×§×‘×œ ×”×ª×¨××” ×¢×œ ×›×œ ×”×•×¦××” ×ž×¢×œ ×¡×›×•× ×–×”
           </p>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">התראות תקציב</label>
+          <label className="text-sm font-medium">×”×ª×¨××•×ª ×ª×§×¦×™×‘</label>
           <div className="space-y-2">
             <label className="flex items-center gap-2">
               <input
@@ -1028,7 +1039,7 @@ function NotificationSettings() {
                 }
                 className="rounded"
               />
-              <span className="text-sm">התראה ב-80% מהתקציב</span>
+              <span className="text-sm">×”×ª×¨××” ×‘-80% ×ž×”×ª×§×¦×™×‘</span>
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -1039,20 +1050,20 @@ function NotificationSettings() {
                 }
                 className="rounded"
               />
-              <span className="text-sm">התראה על חריגה מתקציב</span>
+              <span className="text-sm">×”×ª×¨××” ×¢×œ ×—×¨×™×’×” ×ž×ª×§×¦×™×‘</span>
             </label>
           </div>
         </div>
 
         <div className="space-y-4 border-t pt-6">
-          <h3 className="font-medium">הגדרות משכורת</h3>
+          <h3 className="font-medium">×”×’×“×¨×•×ª ×ž×©×›×•×¨×ª</h3>
           <p className="text-sm text-muted-foreground">
-            הכנסות שמסווגות כ&ldquo;הכנסה&rdquo; שנכנסות בין הימים שנבחרו (לפי לוח ישראלי)
-            ייחשבו בדשבורד ובתקציב לחודש העוקב (תאריך אפקטיבי = ה-1 לחודש הבא).
+            ×”×›× ×¡×•×ª ×©×ž×¡×•×•×’×•×ª ×›&ldquo;×”×›× ×¡×”&rdquo; ×©× ×›× ×¡×•×ª ×‘×™×Ÿ ×”×™×ž×™× ×©× ×‘×—×¨×• (×œ×¤×™ ×œ×•×— ×™×©×¨××œ×™)
+            ×™×™×—×©×‘×• ×‘×“×©×‘×•×¨×“ ×•×‘×ª×§×¦×™×‘ ×œ×—×•×“×© ×”×¢×•×§×‘ (×ª××¨×™×š ××¤×§×˜×™×‘×™ = ×”-1 ×œ×—×•×“×© ×”×‘×).
           </p>
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">מיום</label>
+              <label className="text-sm font-medium">×ž×™×•×</label>
               <Input
                 type="number"
                 min={1}
@@ -1064,7 +1075,7 @@ function NotificationSettings() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">עד יום</label>
+              <label className="text-sm font-medium">×¢×“ ×™×•×</label>
               <Input
                 type="number"
                 min={1}
@@ -1093,22 +1104,22 @@ function NotificationSettings() {
               {updateMutation.isPending ? (
                 <Loader2 className="ms-2 h-4 w-4 animate-spin" />
               ) : null}
-              שמור טווח משכורת
+              ×©×ž×•×¨ ×˜×•×•×— ×ž×©×›×•×¨×ª
             </Button>
           </div>
         </div>
 
         <div className="space-y-4 border-t pt-6">
-          <h3 className="font-medium">עסקאות בתהליך קליטה</h3>
+          <h3 className="font-medium">×¢×¡×§××•×ª ×‘×ª×”×œ×™×š ×§×œ×™×˜×”</h3>
           <p className="text-sm text-muted-foreground">
-            עסקאות שעדיין לא נקלטו סופית בחשבון (בדרך כלל לפני חיוב בכרטיס אשראי).
+            ×¢×¡×§××•×ª ×©×¢×“×™×™×Ÿ ×œ× × ×§×œ×˜×• ×¡×•×¤×™×ª ×‘×—×©×‘×•×Ÿ (×‘×“×¨×š ×›×œ×œ ×œ×¤× ×™ ×—×™×•×‘ ×‘×›×¨×˜×™×¡ ××©×¨××™).
           </p>
 
           <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
             <div>
-              <p className="text-sm font-medium">הצג בלוח בקרה</p>
+              <p className="text-sm font-medium">×”×¦×’ ×‘×œ×•×— ×‘×§×¨×”</p>
               <p className="text-xs text-muted-foreground">
-                כבוי = רק עסקאות סופיות בסיכומי הכנסות והוצאות
+                ×›×‘×•×™ = ×¨×§ ×¢×¡×§××•×ª ×¡×•×¤×™×•×ª ×‘×¡×™×›×•×ž×™ ×”×›× ×¡×•×ª ×•×”×•×¦××•×ª
               </p>
             </div>
             <Switch
@@ -1122,9 +1133,9 @@ function NotificationSettings() {
 
           <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
             <div>
-              <p className="text-sm font-medium">כלול בתקציב</p>
+              <p className="text-sm font-medium">×›×œ×•×œ ×‘×ª×§×¦×™×‘</p>
               <p className="text-xs text-muted-foreground">
-                מופעל = גם עסקאות בתהליך נספרות מול תקציב הקטגוריות
+                ×ž×•×¤×¢×œ = ×’× ×¢×¡×§××•×ª ×‘×ª×”×œ×™×š × ×¡×¤×¨×•×ª ×ž×•×œ ×ª×§×¦×™×‘ ×”×§×˜×’×•×¨×™×•×ª
               </p>
             </div>
             <Switch
@@ -1139,11 +1150,11 @@ function NotificationSettings() {
           <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
             <div className="space-y-1">
               <Label className="text-sm font-medium">
-                הסתר חיובי אשראי מחשבון בנק
+                ×”×¡×ª×¨ ×—×™×•×‘×™ ××©×¨××™ ×ž×—×©×‘×•×Ÿ ×‘× ×§
               </Label>
               <p className="text-xs text-muted-foreground">
-                מונע ספירה כפולה כשיש גם חשבון בנק וגם כרטיס אשראי (חיוב אגרגטיבי
-                בבנק מסומן שלא נספר בתקציב)
+                ×ž×•× ×¢ ×¡×¤×™×¨×” ×›×¤×•×œ×” ×›×©×™×© ×’× ×—×©×‘×•×Ÿ ×‘× ×§ ×•×’× ×›×¨×˜×™×¡ ××©×¨××™ (×—×™×•×‘ ××’×¨×’×˜×™×‘×™
+                ×‘×‘× ×§ ×ž×¡×•×ž×Ÿ ×©×œ× × ×¡×¤×¨ ×‘×ª×§×¦×™×‘)
               </p>
             </div>
             <Switch
@@ -1158,7 +1169,7 @@ function NotificationSettings() {
 
         <div className="border-t pt-4">
           <p className="text-sm text-muted-foreground">
-            כדי לקבל התראות ב-Telegram, WhatsApp או אימייל — הגדר webhook ב-n8n בטאב המתאים.
+            ×›×“×™ ×œ×§×‘×œ ×”×ª×¨××•×ª ×‘-Telegram, WhatsApp ××• ××™×ž×™×™×œ â€” ×”×’×“×¨ webhook ×‘-n8n ×‘×˜××‘ ×”×ž×ª××™×.
           </p>
         </div>
       </CardContent>
@@ -1196,14 +1207,14 @@ function BudgetSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>הגדרות תקציב</CardTitle>
-        <CardDescription>מחזור תקציב חודשי ויעד חיסכון חודשי</CardDescription>
+        <CardTitle>×”×’×“×¨×•×ª ×ª×§×¦×™×‘</CardTitle>
+        <CardDescription>×ž×—×–×•×¨ ×ª×§×¦×™×‘ ×—×•×“×©×™ ×•×™×¢×“ ×—×™×¡×›×•×Ÿ ×—×•×“×©×™</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-3">
-          <Label>מחזור תקציב חודשי</Label>
+          <Label>×ž×—×–×•×¨ ×ª×§×¦×™×‘ ×—×•×“×©×™</Label>
           <p className="text-sm text-muted-foreground">
-            בחר מתי מתחיל החודש התקציבי (לפי לוח שנה ישראלי)
+            ×‘×—×¨ ×ž×ª×™ ×ž×ª×—×™×œ ×”×—×•×“×© ×”×ª×§×¦×™×‘×™ (×œ×¤×™ ×œ×•×— ×©× ×” ×™×©×¨××œ×™)
           </p>
           <RadioGroup
             value={String(budgetCycleStartDay)}
@@ -1218,15 +1229,15 @@ function BudgetSettings() {
             <div className="flex items-center gap-2 space-x-reverse">
               <RadioGroupItem value="1" id="cycle-1" />
               <Label htmlFor="cycle-1" className="cursor-pointer font-normal">
-                <span className="font-medium">1 בחודש</span>
-                <span className="text-muted-foreground ms-2">(מחזור קלנדרי רגיל)</span>
+                <span className="font-medium">1 ×‘×—×•×“×©</span>
+                <span className="text-muted-foreground ms-2">(×ž×—×–×•×¨ ×§×œ× ×“×¨×™ ×¨×’×™×œ)</span>
               </Label>
             </div>
             <div className="flex items-center gap-2 space-x-reverse">
               <RadioGroupItem value="10" id="cycle-10" />
               <Label htmlFor="cycle-10" className="cursor-pointer font-normal">
-                <span className="font-medium">10 בחודש</span>
-                <span className="text-muted-foreground ms-2">(מתאים לחיוב אשראי)</span>
+                <span className="font-medium">10 ×‘×—×•×“×©</span>
+                <span className="text-muted-foreground ms-2">(×ž×ª××™× ×œ×—×™×•×‘ ××©×¨××™)</span>
               </Label>
             </div>
           </RadioGroup>
@@ -1235,9 +1246,9 @@ function BudgetSettings() {
         <div className="h-px w-full bg-border" />
 
         <div className="space-y-3">
-          <Label>יעד חיסכון חודשי</Label>
+          <Label>×™×¢×“ ×—×™×¡×›×•×Ÿ ×—×•×“×©×™</Label>
           <p className="text-sm text-muted-foreground">
-            סכום שתרצה לשמור בצד כל חודש. הסכום יופחת מיתרה זמינה להוצאות בלוח הבקרה.
+            ×¡×›×•× ×©×ª×¨×¦×” ×œ×©×ž×•×¨ ×‘×¦×“ ×›×œ ×—×•×“×©. ×”×¡×›×•× ×™×•×¤×—×ª ×ž×™×ª×¨×” ×–×ž×™× ×” ×œ×”×•×¦××•×ª ×‘×œ×•×— ×”×‘×§×¨×”.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative max-w-xs flex-1">
@@ -1258,7 +1269,7 @@ function BudgetSettings() {
                 dir="ltr"
               />
               <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                ₪
+                â‚ª
               </span>
             </div>
             <Button
@@ -1271,13 +1282,13 @@ function BudgetSettings() {
               }}
               disabled={updateMutation.isPending}
             >
-              אפס
+              ××¤×¡
             </Button>
           </div>
 
           {monthlySavingsGoal > 0 ? (
             <p className="text-sm text-green-600 dark:text-green-500">
-              {formatCurrency(monthlySavingsGoal)} יופחתו מהיתרה הזמינה להוצאות בדשבורד
+              {formatCurrency(monthlySavingsGoal)} ×™×•×¤×—×ª×• ×ž×”×™×ª×¨×” ×”×–×ž×™× ×” ×œ×”×•×¦××•×ª ×‘×“×©×‘×•×¨×“
             </p>
           ) : null}
         </div>
@@ -1330,7 +1341,7 @@ function N8nSettings() {
       });
     },
     onError: () => {
-      setTestResult({ success: false, message: 'שגיאת חיבור' });
+      setTestResult({ success: false, message: '×©×’×™××ª ×—×™×‘×•×¨' });
     },
   });
 
@@ -1338,7 +1349,7 @@ function N8nSettings() {
     <Card>
       <CardHeader>
         <CardTitle>n8n Webhooks</CardTitle>
-        <CardDescription>שליחת התראות ואירועים ל-n8n</CardDescription>
+        <CardDescription>×©×œ×™×—×ª ×”×ª×¨××•×ª ×•××™×¨×•×¢×™× ×œ-n8n</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-4">
@@ -1350,14 +1361,14 @@ function N8nSettings() {
             <Webhook className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-medium">{settings?.enabled ? 'מופעל' : 'לא מופעל'}</p>
+            <p className="font-medium">{settings?.enabled ? '×ž×•×¤×¢×œ' : '×œ× ×ž×•×¤×¢×œ'}</p>
           </div>
           <Button
             type="button"
             variant={settings?.enabled ? 'destructive' : 'default'}
             onClick={() => updateMutation.mutate({ enabled: !settings?.enabled })}
           >
-            {settings?.enabled ? 'כבה' : 'הפעל'}
+            {settings?.enabled ? '×›×‘×”' : '×”×¤×¢×œ'}
           </Button>
         </div>
 
@@ -1373,13 +1384,13 @@ function N8nSettings() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Secret (אופציונלי)</label>
+          <label className="text-sm font-medium">Secret (××•×¤×¦×™×•× ×œ×™)</label>
           <div className="relative">
             <Input
               type={showSecret ? 'text' : 'password'}
               value={webhookSecret}
               onChange={(e) => setWebhookSecret(e.target.value)}
-              placeholder="הזן secret חדש לשמירה"
+              placeholder="×”×–×Ÿ secret ×—×“×© ×œ×©×ž×™×¨×”"
               dir="ltr"
               className="pe-10 text-start"
             />
@@ -1425,7 +1436,7 @@ function N8nSettings() {
             {testMutation.isPending ? (
               <Loader2 className="ms-2 h-4 w-4 animate-spin" />
             ) : null}
-            בדוק חיבור
+            ×‘×“×•×§ ×—×™×‘×•×¨
           </Button>
           <Button
             type="button"
@@ -1440,7 +1451,7 @@ function N8nSettings() {
             {updateMutation.isPending ? (
               <Loader2 className="ms-2 h-4 w-4 animate-spin" />
             ) : null}
-            שמור
+            ×©×ž×•×¨
           </Button>
         </div>
       </CardContent>
