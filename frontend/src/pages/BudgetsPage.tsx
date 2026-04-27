@@ -30,6 +30,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function apiErrorMessage(err: unknown, fallback: string): string {
   const ax = err as { response?: { data?: { message?: string | string[] } } };
@@ -251,23 +252,23 @@ export default function BudgetsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">תקציבים</h1>
-          <p className="text-muted-foreground">ניהול תקציב חודשי</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(-1)}>
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-          <span className="min-w-32 text-center font-medium">
-            {monthNames[displayMonth - 1]} {displayYear}
-          </span>
-          <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(1)}>
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="תקציבים"
+        subtitle="ניהול תקציב חודשי"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(-1)}>
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+            <span className="min-w-32 text-center font-medium text-white">
+              {monthNames[displayMonth - 1]} {displayYear}
+            </span>
+            <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(1)}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+          </div>
+        }
+      />
 
       {b?.usedFallback ? (
         <Card className="border-amber-500/50 bg-amber-500/10">

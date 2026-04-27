@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/layout/PageHeader';
 import {
   Plus,
   RefreshCw,
@@ -364,44 +365,45 @@ export default function AccountsPage() {
         message={syncUi.message}
         details={syncUi.details}
       />
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">חשבונות</h1>
-          <p className="text-muted-foreground">
-            ניהול חשבונות בנק וכרטיסי אשראי
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Switch
-              id="show-inactive-accounts"
-              checked={showInactiveAccounts}
-              onCheckedChange={(c) => updateShowInactiveMutation.mutate(c)}
-              disabled={updateShowInactiveMutation.isPending}
-            />
-            <Label htmlFor="show-inactive-accounts" className="cursor-pointer text-sm font-normal">
-              {showInactiveAccounts ? 'מציג גם לא פעילים' : 'פעילים בלבד'}
-            </Label>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => syncAllMutation.mutate()}
-            disabled={syncAllMutation.isPending}
-          >
-            {syncAllMutation.isPending ? (
-              <Loader2 className="ms-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="ms-2 h-4 w-4" />
-            )}
-            סנכרן הכל
-          </Button>
-          <Button type="button" onClick={() => setShowAddModal(true)}>
-            <Plus className="ms-2 h-4 w-4" />
-            הוסף חשבון
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="חשבונות"
+        subtitle="ניהול חשבונות בנק וכרטיסי אשראי"
+        actions={
+          <>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="show-inactive-accounts"
+                checked={showInactiveAccounts}
+                onCheckedChange={(c) => updateShowInactiveMutation.mutate(c)}
+                disabled={updateShowInactiveMutation.isPending}
+              />
+              <Label
+                htmlFor="show-inactive-accounts"
+                className="cursor-pointer text-sm font-normal text-white/80"
+              >
+                {showInactiveAccounts ? 'מציג גם לא פעילים' : 'פעילים בלבד'}
+              </Label>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => syncAllMutation.mutate()}
+              disabled={syncAllMutation.isPending}
+            >
+              {syncAllMutation.isPending ? (
+                <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="ms-2 h-4 w-4" />
+              )}
+              סנכרן הכל
+            </Button>
+            <Button type="button" onClick={() => setShowAddModal(true)}>
+              <Plus className="ms-2 h-4 w-4" />
+              הוסף חשבון
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {configsPending ? (

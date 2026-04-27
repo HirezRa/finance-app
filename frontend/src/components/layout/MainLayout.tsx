@@ -1,27 +1,64 @@
-import { Outlet } from 'react-router-dom';
-import { Sidebar } from '@/components/Sidebar';
-import { BottomNav } from '@/components/BottomNav';
-import AlertsDropdown from '@/components/AlertsDropdown';
+import { useEffect, useState } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
+import { Sidebar } from './Sidebar';
+import { BottomNav } from './BottomNav';
+import { MobileHeader } from './MobileHeader';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 export default function MainLayout() {
+  const location = useLocation();
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarCollapsed(true);
+    }
+  }, [location.pathname, isMobile]);
+
   return (
-    <div className="flex min-h-screen-safe min-h-screen bg-transparent">
-      <Sidebar />
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+      {isMobile ? (
+        <MobileHeader onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      ) : null}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="safe-area-inset-top sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between border-b border-white/15 bg-white/45 px-4 shadow-[0_4px_24px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06] dark:shadow-[0_4px_24px_rgba(0,0,0,0.25)] md:hidden">
-          <span className="font-semibold text-foreground">ניהול פיננסי</span>
-          <AlertsDropdown />
-        </header>
+      <div className="flex h-screen">
+        {!isMobile ? (
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          />
+        ) : null}
 
-        <main className="flex-1 overflow-auto pb-20 pt-0 md:pb-0 md:pt-0">
-          <div className="container mx-auto max-w-7xl px-4 py-6">
+        <main
+          className={[
+            'flex-1 overflow-x-hidden overflow-y-auto',
+            isMobile ? 'pb-20 pt-16' : 'p-6',
+          ].join(' ')}
+        >
+          <div className={isMobile ? 'mx-auto px-4' : 'mx-auto max-w-7xl'}>
             <Outlet />
           </div>
         </main>
-      </div>
 
-      <BottomNav />
+        {isMobile && !sidebarCollapsed ? (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+              onClick={() => setSidebarCollapsed(true)}
+            />
+            <div className="fixed right-0 top-0 z-50 h-full w-64">
+              <Sidebar
+                collapsed={false}
+                onToggle={() => setSidebarCollapsed(true)}
+                mobile
+              />
+            </div>
+          </>
+        ) : null}
+
+        {isMobile ? <BottomNav /> : null}
+      </div>
     </div>
   );
 }
