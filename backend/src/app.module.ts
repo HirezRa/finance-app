@@ -22,6 +22,7 @@ import { VersionModule } from './modules/version/version.module';
 import { LogsModule } from './modules/logs/logs.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { LLMModule } from './modules/llm/llm.module';
+import { CategorizationModule } from './modules/categorization/categorization.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { LLMModule } from './modules/llm/llm.module';
     SettingsModule,
     AlertsModule,
     LLMModule,
+    CategorizationModule,
     OllamaModule,
     VersionModule,
     WebhooksModule,

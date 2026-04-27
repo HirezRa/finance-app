@@ -24,6 +24,7 @@ import {
   type LLMEngineId,
 } from '@/services/api';
 import { cn } from '@/lib/utils';
+import { cleanOpenRouterModelId } from '@/lib/openrouter-model';
 
 type ConnectionState = 'unknown' | 'connected' | 'error';
 
@@ -183,7 +184,7 @@ export function AISettingsTab() {
       provider: selectedProvider,
       ollamaUrl,
       ollamaModel,
-      openrouterModel,
+      openrouterModel: cleanOpenRouterModelId(openrouterModel),
     };
     if (openrouterApiKey.trim()) {
       body.openrouterApiKey = openrouterApiKey.trim();

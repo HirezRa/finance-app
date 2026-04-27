@@ -9,7 +9,8 @@ export type LogCategory =
   | 'openrouter'
   | 'system'
   | 'api'
-  | 'webhook';
+  | 'webhook'
+  | 'categorization';
 
 export interface AppLogEntry {
   id: string;

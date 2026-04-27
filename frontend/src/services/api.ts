@@ -295,6 +295,72 @@ export const llmApi = {
       .then((res) => res.data),
 };
 
+export interface CategorizationResult {
+  transactionId: string;
+  description: string;
+  amount: number;
+  suggestedCategoryId: string | null;
+  suggestedCategoryName: string | null;
+  confidence: number;
+  source: 'mapping' | 'historical' | 'ai' | 'none';
+  aiReasoning?: string;
+  matchedVendor?: string;
+}
+
+export interface CategorizationSummary {
+  total: number;
+  categorized: {
+    mapping: number;
+    historical: number;
+    ai: number;
+  };
+  uncategorized: number;
+  results: CategorizationResult[];
+}
+
+export const categorizationApi = {
+  quickCategorize: (transactionIds?: string[]) =>
+    api
+      .post<CategorizationSummary>(
+        '/categorization/quick',
+        transactionIds?.length ? { transactionIds } : {},
+      )
+      .then((res) => res.data),
+
+  aiCategorize: (transactionIds: string[]) =>
+    api
+      .post<{ results: CategorizationResult[] }>('/categorization/ai', {
+        transactionIds,
+      })
+      .then((res) => res.data),
+
+  fullCategorize: () =>
+    api
+      .post<CategorizationSummary>('/categorization/full', {})
+      .then((res) => res.data),
+
+  applyResults: (
+    results: Array<{
+      transactionId: string;
+      categoryId: string;
+      source: string;
+    }>,
+  ) =>
+    api
+      .post<{ applied: number; failed: number }>('/categorization/apply', {
+        results,
+      })
+      .then((res) => res.data),
+
+  getUncategorizedCount: () =>
+    api
+      .get<{ count: number }>('/categorization/uncategorized-count')
+      .then((res) => res.data),
+
+  getVendorStats: () =>
+    api.get('/categorization/vendor-stats').then((res) => res.data),
+};
+
 export const ollamaApi = {
   getUncategorized: (limit = 50) =>
     api
@@ -327,7 +393,8 @@ export type AppLogCategory =
   | 'openrouter'
   | 'system'
   | 'api'
-  | 'webhook';
+  | 'webhook'
+  | 'categorization';
 
 export interface AppLogEntry {
   id: string;

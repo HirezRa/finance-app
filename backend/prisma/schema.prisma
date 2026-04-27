@@ -28,6 +28,7 @@ model User {
   categories           Category[]
   budgets              Budget[]
   userSettings         UserSettings?
+  vendorMappings       VendorMapping[]
 }
 
 model ScraperConfig {
@@ -93,9 +94,35 @@ model Category {
   updatedAt   DateTime      @updatedAt
   transactions     Transaction[]
   budgetCategories BudgetCategory[]
+  vendorMappings   VendorMapping[]
 
   @@index([userId])
   @@index([name])
+}
+
+model VendorMapping {
+  id             String   @id @default(uuid())
+  normalizedName String
+  originalNames  String[]
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  confidence Float    @default(1.0)
+  source     String   @default("manual")
+  usageCount Int      @default(1)
+  lastUsedAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, normalizedName])
+  @@index([userId])
+  @@index([normalizedName])
+  @@index([categoryId])
 }
 
 model Budget {

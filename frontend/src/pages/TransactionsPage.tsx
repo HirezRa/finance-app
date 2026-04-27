@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { transactionsApi, categoriesApi } from '@/services/api';
 import { AICategorizeButton } from '@/components/AICategorizeButton';
+import { CategorizationModal } from '@/components/categorization/CategorizationModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,6 +25,7 @@ import {
   Tag,
   Loader2,
   Download,
+  Zap,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -98,6 +100,7 @@ export default function TransactionsPage() {
   const [abroadScope, setAbroadScope] = useState<'all' | 'local' | 'abroad'>(
     'all',
   );
+  const [smartCategorizationOpen, setSmartCategorizationOpen] = useState(false);
 
   const accountTypesFilter = useMemo(() => {
     const t: string[] = [];
@@ -302,6 +305,14 @@ export default function TransactionsPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setSmartCategorizationOpen(true)}
+          >
+            <Zap className="ms-2 h-4 w-4" />
+            סיווג חכם
+          </Button>
           <AICategorizeButton mode="uncategorized" />
           <AICategorizeButton mode="improve" />
           <Button
@@ -662,6 +673,19 @@ export default function TransactionsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CategorizationModal
+        open={smartCategorizationOpen}
+        onOpenChange={setSmartCategorizationOpen}
+        onComplete={() => {
+          void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+          void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          void queryClient.invalidateQueries({
+            queryKey: ['categories'],
+            exact: false,
+          });
+        }}
+      />
     </div>
   );
 }
