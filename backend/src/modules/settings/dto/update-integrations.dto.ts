@@ -2,8 +2,8 @@ import { IsBoolean, IsString, IsOptional, IsIn } from 'class-validator';
 
 export class UpdateLlmSettingsDto {
   @IsOptional()
-  @IsIn(['ollama', 'openrouter'])
-  provider?: 'ollama' | 'openrouter';
+  @IsIn(['none', 'ollama', 'openrouter'])
+  provider?: 'none' | 'ollama' | 'openrouter';
 
   @IsOptional()
   @IsString()

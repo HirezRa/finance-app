@@ -417,7 +417,7 @@ export class SettingsService {
       }
     }
     return {
-      provider: (s.llmProvider || 'ollama') as 'ollama' | 'openrouter',
+      provider: (s.llmProvider || 'ollama') as 'none' | 'ollama' | 'openrouter',
       ollama: {
         enabled: s.ollamaEnabled ?? false,
         url: s.ollamaUrl || '',
@@ -439,7 +439,13 @@ export class SettingsService {
     const update: Prisma.UserSettingsUpdateInput = {};
     if (dto.provider !== undefined) {
       update.llmProvider = dto.provider;
-      update.ollamaEnabled = dto.provider === 'ollama';
+      if (dto.provider === 'none') {
+        update.ollamaEnabled = false;
+      } else if (dto.provider === 'ollama') {
+        update.ollamaEnabled = true;
+      } else {
+        update.ollamaEnabled = false;
+      }
     }
     if (dto.ollamaUrl !== undefined) {
       update.ollamaUrl = dto.ollamaUrl;

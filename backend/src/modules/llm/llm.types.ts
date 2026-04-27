@@ -1,4 +1,8 @@
-export type LLMProviderType = 'ollama' | 'openrouter';
+/** Active integration: off, local Ollama, or OpenRouter */
+export type LLMProviderType = 'none' | 'ollama' | 'openrouter';
+
+/** Backend engines (subset of LLMProviderType) */
+export type LLMEngineId = 'ollama' | 'openrouter';
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
@@ -35,7 +39,7 @@ export interface LLMModel {
 }
 
 export interface LLMProviderStatus {
-  provider: LLMProviderType;
+  provider: LLMEngineId;
   enabled: boolean;
   connected: boolean;
   model: string;
@@ -44,7 +48,7 @@ export interface LLMProviderStatus {
 }
 
 export interface LLMProvider {
-  readonly type: LLMProviderType;
+  readonly type: LLMEngineId;
   isEnabled(): boolean;
   testConnection(): Promise<boolean>;
   getAvailableModels(): Promise<LLMModel[]>;

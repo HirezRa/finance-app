@@ -13,6 +13,7 @@ import { OpenRouterLlmProvider } from './providers/openrouter.provider';
 import type {
   LLMCompletionRequest,
   LLMCompletionResponse,
+  LLMEngineId,
   LLMModel,
   LLMProviderStatus,
   LLMProviderType,
@@ -42,7 +43,9 @@ export class LLMService implements OnModuleInit {
   }
 
   effectiveProviderFromSettings(llmProvider: string | null | undefined): LLMProviderType {
-    if (llmProvider === 'openrouter') return 'openrouter';
+    const v = llmProvider?.trim();
+    if (v === 'none') return 'none';
+    if (v === 'openrouter') return 'openrouter';
     return 'ollama';
   }
 
@@ -52,6 +55,7 @@ export class LLMService implements OnModuleInit {
     });
     if (!s) return false;
     const p = this.effectiveProviderFromSettings(s.llmProvider);
+    if (p === 'none') return false;
     if (p === 'openrouter') {
       return Boolean(
         s.openrouterApiKeyEncrypted &&
@@ -98,11 +102,6 @@ export class LLMService implements OnModuleInit {
     userId: string,
     request: LLMCompletionRequest,
   ): Promise<LLMCompletionResponse> {
-    const configured = await this.isAiConfiguredForUser(userId);
-    if (!configured) {
-      throw new BadRequestException('מנוע AI אינו מוגדר או אינו פעיל');
-    }
-
     const s = await this.prisma.userSettings.findUnique({
       where: { userId },
     });
@@ -111,6 +110,14 @@ export class LLMService implements OnModuleInit {
     }
 
     const p = this.effectiveProviderFromSettings(s.llmProvider);
+    if (p === 'none') {
+      throw new BadRequestException('מנוע AI כבוי');
+    }
+
+    const configured = await this.isAiConfiguredForUser(userId);
+    if (!configured) {
+      throw new BadRequestException('מנוע AI אינו מוגדר או אינו פעיל');
+    }
 
     if (p === 'openrouter') {
       const apiKey = await this.decryptOpenrouterKey(userId);
@@ -148,46 +155,91 @@ export class LLMService implements OnModuleInit {
 
   async getStatusForUser(userId: string): Promise<{
     activeProvider: LLMProviderType;
-    providers: Record<LLMProviderType, LLMProviderStatus>;
+    providers: Record<LLMEngineId, LLMProviderStatus>;
   }> {
-    const s = await this.prisma.userSettings.findUnique({
+    let s = await this.prisma.userSettings.findUnique({
       where: { userId },
     });
+    if (!s) {
+      s = await this.prisma.userSettings.create({
+        data: { userId },
+      });
+    }
+
+    const inactive = (engine: LLMEngineId): LLMProviderStatus => ({
+      provider: engine,
+      enabled: false,
+      connected: false,
+      model: '',
+      availableModels: [],
+      error: undefined,
+    });
+
+    const active = this.effectiveProviderFromSettings(s.llmProvider);
+
+    if (active === 'none') {
+      return {
+        activeProvider: 'none',
+        providers: {
+          ollama: inactive('ollama'),
+          openrouter: inactive('openrouter'),
+        },
+      };
+    }
 
     const ollamaUrl =
-      s?.ollamaUrl?.trim() ||
+      s.ollamaUrl?.trim() ||
       this.configService.get<string>('OLLAMA_BASE_URL')?.trim() ||
       this.configService.get<string>('OLLAMA_URL')?.trim() ||
       '';
     const ollamaModel =
-      s?.ollamaModel?.trim() ||
+      s.ollamaModel?.trim() ||
       this.configService.get<string>('OLLAMA_MODEL') ||
       DEFAULT_OLLAMA_MODEL;
 
-    const openrouterKey = s
-      ? await this.decryptOpenrouterKey(userId)
-      : null;
+    const openrouterKey = await this.decryptOpenrouterKey(userId);
     const openrouterModel =
-      s?.openrouterModel?.trim() ||
+      s.openrouterModel?.trim() ||
       this.configService.get<string>('OPENROUTER_MODEL') ||
       DEFAULT_OPENROUTER_MODEL;
     const openrouterBase =
       this.configService.get<string>('OPENROUTER_BASE_URL') ||
       'https://openrouter.ai/api/v1';
 
-    let ollamaConnected = false;
-    let ollamaModels: LLMModel[] = [];
-    if (ollamaUrl) {
-      ollamaConnected = await this.ollamaLlm.testConnection({
-        baseUrl: ollamaUrl,
+    if (active === 'ollama') {
+      let ollamaConnected = false;
+      let ollamaModels: LLMModel[] = [];
+      if (ollamaUrl) {
+        ollamaConnected = await this.ollamaLlm.testConnection({
+          baseUrl: ollamaUrl,
+          model: ollamaModel,
+        });
+        ollamaModels = ollamaConnected
+          ? await this.ollamaLlm.getAvailableModels({
+              baseUrl: ollamaUrl,
+              model: ollamaModel,
+            })
+          : [];
+      }
+      const ollamaStatus: LLMProviderStatus = {
+        provider: 'ollama',
+        enabled: Boolean(s.ollamaEnabled && ollamaUrl),
+        connected: ollamaConnected,
         model: ollamaModel,
-      });
-      ollamaModels = ollamaConnected
-        ? await this.ollamaLlm.getAvailableModels({
-            baseUrl: ollamaUrl,
-            model: ollamaModel,
-          })
-        : [];
+        availableModels: ollamaModels,
+        error: !ollamaUrl
+          ? 'חסרה כתובת שרת'
+          : !ollamaConnected
+            ? 'לא ניתן להתחבר ל-Ollama'
+            : undefined,
+      };
+      return {
+        activeProvider: 'ollama',
+        providers: {
+          ollama: ollamaStatus,
+          openrouter: inactive('openrouter'),
+        },
+      };
     }
 
     let openrouterConnected = false;
@@ -206,22 +258,6 @@ export class LLMService implements OnModuleInit {
           })
         : [];
     }
-
-    const active = this.effectiveProviderFromSettings(s?.llmProvider);
-
-    const ollamaStatus: LLMProviderStatus = {
-      provider: 'ollama',
-      enabled: Boolean(s?.ollamaEnabled && ollamaUrl),
-      connected: ollamaConnected,
-      model: ollamaModel,
-      availableModels: ollamaModels,
-      error: !ollamaUrl
-        ? 'חסרה כתובת שרת'
-        : !ollamaConnected
-          ? 'לא ניתן להתחבר ל-Ollama'
-          : undefined,
-    };
-
     const openrouterStatus: LLMProviderStatus = {
       provider: 'openrouter',
       enabled: Boolean(openrouterKey?.trim()),
@@ -236,9 +272,9 @@ export class LLMService implements OnModuleInit {
     };
 
     return {
-      activeProvider: active,
+      activeProvider: 'openrouter',
       providers: {
-        ollama: ollamaStatus,
+        ollama: inactive('ollama'),
         openrouter: openrouterStatus,
       },
     };
@@ -246,7 +282,7 @@ export class LLMService implements OnModuleInit {
 
   async testProviderForUser(
     userId: string,
-    type: LLMProviderType,
+    type: LLMEngineId,
     overrides?: { apiKey?: string; url?: string; model?: string },
   ): Promise<boolean> {
     if (type === 'ollama') {
@@ -291,7 +327,7 @@ export class LLMService implements OnModuleInit {
 
   async listModelsForUser(
     userId: string,
-    type: LLMProviderType,
+    type: LLMEngineId,
     overrides?: { apiKey?: string; url?: string; model?: string },
   ): Promise<LLMModel[]> {
     if (type === 'ollama') {
