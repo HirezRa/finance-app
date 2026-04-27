@@ -6,6 +6,7 @@ export type LogCategory =
   | 'auth'
   | 'scraper'
   | 'ollama'
+  | 'openrouter'
   | 'system'
   | 'api'
   | 'webhook';

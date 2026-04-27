@@ -1,4 +1,26 @@
-import { IsBoolean, IsString, IsOptional } from 'class-validator';
+import { IsBoolean, IsString, IsOptional, IsIn } from 'class-validator';
+
+export class UpdateLlmSettingsDto {
+  @IsOptional()
+  @IsIn(['ollama', 'openrouter'])
+  provider?: 'ollama' | 'openrouter';
+
+  @IsOptional()
+  @IsString()
+  ollamaUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  ollamaModel?: string;
+
+  @IsOptional()
+  @IsString()
+  openrouterApiKey?: string;
+
+  @IsOptional()
+  @IsString()
+  openrouterModel?: string;
+}
 
 export class UpdateOllamaSettingsDto {
   @IsOptional()

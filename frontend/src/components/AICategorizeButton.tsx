@@ -61,12 +61,21 @@ export function AICategorizeButton({ mode, onComplete }: AICategorizeButtonProps
           res.data as {
             ollamaEnabled?: boolean;
             ollamaUrl?: string | null;
+            llmProvider?: string | null;
+            openrouterApiKeyConfigured?: boolean;
           },
       ),
   });
 
+  const provider = settings?.llmProvider || 'ollama';
   const isOllamaEnabled =
-    settings?.ollamaEnabled === true && Boolean(settings?.ollamaUrl?.trim());
+    provider !== 'openrouter' &&
+    settings?.ollamaEnabled === true &&
+    Boolean(settings?.ollamaUrl?.trim());
+  const isOpenrouterEnabled =
+    provider === 'openrouter' &&
+    settings?.openrouterApiKeyConfigured === true;
+  const isAiEnabled = isOllamaEnabled || isOpenrouterEnabled;
 
   const scanMutation = useMutation({
     mutationFn: async () => {
@@ -174,9 +183,9 @@ export function AICategorizeButton({ mode, onComplete }: AICategorizeButtonProps
         variant={mode === 'uncategorized' ? 'default' : 'outline'}
         size="sm"
         onClick={handleOpen}
-        disabled={!isOllamaEnabled}
+        disabled={!isAiEnabled}
         title={
-          !isOllamaEnabled ? 'יש להפעיל Ollama בהגדרות אינטגרציות' : undefined
+          !isAiEnabled ? 'יש להגדיר מנוע AI בלשונית הגדרות → AI' : undefined
         }
       >
         {mode === 'uncategorized' ? (

@@ -9,6 +9,7 @@ import { OllamaCategorizerService } from './ollama-categorizer.service';
 import { EncryptionModule } from '../../common/encryption/encryption.module';
 import { AuthModule } from '../../auth/auth.module';
 import { AlertsModule } from '../alerts/alerts.module';
+import { LLMModule } from '../llm/llm.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AlertsModule } from '../alerts/alerts.module';
     EncryptionModule,
     AuthModule,
     AlertsModule,
+    LLMModule,
   ],
   controllers: [ScraperController],
   providers: [

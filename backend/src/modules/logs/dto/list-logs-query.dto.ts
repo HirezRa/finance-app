@@ -17,6 +17,7 @@ const CATEGORIES: LogCategory[] = [
   'auth',
   'scraper',
   'ollama',
+  'openrouter',
   'system',
   'api',
   'webhook',

@@ -36,7 +36,7 @@ import {
   User,
   Shield,
   Bell,
-  Cpu,
+  Bot,
   Webhook,
   Loader2,
   CheckCircle,
@@ -68,6 +68,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AISettingsTab } from '@/components/settings/AISettingsTab';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<
@@ -76,7 +77,7 @@ export default function SettingsPage() {
     | 'notifications'
     | 'display'
     | 'budget'
-    | 'ollama'
+    | 'ai'
     | 'n8n'
     | 'logs'
     | 'data'
@@ -88,7 +89,7 @@ export default function SettingsPage() {
     { id: 'notifications' as const, label: 'התראות', icon: Bell },
     { id: 'display' as const, label: 'תצוגה', icon: Palette },
     { id: 'budget' as const, label: 'תקציב', icon: PieChart },
-    { id: 'ollama' as const, label: 'OLLAMA', icon: Cpu },
+    { id: 'ai' as const, label: 'AI', icon: Bot },
     { id: 'n8n' as const, label: 'n8n', icon: Webhook },
     { id: 'logs' as const, label: 'לוגים', icon: ScrollText },
     { id: 'data' as const, label: 'נתונים', icon: Trash2 },
@@ -120,7 +121,7 @@ export default function SettingsPage() {
       {activeTab === 'notifications' ? <NotificationSettings /> : null}
       {activeTab === 'display' ? <DisplaySettings /> : null}
       {activeTab === 'budget' ? <BudgetSettings /> : null}
-      {activeTab === 'ollama' ? <OllamaSettings /> : null}
+      {activeTab === 'ai' ? <AISettingsTab /> : null}
       {activeTab === 'n8n' ? <N8nSettings /> : null}
       {activeTab === 'logs' ? <LogsSettings /> : null}
       {activeTab === 'data' ? <DataSettings /> : null}
@@ -201,6 +202,7 @@ const LOG_CATEGORIES: AppLogCategory[] = [
   'auth',
   'scraper',
   'ollama',
+  'openrouter',
   'system',
   'api',
   'webhook',
@@ -212,6 +214,7 @@ const CATEGORY_LABELS: Record<AppLogCategory, string> = {
   auth: 'אימות',
   scraper: 'סקרייפר',
   ollama: 'OLLAMA',
+  openrouter: 'OpenRouter',
   system: 'מערכת',
   api: 'API',
   webhook: 'Webhooks',
@@ -942,157 +945,6 @@ function SecuritySettings() {
             </Button>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function OllamaSettings() {
-  const queryClient = useQueryClient();
-  const [url, setUrl] = useState('');
-  const [model, setModel] = useState('');
-  const [testResult, setTestResult] = useState<{
-    success: boolean;
-    message?: string;
-    models?: string[];
-  } | null>(null);
-
-  const { data: settings } = useQuery({
-    queryKey: ['ollama-settings'],
-    queryFn: () => settingsApi.getOllama().then((res) => res.data),
-  });
-
-  useEffect(() => {
-    if (settings) {
-      setUrl(settings.url || '');
-      setModel(settings.model || 'qwen2.5:7b');
-    }
-  }, [settings]);
-
-  const updateMutation = useMutation({
-    mutationFn: (data: { enabled?: boolean; url?: string; model?: string }) =>
-      settingsApi.updateOllama(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ollama-settings'] });
-    },
-  });
-
-  const testMutation = useMutation({
-    mutationFn: (data: { url: string; model?: string }) =>
-      settingsApi.testOllama(data),
-    onSuccess: (res) => {
-      const d = res.data as {
-        success: boolean;
-        error?: string;
-        availableModels?: string[];
-      };
-      setTestResult({
-        success: d.success,
-        message: d.error,
-        models: d.availableModels,
-      });
-    },
-    onError: () => {
-      setTestResult({ success: false, message: 'שגיאת חיבור' });
-    },
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>OLLAMA</CardTitle>
-        <CardDescription>
-          חיבור לשרת OLLAMA לסיווג אוטומטי של עסקאות
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-              settings?.enabled ? 'bg-green-500/20 text-green-500' : 'bg-muted'
-            }`}
-          >
-            <Cpu className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-medium">{settings?.enabled ? 'מופעל' : 'לא מופעל'}</p>
-          </div>
-          <Button
-            type="button"
-            variant={settings?.enabled ? 'destructive' : 'default'}
-            onClick={() => updateMutation.mutate({ enabled: !settings?.enabled })}
-          >
-            {settings?.enabled ? 'כבה' : 'הפעל'}
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">כתובת שרת</label>
-          <Input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="http://localhost:11434"
-            dir="ltr"
-            className="text-start"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">מודל</label>
-          <Input
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder="qwen2.5:7b"
-            dir="ltr"
-            className="text-start"
-          />
-          {testResult?.models?.length ? (
-            <p className="text-xs text-muted-foreground">
-              מודלים זמינים: {testResult.models.join(', ')}
-            </p>
-          ) : null}
-        </div>
-
-        {testResult ? (
-          <div
-            className={`flex items-center gap-2 rounded-lg p-3 ${
-              testResult.success
-                ? 'bg-green-500/10 text-green-500'
-                : 'bg-red-500/10 text-red-500'
-            }`}
-          >
-            {testResult.success ? (
-              <CheckCircle className="h-4 w-4 shrink-0" />
-            ) : (
-              <XCircle className="h-4 w-4 shrink-0" />
-            )}
-            <span>{testResult.success ? 'החיבור הצליח' : testResult.message}</span>
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => testMutation.mutate({ url, model })}
-            disabled={testMutation.isPending || !url}
-          >
-            {testMutation.isPending ? (
-              <Loader2 className="ms-2 h-4 w-4 animate-spin" />
-            ) : null}
-            בדוק חיבור
-          </Button>
-          <Button
-            type="button"
-            onClick={() => updateMutation.mutate({ url, model })}
-            disabled={updateMutation.isPending}
-          >
-            {updateMutation.isPending ? (
-              <Loader2 className="ms-2 h-4 w-4 animate-spin" />
-            ) : null}
-            שמור
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
