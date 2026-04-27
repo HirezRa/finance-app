@@ -242,7 +242,11 @@ export const scraperApi = {
   getVersion: () => api.get('/scraper/version'),
 };
 
-export type LLMProviderType = 'ollama' | 'openrouter';
+/** Active AI integration selection */
+export type LLMProviderType = 'none' | 'ollama' | 'openrouter';
+
+/** Runnable LLM backends (subset of LLMProviderType) */
+export type LLMEngineId = 'ollama' | 'openrouter';
 
 export interface LLMModel {
   id: string;
@@ -255,7 +259,7 @@ export interface LLMModel {
 }
 
 export interface LLMProviderStatus {
-  provider: LLMProviderType;
+  provider: LLMEngineId;
   enabled: boolean;
   connected: boolean;
   model: string;
@@ -274,18 +278,18 @@ export interface LLMStatus {
 export const llmApi = {
   getStatus: () => api.get<LLMStatus>('/llm/status').then((res) => res.data),
   test: (
-    provider: LLMProviderType,
+    provider: LLMEngineId,
     body?: { apiKey?: string; url?: string; model?: string },
   ) =>
     api
-      .post<{ provider: LLMProviderType; connected: boolean }>(
+      .post<{ provider: LLMEngineId; connected: boolean }>(
         `/llm/test/${provider}`,
         body ?? {},
       )
       .then((res) => res.data),
-  getModels: (provider: LLMProviderType) =>
+  getModels: (provider: LLMEngineId) =>
     api
-      .get<{ provider: LLMProviderType; models: LLMModel[] }>(
+      .get<{ provider: LLMEngineId; models: LLMModel[] }>(
         `/llm/models/${provider}`,
       )
       .then((res) => res.data),

@@ -9,7 +9,7 @@ import {
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { LLMService } from './llm.service';
-import type { LLMProviderType } from './llm.types';
+import type { LLMEngineId } from './llm.types';
 
 @Controller('llm')
 @UseGuards(JwtAuthGuard)
@@ -28,7 +28,7 @@ export class LLMController {
     @Body()
     body?: { apiKey?: string; url?: string; model?: string },
   ) {
-    const p = provider as LLMProviderType;
+    const p = provider as LLMEngineId;
     if (p !== 'ollama' && p !== 'openrouter') {
       return { provider, connected: false };
     }
@@ -45,7 +45,7 @@ export class LLMController {
     @CurrentUser('id') userId: string,
     @Param('provider') provider: string,
   ) {
-    const p = provider as LLMProviderType;
+    const p = provider as LLMEngineId;
     if (p !== 'ollama' && p !== 'openrouter') {
       return { provider, models: [] };
     }

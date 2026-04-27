@@ -68,14 +68,13 @@ export function AICategorizeButton({ mode, onComplete }: AICategorizeButtonProps
   });
 
   const provider = settings?.llmProvider || 'ollama';
-  const isOllamaEnabled =
-    provider !== 'openrouter' &&
-    settings?.ollamaEnabled === true &&
-    Boolean(settings?.ollamaUrl?.trim());
-  const isOpenrouterEnabled =
-    provider === 'openrouter' &&
-    settings?.openrouterApiKeyConfigured === true;
-  const isAiEnabled = isOllamaEnabled || isOpenrouterEnabled;
+  const isAiEnabled =
+    provider !== 'none' &&
+    ((provider === 'openrouter' &&
+      settings?.openrouterApiKeyConfigured === true) ||
+      (provider !== 'openrouter' &&
+        settings?.ollamaEnabled === true &&
+        Boolean(settings?.ollamaUrl?.trim())));
 
   const scanMutation = useMutation({
     mutationFn: async () => {
