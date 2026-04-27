@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { LLMService } from '../llm/llm.service';
 
 function parseKeywordsField(raw: Prisma.JsonValue | null | undefined): string[] {
   if (raw === null || raw === undefined) return [];
@@ -22,22 +23,18 @@ function parseKeywordsField(raw: Prisma.JsonValue | null | undefined): string[] 
 export class OllamaCategorizerService {
   private readonly logger = new Logger(OllamaCategorizerService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly llmService: LLMService,
+  ) {}
 
   async categorizeTransaction(userId: string, description: string): Promise<string | null> {
     const trimmed = description?.trim() ?? '';
     if (!trimmed) return null;
 
-    const settings = await this.prisma.userSettings.findUnique({
-      where: { userId },
-    });
-
-    if (!settings?.ollamaEnabled || !settings.ollamaUrl?.trim()) {
+    if (!(await this.llmService.isAiConfiguredForUser(userId))) {
       return null;
     }
-
-    const baseUrl = settings.ollamaUrl.replace(/\/+$/, '');
-    const model = settings.ollamaModel?.trim() || 'qwen2.5:7b';
 
     const categories = await this.prisma.category.findMany({
       where: {
@@ -48,7 +45,7 @@ export class OllamaCategorizerService {
 
     const categoryList = categories.map((c) => `- ${c.nameHe}`).join('\n');
 
-    const prompt = `אתה מסווג עסקאות בנקאיות.
+    const userContent = `אתה מסווג עסקאות בנקאיות.
 סווג את העסקה הבאה לאחת מהקטגוריות הבאות (בדיוק לפי השם בעברית):
 
 ${categoryList}
@@ -57,28 +54,21 @@ ${categoryList}
 
 ענה רק עם שם הקטגוריה בעברית משורת הרשימה למעלה, בלי הסברים וסימני פיסוק נוספים.`;
 
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 45_000);
-
     try {
-      const response = await fetch(`${baseUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          prompt,
-          stream: false,
-        }),
-        signal: controller.signal,
+      const llmRes = await this.llmService.completeForUser(userId, {
+        messages: [
+          {
+            role: 'system',
+            content:
+              'אתה עוזר לסיווג עסקאות. ענה רק בשם הקטגוריה בעברית כפי שמופיע ברשימה.',
+          },
+          { role: 'user', content: userContent },
+        ],
+        maxTokens: 80,
+        temperature: 0.3,
       });
 
-      if (!response.ok) {
-        this.logger.warn(`OLLAMA HTTP ${response.status} for categorize`);
-        return null;
-      }
-
-      const data = (await response.json()) as { response?: string };
-      let answer = data.response?.trim() ?? '';
+      let answer = (llmRes.content ?? '').trim();
       answer = answer.replace(/^["'`]+|["'`]+$/g, '').split(/\r?\n/)[0]?.trim() ?? '';
 
       if (!answer) return null;
@@ -110,10 +100,8 @@ ${categoryList}
       return matched?.id ?? null;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`OLLAMA categorize error: ${msg}`);
+      this.logger.error(`LLM categorize error: ${msg}`);
       return null;
-    } finally {
-      clearTimeout(t);
     }
   }
 }

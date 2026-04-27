@@ -144,6 +144,11 @@ model UserSettings {
   ollamaEnabled          Boolean  @default(false)
   ollamaUrl              String?
   ollamaModel            String?
+  llmProvider            String   @default("ollama")
+  openrouterModel        String?
+  openrouterApiKeyEncrypted String? @db.Text
+  openrouterApiKeyIv     String?
+  openrouterApiKeyTag    String?
   n8nEnabled             Boolean  @default(false)
   n8nWebhookUrl          String?
   n8nWebhookSecret       String?
