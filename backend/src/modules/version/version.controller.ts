@@ -22,11 +22,6 @@ import {
 export class VersionGithubController {
   constructor(private readonly versionService: VersionService) {}
 
-  @Get()
-  async getCurrentVersion() {
-    return this.versionService.getCurrentVersion();
-  }
-
   @Get('check-update')
   @UseGuards(JwtAuthGuard)
   async checkForUpdate() {
