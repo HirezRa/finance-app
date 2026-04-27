@@ -69,6 +69,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AISettingsTab } from '@/components/settings/AISettingsTab';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<
@@ -97,12 +98,9 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">הגדרות</h1>
-        <p className="text-muted-foreground">ניהול החשבון והאינטגרציות</p>
-      </div>
+      <PageHeader title="הגדרות" subtitle="ניהול החשבון והאינטגרציות" />
 
-      <div className="flex flex-wrap gap-2 border-b pb-2">
+      <div className="sticky top-[73px] z-10 -mx-4 flex flex-wrap gap-2 border-b border-white/10 bg-slate-900/95 px-4 pb-2 pt-2 backdrop-blur-lg md:-mx-6 md:px-6">
         {tabs.map((tab) => (
           <Button
             key={tab.id}
