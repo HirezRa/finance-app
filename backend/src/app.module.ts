@@ -21,6 +21,7 @@ import { OllamaModule } from './modules/ollama/ollama.module';
 import { VersionModule } from './modules/version/version.module';
 import { LogsModule } from './modules/logs/logs.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { LLMModule } from './modules/llm/llm.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     BudgetsModule,
     SettingsModule,
     AlertsModule,
+    LLMModule,
     OllamaModule,
     VersionModule,
     WebhooksModule,

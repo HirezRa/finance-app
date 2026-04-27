@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LogsService } from '../logs/logs.service';
+import { LLMService } from '../llm/llm.service';
 import { buildAbroadPromptLine } from '../../common/utils/foreign-currency';
 
 export interface CategorySuggestion {
@@ -84,6 +85,7 @@ export class OllamaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly appLogs: LogsService,
+    private readonly llmService: LLMService,
   ) {}
 
   async categorizeTransactions(
@@ -91,17 +93,9 @@ export class OllamaService {
     transactionIds: string[],
     mode: 'uncategorized' | 'improve',
   ): Promise<CategorySuggestion[]> {
-    const settings = await this.prisma.userSettings.findUnique({
-      where: { userId },
-    });
-
-    if (!settings?.ollamaEnabled || !settings.ollamaUrl?.trim()) {
-      throw new BadRequestException('Ollama is not configured');
+    if (!(await this.llmService.isAiConfiguredForUser(userId))) {
+      throw new BadRequestException('מנוע AI אינו מוגדר');
     }
-
-    const ollamaUrl = settings.ollamaUrl.replace(/\/+$/, '');
-    const ollamaModel =
-      settings.ollamaModel?.trim() || DEFAULT_OLLAMA_MODEL;
 
     if (transactionIds.length === 0) {
       return [];
@@ -173,8 +167,7 @@ export class OllamaService {
         const suggestion = await this.classifyTransaction(
           tx,
           categories,
-          ollamaUrl,
-          ollamaModel,
+          userId,
           mode,
         );
 
@@ -248,8 +241,7 @@ export class OllamaService {
       } | null;
     },
     categories: CategoryRow[],
-    ollamaUrl: string,
-    ollamaModel: string,
+    userId: string,
     mode: 'uncategorized' | 'improve',
   ): Promise<Omit<
     CategorySuggestion,
@@ -355,11 +347,9 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
 {"category": "category_name_in_english", "confidence": 0.0-1.0, "reasoning": "brief reason in Hebrew"}`;
 
     const t0 = Date.now();
-    this.appLogs.add('INFO', 'ollama', 'שליחת בקשת סיווג ל-Ollama', {
+    this.appLogs.add('INFO', 'ollama', 'שליחת בקשת סיווג ל-LLM', {
       transactionId: transaction.id,
       mode,
-      model: ollamaModel,
-      ollamaBaseUrl: ollamaUrl,
       descriptionPreview: transactionDesc.slice(0, 100),
       amount: transactionAmount,
       isExpense,
@@ -372,75 +362,35 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
         prompt.length > 1500 ? `${prompt.slice(0, 1500)}…` : prompt,
     });
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 90_000);
-
-    let response: Response;
+    let responseText: string;
     try {
-      response = await fetch(`${ollamaUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: ollamaModel,
-          prompt,
-          stream: false,
-          options: {
-            temperature: 0.1,
-            num_predict: 150,
-          },
-        }),
-        signal: controller.signal,
+      const llmRes = await this.llmService.completeForUser(userId, {
+        messages: [{ role: 'user', content: prompt }],
+        responseFormat: 'json',
+        maxTokens: 150,
+        temperature: 0.1,
       });
+      responseText = (llmRes.content ?? '').trim();
     } catch (err: unknown) {
       const durationMs = Date.now() - t0;
       const msg = err instanceof Error ? err.message : String(err);
-      this.appLogs.add('ERROR', 'ollama', 'כשל רשת/timeout בקריאה ל-Ollama', {
+      this.appLogs.add('ERROR', 'ollama', 'כשל בקריאת LLM לסיווג', {
         transactionId: transaction.id,
         errorHe: parseOllamaErrorHe(msg),
         rawError: msg,
         durationMs,
-        model: ollamaModel,
       });
       return null;
-    } finally {
-      clearTimeout(timer);
     }
-
-    if (!response.ok) {
-      const durationMs = Date.now() - t0;
-      let errBody = '';
-      try {
-        errBody = (await response.text()).slice(0, 300);
-      } catch {
-        /* ignore */
-      }
-      this.appLogs.add('ERROR', 'ollama', 'תשובת שגיאה מ-Ollama (HTTP)', {
-        transactionId: transaction.id,
-        status: response.status,
-        bodyPreview: errBody,
-        durationMs,
-        model: ollamaModel,
-      });
-      throw new Error(`Ollama request failed: ${response.status}`);
-    }
-
-    const data = (await response.json()) as {
-      response?: string;
-      total_duration?: number;
-      eval_count?: number;
-    };
-    let responseText = data.response?.trim() || '';
 
     this.logger.log(
-      `Ollama response for "${transactionDesc.slice(0, 80)}": ${responseText.slice(0, 300)}`,
+      `LLM response for "${transactionDesc.slice(0, 80)}": ${responseText.slice(0, 300)}`,
     );
 
     const durationAfterHttp = Date.now() - t0;
-    this.appLogs.add('DEBUG', 'ollama', 'תשובה גולמית מ-Ollama (קטועה)', {
+    this.appLogs.add('DEBUG', 'ollama', 'תשובה גולמית מ-LLM (קטועה)', {
       transactionId: transaction.id,
       rawResponsePreview: responseText.slice(0, 600),
-      ollamaTotalDurationNs: data.total_duration,
-      evalCount: data.eval_count,
       durationMs: durationAfterHttp,
     });
 
@@ -466,7 +416,6 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
         this.appLogs.add('INFO', 'ollama', 'המודל החזיר KEEP — ללא שינוי קטגוריה', {
           transactionId: transaction.id,
           durationMs: Date.now() - t0,
-          model: ollamaModel,
         });
         return null;
       }
@@ -500,7 +449,6 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
             category: partialMatch.nameHe || partialMatch.name,
             confidence,
             durationMs: Date.now() - t0,
-            model: ollamaModel,
             modelCategoryRaw: catRaw,
           });
           return {
@@ -532,7 +480,6 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
         category: matchedCategory.nameHe || matchedCategory.name,
         confidence,
         durationMs: Date.now() - t0,
-        model: ollamaModel,
       });
 
       return {
@@ -966,15 +913,9 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
       filterSize: categoryFilter?.length ?? 0,
     });
 
-    const settings = await this.prisma.userSettings.findUnique({
-      where: { userId },
-    });
-    if (!settings?.ollamaEnabled || !settings?.ollamaUrl?.trim()) {
-      return { error: 'Ollama לא מוגדר' };
+    if (!(await this.llmService.isAiConfiguredForUser(userId))) {
+      return { error: 'מנוע AI לא מוגדר' };
     }
-    const ollamaUrl = settings.ollamaUrl.replace(/\/+$/, '');
-    const ollamaModel =
-      settings.ollamaModel?.trim() || DEFAULT_OLLAMA_MODEL;
 
     let categories = await this.prisma.category.findMany({
       where: {
@@ -1019,8 +960,7 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
         category: null,
       },
       categories,
-      ollamaUrl,
-      ollamaModel,
+      userId,
       'uncategorized',
     );
 

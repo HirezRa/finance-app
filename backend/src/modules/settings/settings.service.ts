@@ -13,6 +13,7 @@ import { computeSalaryEffectiveDateForBankDate } from '../../common/utils/salary
 import {
   UpdateOllamaSettingsDto,
   UpdateN8nSettingsDto,
+  UpdateLlmSettingsDto,
 } from './dto/update-integrations.dto';
 
 @Injectable()
@@ -29,6 +30,9 @@ export class SettingsService {
       githubReleaseTokenEncrypted,
       githubReleaseTokenIv,
       githubReleaseTokenTag,
+      openrouterApiKeyEncrypted,
+      openrouterApiKeyIv,
+      openrouterApiKeyTag,
       ...rest
     } = row;
     return {
@@ -37,6 +41,11 @@ export class SettingsService {
         githubReleaseTokenEncrypted &&
           githubReleaseTokenIv &&
           githubReleaseTokenTag,
+      ),
+      openrouterApiKeyConfigured: Boolean(
+        openrouterApiKeyEncrypted &&
+          openrouterApiKeyIv &&
+          openrouterApiKeyTag,
       ),
     };
   }
@@ -346,6 +355,7 @@ export class SettingsService {
       enabled: settings.ollamaEnabled ?? false,
       url: settings.ollamaUrl || '',
       model: settings.ollamaModel || 'qwen2.5:7b',
+      llmProvider: settings.llmProvider ?? 'ollama',
     };
   }
 
@@ -353,6 +363,9 @@ export class SettingsService {
     const update: Prisma.UserSettingsUpdateInput = {};
     if (dto.enabled !== undefined) {
       update.ollamaEnabled = dto.enabled;
+      if (dto.enabled) {
+        update.llmProvider = 'ollama';
+      }
     }
     if (dto.url !== undefined) {
       update.ollamaUrl = dto.url;
@@ -366,11 +379,99 @@ export class SettingsService {
       update: update,
       create: {
         userId,
+        llmProvider: 'ollama',
         ollamaEnabled: dto.enabled ?? false,
         ollamaUrl: dto.url,
         ollamaModel: dto.model,
       },
     });
+  }
+
+  async getLlmIntegrationSettings(userId: string) {
+    await this.getUserSettings(userId);
+    const s = await this.prisma.userSettings.findUnique({
+      where: { userId },
+    });
+    if (!s) {
+      throw new NotFoundException('הגדרות לא נמצאו');
+    }
+    let openrouterKeyHint: string | null = null;
+    if (
+      s.openrouterApiKeyEncrypted &&
+      s.openrouterApiKeyIv &&
+      s.openrouterApiKeyTag
+    ) {
+      try {
+        const dec = this.encryption.decrypt(
+          s.openrouterApiKeyEncrypted,
+          s.openrouterApiKeyIv,
+          s.openrouterApiKeyTag,
+        );
+        if (dec.length >= 4) {
+          openrouterKeyHint = `***${dec.slice(-4)}`;
+        } else {
+          openrouterKeyHint = '***';
+        }
+      } catch {
+        openrouterKeyHint = '***';
+      }
+    }
+    return {
+      provider: (s.llmProvider || 'ollama') as 'ollama' | 'openrouter',
+      ollama: {
+        enabled: s.ollamaEnabled ?? false,
+        url: s.ollamaUrl || '',
+        model: s.ollamaModel || 'qwen2.5:7b',
+      },
+      openrouter: {
+        model: s.openrouterModel || 'anthropic/claude-3.5-sonnet',
+        apiKeyHint: openrouterKeyHint,
+        configured: Boolean(
+          s.openrouterApiKeyEncrypted &&
+            s.openrouterApiKeyIv &&
+            s.openrouterApiKeyTag,
+        ),
+      },
+    };
+  }
+
+  async updateLlmIntegrationSettings(userId: string, dto: UpdateLlmSettingsDto) {
+    const update: Prisma.UserSettingsUpdateInput = {};
+    if (dto.provider !== undefined) {
+      update.llmProvider = dto.provider;
+      update.ollamaEnabled = dto.provider === 'ollama';
+    }
+    if (dto.ollamaUrl !== undefined) {
+      update.ollamaUrl = dto.ollamaUrl;
+    }
+    if (dto.ollamaModel !== undefined) {
+      update.ollamaModel = dto.ollamaModel;
+    }
+    if (dto.openrouterModel !== undefined) {
+      update.openrouterModel = dto.openrouterModel;
+    }
+    if (dto.openrouterApiKey !== undefined) {
+      const t = dto.openrouterApiKey.trim();
+      if (t === '') {
+        update.openrouterApiKeyEncrypted = null;
+        update.openrouterApiKeyIv = null;
+        update.openrouterApiKeyTag = null;
+      } else {
+        const enc = this.encryption.encrypt(t);
+        update.openrouterApiKeyEncrypted = enc.encryptedData;
+        update.openrouterApiKeyIv = enc.iv;
+        update.openrouterApiKeyTag = enc.authTag;
+      }
+    }
+
+    await this.getUserSettings(userId);
+    if (Object.keys(update).length > 0) {
+      await this.prisma.userSettings.update({
+        where: { userId },
+        data: update,
+      });
+    }
+    return this.getLlmIntegrationSettings(userId);
   }
 
   async testOllamaConnection(url: string, model?: string) {

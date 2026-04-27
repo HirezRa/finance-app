@@ -242,6 +242,55 @@ export const scraperApi = {
   getVersion: () => api.get('/scraper/version'),
 };
 
+export type LLMProviderType = 'ollama' | 'openrouter';
+
+export interface LLMModel {
+  id: string;
+  name: string;
+  contextLength?: number;
+  pricing?: {
+    prompt: string;
+    completion: string;
+  };
+}
+
+export interface LLMProviderStatus {
+  provider: LLMProviderType;
+  enabled: boolean;
+  connected: boolean;
+  model: string;
+  availableModels: LLMModel[];
+  error?: string;
+}
+
+export interface LLMStatus {
+  activeProvider: LLMProviderType;
+  providers: {
+    ollama: LLMProviderStatus;
+    openrouter: LLMProviderStatus;
+  };
+}
+
+export const llmApi = {
+  getStatus: () => api.get<LLMStatus>('/llm/status').then((res) => res.data),
+  test: (
+    provider: LLMProviderType,
+    body?: { apiKey?: string; url?: string; model?: string },
+  ) =>
+    api
+      .post<{ provider: LLMProviderType; connected: boolean }>(
+        `/llm/test/${provider}`,
+        body ?? {},
+      )
+      .then((res) => res.data),
+  getModels: (provider: LLMProviderType) =>
+    api
+      .get<{ provider: LLMProviderType; models: LLMModel[] }>(
+        `/llm/models/${provider}`,
+      )
+      .then((res) => res.data),
+};
+
 export const ollamaApi = {
   getUncategorized: (limit = 50) =>
     api
@@ -271,6 +320,7 @@ export type AppLogCategory =
   | 'auth'
   | 'scraper'
   | 'ollama'
+  | 'openrouter'
   | 'system'
   | 'api'
   | 'webhook';
@@ -318,6 +368,9 @@ export const settingsApi = {
     api.patch('/settings/integrations/ollama', data),
   testOllama: (data: { url: string; model?: string }) =>
     api.post('/settings/integrations/ollama/test', data),
+  getLlm: () => api.get('/settings/integrations/llm'),
+  updateLlm: (data: Record<string, unknown>) =>
+    api.patch('/settings/integrations/llm', data),
   getN8n: () => api.get('/settings/integrations/n8n'),
   updateN8n: (data: Record<string, unknown>) =>
     api.patch('/settings/integrations/n8n', data),

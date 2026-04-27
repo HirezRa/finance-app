@@ -14,6 +14,7 @@ import { SaveGithubReleaseTokenDto } from './dto/save-github-release-token.dto';
 import {
   UpdateOllamaSettingsDto,
   UpdateN8nSettingsDto,
+  UpdateLlmSettingsDto,
   TestConnectionDto,
 } from './dto/update-integrations.dto';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -81,6 +82,19 @@ export class SettingsController {
   @Post('integrations/ollama/test')
   testOllamaConnection(@Body() dto: TestConnectionDto) {
     return this.settingsService.testOllamaConnection(dto.url, dto.model);
+  }
+
+  @Get('integrations/llm')
+  getLlmIntegrationSettings(@CurrentUser('id') userId: string) {
+    return this.settingsService.getLlmIntegrationSettings(userId);
+  }
+
+  @Patch('integrations/llm')
+  updateLlmIntegrationSettings(
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdateLlmSettingsDto,
+  ) {
+    return this.settingsService.updateLlmIntegrationSettings(userId, dto);
   }
 
   @Get('integrations/n8n')
