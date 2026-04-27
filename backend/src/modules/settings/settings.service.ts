@@ -4,6 +4,7 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
+import { cleanOpenRouterModelId } from '../../common/utils/openrouter-model';
 import { createHmac } from 'crypto';
 import { Prisma, UserSettings as UserSettingsRow } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -454,7 +455,7 @@ export class SettingsService {
       update.ollamaModel = dto.ollamaModel;
     }
     if (dto.openrouterModel !== undefined) {
-      update.openrouterModel = dto.openrouterModel;
+      update.openrouterModel = cleanOpenRouterModelId(dto.openrouterModel);
     }
     if (dto.openrouterApiKey !== undefined) {
       const t = dto.openrouterApiKey.trim();

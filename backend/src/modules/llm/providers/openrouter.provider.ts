@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { cleanOpenRouterModelId } from '../../../common/utils/openrouter-model';
 import { LogsService } from '../../logs/logs.service';
 import type {
   LLMCompletionRequest,
@@ -118,7 +119,8 @@ export class OpenRouterLlmProvider {
     request: LLMCompletionRequest,
   ): Promise<LLMCompletionResponse> {
     const startTime = Date.now();
-    const modelToUse = request.model || cfg.model;
+    const rawModel = request.model || cfg.model;
+    const modelToUse = cleanOpenRouterModelId(rawModel);
     const base = (cfg.baseUrl || this.defaultBaseUrl()).replace(/\/+$/, '');
 
     if (!cfg.apiKey) {

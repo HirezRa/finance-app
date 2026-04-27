@@ -206,6 +206,7 @@ const LOG_CATEGORIES: AppLogCategory[] = [
   'system',
   'api',
   'webhook',
+  'categorization',
 ];
 
 const CATEGORY_LABELS: Record<AppLogCategory, string> = {
@@ -218,6 +219,7 @@ const CATEGORY_LABELS: Record<AppLogCategory, string> = {
   system: 'מערכת',
   api: 'API',
   webhook: 'Webhooks',
+  categorization: 'סיווג',
 };
 
 function logLevelClass(level: AppLogLevel): string {
