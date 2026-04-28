@@ -40,6 +40,8 @@ interface UpdateStatus {
   progress?: number;
   error?: string;
   startedAt?: string;
+  buildLog?: string[];
+  updatedAt?: string;
 }
 
 interface UpdateHistoryEntry {
@@ -243,6 +245,36 @@ export function UpdateSection() {
       {statusNode ? (
         <Card className="p-4">
           {statusNode}
+
+          {updateStatus &&
+          ['in-progress', 'failed', 'rolled-back'].includes(updateStatus.status) &&
+          updateStatus.buildLog &&
+          updateStatus.buildLog.length > 0 ? (
+            <div className="mt-4">
+              <h4 className="mb-2 text-sm font-medium text-muted-foreground">לוג בנייה:</h4>
+              <div className="bg-black/50 max-h-40 w-full overflow-y-auto rounded-md border p-3">
+                <div className="font-mono space-y-0.5 text-xs">
+                  {updateStatus.buildLog.map((line, index) => (
+                    <div
+                      key={`${index}-${line.slice(0, 16)}`}
+                      className={
+                        updateStatus.status === 'in-progress' ? 'text-green-400' : 'text-red-300'
+                      }
+                    >
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {updateStatus && ['failed', 'rolled-back'].includes(updateStatus.status) && updateStatus.error ? (
+            <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/10 p-3">
+              <h4 className="text-destructive mb-1 text-sm font-medium">שגיאה:</h4>
+              <p className="text-destructive/80 text-sm">{updateStatus.error}</p>
+            </div>
+          ) : null}
 
           {updateStatus?.status === 'pending' ? (
             <div className="mt-3">
