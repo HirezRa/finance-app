@@ -1,13 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   existsSync,
   readFileSync,
   writeFileSync,
   unlinkSync,
+  mkdirSync,
 } from 'fs';
 import { join } from 'path';
-import { SettingsService } from '../settings/settings.service';
 import { LogsService } from '../logs/logs.service';
 
 export interface GithubReleaseDto {
@@ -57,6 +57,7 @@ export interface UpdateStatus {
   error?: string;
   progress?: number;
   steps?: UpdateStatusStep[];
+  buildLog?: string[];
   updatedAt?: string;
 }
 
@@ -76,6 +77,7 @@ export interface SelfUpdateStatusDto {
   progress?: number;
   error?: string;
   updatedAt?: string;
+  buildLog?: string[];
 }
 
 export interface PerformSelfUpdateResult {
@@ -85,22 +87,56 @@ export interface PerformSelfUpdateResult {
 }
 
 @Injectable()
-export class VersionService {
+export class VersionService implements OnModuleInit {
   private readonly logger = new Logger(VersionService.name);
   private readonly appDir: string;
+  private readonly updateDataDir: string;
   private readonly triggerFile: string;
   private readonly statusFile: string;
   private readonly historyFile: string;
+  private readonly buildLogFile: string;
 
   constructor(
     private readonly config: ConfigService,
-    private readonly settingsService: SettingsService,
     private readonly appLogs: LogsService,
   ) {
     this.appDir = this.config.get<string>('APP_DIR', '/opt/finance-app').trim();
-    this.triggerFile = join(this.appDir, '.update-requested');
-    this.statusFile = join(this.appDir, '.update-status.json');
-    this.historyFile = join(this.appDir, '.update-history.json');
+    this.updateDataDir = this.config
+      .get<string>('UPDATE_DATA_DIR', join(this.appDir, 'update-data'))
+      .trim();
+    this.triggerFile = join(this.updateDataDir, '.update-requested');
+    this.statusFile = join(this.updateDataDir, '.update-status.json');
+    this.historyFile = join(this.updateDataDir, '.update-history.json');
+    this.buildLogFile = join(this.updateDataDir, 'build.log');
+  }
+
+  onModuleInit(): void {
+    this.ensureUpdateDataDir();
+  }
+
+  private ensureUpdateDataDir(): void {
+    try {
+      if (!existsSync(this.updateDataDir)) {
+        mkdirSync(this.updateDataDir, { recursive: true, mode: 0o777 });
+        this.appLogs.add('INFO', 'version', 'נוצרה תיקיית עדכונים', {
+          path: this.updateDataDir,
+        });
+      }
+      const files: { path: string; defaultContent: string }[] = [
+        { path: this.statusFile, defaultContent: '{}' },
+        { path: this.historyFile, defaultContent: '[]' },
+        { path: this.buildLogFile, defaultContent: '' },
+      ];
+      for (const f of files) {
+        if (!existsSync(f.path)) {
+          writeFileSync(f.path, f.defaultContent, { encoding: 'utf-8', mode: 0o666 });
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`ensureUpdateDataDir: ${msg}`);
+      this.appLogs.add('WARN', 'version', 'שגיאה ביצירת תיקיית עדכונים', { error: msg });
+    }
   }
 
   async getCurrentVersion(): Promise<{ version: string; buildDate?: string }> {
@@ -112,27 +148,14 @@ export class VersionService {
     }
   }
 
-  async getLatestGithubRelease(userId: string): Promise<GithubReleaseResponse> {
-    const repo = this.config
-      .get<string>('GITHUB_REPO', 'HirezRa/finance-app')
-      .trim();
-    const stored =
-      userId === 'system'
-        ? null
-        : await this.settingsService.getDecryptedGithubReleaseToken(userId);
-    const token = (
-      stored ??
-      (this.config.get<string>('GITHUB_TOKEN') ?? '')
-    ).trim();
-
+  /** מאגר ציבורי — ללא טוקן GitHub */
+  async getLatestGithubRelease(_userId: string): Promise<GithubReleaseResponse> {
+    const repo = this.config.get<string>('GITHUB_REPO', 'HirezRa/finance-app').trim();
     const url = `https://api.github.com/repos/${repo}/releases/latest`;
     const headers: Record<string, string> = {
       Accept: 'application/vnd.github.v3+json',
       'User-Agent': 'finance-app-version-check',
     };
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
 
     const controller = new AbortController();
     const timeoutMs = 12_000;
@@ -162,17 +185,12 @@ export class VersionService {
       }
 
       if (res.status === 401) {
-        this.appLogs.add('WARN', 'version', 'בדיקת GitHub release נכשלה (401)', {
-          repo,
-          hadToken: Boolean(token),
-        });
+        this.appLogs.add('WARN', 'version', 'בדיקת GitHub release נכשלה (401)', { repo });
         return {
           success: false,
           release: null,
-          messageHe: token
-            ? 'הטוקן ל-GitHub נדחה. בדוק את הטוקן בהגדרות > תצוגה.'
-            : 'מאגר פרטי או דורש הרשאה. הגדר טוקן GitHub בהגדרות > תצוגה > בדיקת עדכונים.',
-          code: token ? 'unauthorized' : 'no_token',
+          messageHe: 'הגישה ל-GitHub נדחתה. נסה שוב מאוחר יותר.',
+          code: 'unauthorized',
         };
       }
 
@@ -186,7 +204,7 @@ export class VersionService {
             success: false,
             release: null,
             messageHe:
-              'חרגת ממגבלת הבקשות ל-GitHub. נסה שוב מאוחר יותר או הגדר טוקן בהגדרות.',
+              'חרגת ממגבלת הבקשות ל-GitHub. נסה שוב מאוחר יותר.',
             code: 'rate_limit',
           };
         }
@@ -196,7 +214,7 @@ export class VersionService {
         return {
           success: false,
           release: null,
-          messageHe: 'הגישה ל-GitHub נחסמה (403). בדוק הרשאות המאגר או את הטוקן.',
+          messageHe: 'הגישה ל-GitHub נחסמה (403).',
           code: 'forbidden',
         };
       }
@@ -302,6 +320,7 @@ export class VersionService {
 
   async triggerUpdate(): Promise<{ triggered: boolean; message: string }> {
     try {
+      this.ensureUpdateDataDir();
       const status = await this.getUpdateStatus();
       if (status.status === 'in-progress' || status.status === 'pending') {
         return { triggered: false, message: 'עדכון כבר בתהליך' };
@@ -310,6 +329,8 @@ export class VersionService {
       if (!check.updateAvailable) {
         return { triggered: false, message: 'אין עדכון זמין' };
       }
+
+      writeFileSync(this.buildLogFile, '', 'utf-8');
 
       writeFileSync(
         this.triggerFile,
@@ -350,21 +371,50 @@ export class VersionService {
   }
 
   async getUpdateStatus(): Promise<UpdateStatus> {
+    const currentVersion = this.readVersionFromAppDir(this.appDir);
     try {
+      this.ensureUpdateDataDir();
+
       if (!existsSync(this.statusFile)) {
         return {
           status: 'idle',
           message: 'לא מתבצע עדכון',
-          currentVersion: this.readVersionFromAppDir(this.appDir),
+          currentVersion,
         };
       }
-      const content = readFileSync(this.statusFile, 'utf-8');
-      return JSON.parse(content) as UpdateStatus;
+
+      const content = readFileSync(this.statusFile, 'utf-8').trim();
+      if (!content || content === '{}') {
+        return {
+          status: 'idle',
+          message: 'לא מתבצע עדכון',
+          currentVersion,
+        };
+      }
+
+      const parsed = JSON.parse(content) as UpdateStatus;
+      const merged: UpdateStatus = {
+        ...parsed,
+        currentVersion: parsed.currentVersion ?? currentVersion,
+      };
+
+      if (
+        ['in-progress', 'failed', 'rolled-back'].includes(merged.status) &&
+        existsSync(this.buildLogFile)
+      ) {
+        const logContent = readFileSync(this.buildLogFile, 'utf-8');
+        merged.buildLog = logContent
+          .split('\n')
+          .filter((line) => line.trim())
+          .slice(-30);
+      }
+
+      return merged;
     } catch {
       return {
         status: 'idle',
         message: 'לא מתבצע עדכון',
-        currentVersion: this.readVersionFromAppDir(this.appDir),
+        currentVersion,
       };
     }
   }
@@ -396,6 +446,7 @@ export class VersionService {
 
   async getUpdateHistory(): Promise<UpdateHistoryEntry[]> {
     try {
+      this.ensureUpdateDataDir();
       if (!existsSync(this.historyFile)) {
         return [];
       }
@@ -426,6 +477,7 @@ export class VersionService {
   }
 
   private async writeStatus(status: UpdateStatus): Promise<void> {
+    this.ensureUpdateDataDir();
     const next: UpdateStatus = {
       ...status,
       updatedAt: new Date().toISOString(),
@@ -454,13 +506,13 @@ export class VersionService {
     return 0;
   }
 
-  // Backward compatibility with existing frontend
   getSelfUpdateStatus(): SelfUpdateStatusDto {
     const empty: SelfUpdateStatusDto = { inProgress: false };
     try {
+      this.ensureUpdateDataDir();
       if (!existsSync(this.statusFile)) return empty;
       const status = JSON.parse(readFileSync(this.statusFile, 'utf-8')) as UpdateStatus;
-      return {
+      const dto: SelfUpdateStatusDto = {
         inProgress: status.status === 'in-progress' || status.status === 'pending',
         stage: status.status,
         message: status.message,
@@ -468,6 +520,17 @@ export class VersionService {
         error: status.error,
         updatedAt: status.updatedAt,
       };
+      if (
+        (status.status === 'in-progress' || status.status === 'failed') &&
+        existsSync(this.buildLogFile)
+      ) {
+        const logContent = readFileSync(this.buildLogFile, 'utf-8');
+        dto.buildLog = logContent
+          .split('\n')
+          .filter((line) => line.trim())
+          .slice(-20);
+      }
+      return dto;
     } catch {
       return empty;
     }

@@ -120,3 +120,12 @@ deploy_*/
 # Prisma
 # ========================================
 prisma/migrations/**/migration_lock.toml
+
+# Update system files (created at runtime with proper permissions)
+.update-status.json
+.update-requested
+.update-history.json
+.github-token
+
+# Update data directory
+update-data/

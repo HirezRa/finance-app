@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,13 +20,11 @@ import {
   AlertCircle,
   Download,
   Github,
-  Eye,
-  EyeOff,
   Loader2,
   Rocket,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import api, { settingsApi, versionApi, type PerformSelfUpdateResponse } from '@/services/api';
+import api, { versionApi, type PerformSelfUpdateResponse } from '@/services/api';
 import { isAxiosError } from 'axios';
 import { toast } from 'sonner';
 
@@ -101,55 +97,12 @@ function formatQueryError(err: unknown): string {
 const MANUAL_UPDATE_ONE_LINER =
   'cd /opt/finance-app && git pull origin main && docker compose build --no-cache backend frontend && docker compose up -d';
 
-function formatSaveTokenError(err: unknown): string {
-  if (isAxiosError(err)) {
-    const d = err.response?.data as { message?: string | string[] } | undefined;
-    if (d?.message) {
-      return Array.isArray(d.message) ? (d.message[0] ?? '') : d.message;
-    }
-  }
-  if (err instanceof Error && err.message) return err.message;
-  return '×©×ž×™×¨×ª ×”×˜×•×§×Ÿ × ×›×©×œ×”.';
-}
-
 export function VersionChecker() {
   const queryClient = useQueryClient();
   const [isChecking, setIsChecking] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [tokenDraft, setTokenDraft] = useState('');
-  const [showToken, setShowToken] = useState(false);
   const [manualUpdateBlock, setManualUpdateBlock] = useState<string | null>(null);
   const sawInProgressRef = useRef(false);
-
-  const { data: settings } = useQuery({
-    queryKey: ['user-settings'],
-    queryFn: () => settingsApi.get().then((res) => res.data as { githubReleaseTokenConfigured?: boolean }),
-  });
-
-  const tokenConfigured = settings?.githubReleaseTokenConfigured === true;
-
-  const saveTokenMutation = useMutation({
-    mutationFn: (token: string) => settingsApi.saveGithubReleaseToken(token),
-    onSuccess: () => {
-      toast.success('×”×˜×•×§×Ÿ × ×©×ž×¨ ×‘×”×¦×œ×—×”');
-      setTokenDraft('');
-      void queryClient.invalidateQueries({ queryKey: ['user-settings'] });
-    },
-    onError: (err) => {
-      toast.error(formatSaveTokenError(err));
-    },
-  });
-
-  const clearTokenMutation = useMutation({
-    mutationFn: () => settingsApi.clearGithubReleaseToken(),
-    onSuccess: () => {
-      toast.success('×”×˜×•×§×Ÿ ×”×•×¡×¨');
-      void queryClient.invalidateQueries({ queryKey: ['user-settings'] });
-    },
-    onError: () => {
-      toast.error('×”×¡×¨×ª ×”×˜×•×§×Ÿ × ×›×©×œ×”');
-    },
-  });
 
   const { data: updateStatus } = useQuery({
     queryKey: ['self-update-status'],
@@ -261,19 +214,13 @@ export function VersionChecker() {
   const isNewer = comparison === -1;
   const busy = isChecking || latestFetching || performUpdateMutation.isPending;
   const checked = checkResult !== undefined || latestIsError;
-  const savingToken = saveTokenMutation.isPending || clearTokenMutation.isPending;
 
   return (
     <div className="finance-card space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <Github className="h-5 w-5" />
-          <h3 className="font-medium">×‘×“×™×§×ª ×¢×“×›×•× ×™×</h3>
-          {tokenConfigured ? (
-            <Badge variant="secondary" className="text-xs">
-              ×ž×•×’×“×¨
-            </Badge>
-          ) : null}
+          <h3 className="font-medium">בדיקת עדכונים</h3>
         </div>
         <Button
           type="button"
@@ -283,65 +230,13 @@ export function VersionChecker() {
           disabled={busy || isUpdating}
         >
           <RefreshCw className={cn('me-2 h-4 w-4', busy && 'animate-spin')} />
-          ×‘×“×•×§ ×¢×“×›×•× ×™×
+          בדוק עדכונים
         </Button>
       </div>
 
-      <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
-        <Label htmlFor="github-release-token" className="text-sm font-medium">
-          ×˜×•×§×Ÿ GitHub (×œ×ž××’×¨ ×¤×¨×˜×™)
-        </Label>
-        <div className="relative">
-          <Input
-            id="github-release-token"
-            type={showToken ? 'text' : 'password'}
-            value={tokenDraft}
-            onChange={(e) => setTokenDraft(e.target.value)}
-            placeholder={tokenConfigured ? '×”×–×Ÿ ×˜×•×§×Ÿ ×—×“×© ×›×“×™ ×œ×”×—×œ×™×£' : 'ghp_â€¦ ××• fine-grained token'}
-            dir="ltr"
-            autoComplete="off"
-            className="pe-10 text-start font-mono text-sm"
-          />
-          <button
-            type="button"
-            onClick={() => setShowToken(!showToken)}
-            className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            aria-label={showToken ? '×”×¡×ª×¨ ×˜×•×§×Ÿ' : '×”×¦×’ ×˜×•×§×Ÿ'}
-          >
-            {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            disabled={savingToken || !tokenDraft.trim()}
-            onClick={() => saveTokenMutation.mutate(tokenDraft.trim())}
-          >
-            {saveTokenMutation.isPending ? (
-              <Loader2 className="me-2 h-4 w-4 animate-spin" />
-            ) : null}
-            ×©×ž×•×¨ ×˜×•×§×Ÿ
-          </Button>
-          {tokenConfigured ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={savingToken}
-              onClick={() => clearTokenMutation.mutate()}
-            >
-              {clearTokenMutation.isPending ? (
-                <Loader2 className="me-2 h-4 w-4 animate-spin" />
-              ) : null}
-              ×”×¡×¨ ×˜×•×§×Ÿ
-            </Button>
-          ) : null}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          ×”×˜×•×§×Ÿ × ×©×ž×¨ ×ž×•×¦×¤×Ÿ ×‘×©×¨×ª ×•× ×‘×“×§ ×ž×•×œ GitHub ×œ×¤× ×™ ×”×©×ž×™×¨×”.
-        </p>
-      </div>
+      <p className="text-muted-foreground rounded-lg border border-border bg-muted/30 p-3 text-sm">
+        המאגר ציבורי — בדיקת עדכונים מ-GitHub לא דורשת טוקן.
+      </p>
 
       <div className="flex items-center justify-between border-b border-border py-2">
         <span className="text-muted-foreground">×’×¨×¡×” ×ž×•×ª×§× ×ª:</span>

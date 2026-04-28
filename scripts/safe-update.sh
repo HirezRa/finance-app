@@ -4,16 +4,27 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/finance-app}"
-TRIGGER_FILE="$APP_DIR/.update-requested"
-STATUS_FILE="$APP_DIR/.update-status.json"
-HISTORY_FILE="$APP_DIR/.update-history.json"
+UPDATE_DATA_DIR="${UPDATE_DATA_DIR:-$APP_DIR/update-data}"
+TRIGGER_FILE="$UPDATE_DATA_DIR/.update-requested"
+STATUS_FILE="$UPDATE_DATA_DIR/.update-status.json"
+HISTORY_FILE="$UPDATE_DATA_DIR/.update-history.json"
+BUILD_LOG_FILE="$UPDATE_DATA_DIR/build.log"
 LOG_FILE="$APP_DIR/logs/update.log"
 BACKUP_DIR="$APP_DIR/backups"
-HEALTH_URL="http://127.0.0.1:3000/api/v1/health"
 MAX_HEALTH_RETRIES=30
 HEALTH_RETRY_DELAY=2
+HEALTH_URL="http://127.0.0.1:3000/api/v1/health"
 
 mkdir -p "$APP_DIR/logs" "$BACKUP_DIR"
+
+ensure_update_dir() {
+  mkdir -p "$UPDATE_DATA_DIR"
+  chmod 777 "$UPDATE_DATA_DIR" 2>/dev/null || true
+  touch "$STATUS_FILE" "$HISTORY_FILE" "$BUILD_LOG_FILE" 2>/dev/null || true
+  chmod 666 "$STATUS_FILE" "$HISTORY_FILE" "$BUILD_LOG_FILE" 2>/dev/null || true
+}
+
+ensure_update_dir
 
 log(){
   local ts
@@ -44,13 +55,14 @@ write_status(){
   cur=$(current_version | tr -d '\n')
   local tgt
   tgt=$(target_version | tr -d '\n')
+  ensure_update_dir
   {
     echo "{"
-    echo "  \"status\": \"$st\"," 
-    echo "  \"message\": \"$(esc "$msg")\"," 
-    echo "  \"currentVersion\": \"$cur\"," 
+    echo "  \"status\": \"$st\","
+    echo "  \"message\": \"$(esc "$msg")\","
+    echo "  \"currentVersion\": \"$cur\","
     if [ -n "$tgt" ]; then
-      echo "  \"targetVersion\": \"$tgt\"," 
+      echo "  \"targetVersion\": \"$tgt\","
     fi
     echo "  \"progress\": $progress,"
     if [ -n "$err" ]; then
@@ -59,6 +71,7 @@ write_status(){
     echo "  \"updatedAt\": \"$(date -Iseconds)\""
     echo "}"
   } > "$STATUS_FILE"
+  chmod 666 "$STATUS_FILE" 2>/dev/null || true
 }
 
 append_history(){
@@ -84,9 +97,11 @@ append_history(){
   fi
   entry="$entry}"
 
+  ensure_update_dir
   if [ ! -f "$HISTORY_FILE" ] || [ ! -s "$HISTORY_FILE" ]; then
     echo "[$entry]" > "$HISTORY_FILE"
-    return
+    chmod 666 "$HISTORY_FILE" 2>/dev/null || true
+    return 0
   fi
 
   if grep -q '^\[' "$HISTORY_FILE"; then
@@ -101,6 +116,7 @@ append_history(){
   else
     echo "$entry" >> "$HISTORY_FILE"
   fi
+  chmod 666 "$HISTORY_FILE" 2>/dev/null || true
 }
 
 create_backup(){
@@ -150,6 +166,32 @@ check_health(){
   return 1
 }
 
+build_containers() {
+  log "[INFO] building containers..."
+  write_status "in-progress" "בונה backend..." 50
+
+  cd "$APP_DIR"
+  : > "$BUILD_LOG_FILE"
+  chmod 666 "$BUILD_LOG_FILE" 2>/dev/null || true
+
+  log "[INFO] building backend..."
+  if ! docker compose build --no-cache --progress=plain backend 2>&1 | tee -a "$BUILD_LOG_FILE" "$LOG_FILE"; then
+    log "[ERROR] backend build failed"
+    return 1
+  fi
+
+  write_status "in-progress" "בונה frontend..." 65
+
+  log "[INFO] building frontend..."
+  if ! docker compose build --no-cache --progress=plain frontend 2>&1 | tee -a "$BUILD_LOG_FILE" "$LOG_FILE"; then
+    log "[ERROR] frontend build failed"
+    return 1
+  fi
+
+  log "[INFO] build completed"
+  return 0
+}
+
 cleanup(){
   rm -f "$TRIGGER_FILE" /tmp/finance_update_backup_name
   ls -dt "$BACKUP_DIR"/backup-* 2>/dev/null | tail -n +6 | xargs rm -rf 2>/dev/null || true
@@ -182,12 +224,12 @@ main(){
   (cd "$APP_DIR" && docker compose exec -T backend npx prisma migrate deploy) || true
 
   write_status "in-progress" "בונה קונטיינרים..." 55
-  (cd "$APP_DIR" && docker compose build --no-cache backend frontend) || {
+  if ! build_containers; then
     rollback "בנייה נכשלה"
     append_history "rolled-back" "Build failed" "$previous_version" "$previous_version" "$start_ts"
     cleanup
     exit 1
-  }
+  fi
 
   write_status "in-progress" "מפעיל קונטיינרים מחדש..." 80
   (cd "$APP_DIR" && docker compose up -d) || {

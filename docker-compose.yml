@@ -71,6 +71,7 @@ services:
       DAILY_SYNC_CRON: ${DAILY_SYNC_CRON:-0 6 * * *}
       SELF_UPDATE_ENABLED: ${SELF_UPDATE_ENABLED:-false}
       APP_DIR: ${APP_DIR:-/opt/finance-app}
+      UPDATE_DATA_DIR: ${UPDATE_DATA_DIR:-/app/update-data}
     depends_on:
       db:
         condition: service_healthy
@@ -82,8 +83,9 @@ services:
       - ${DOCKER_HOST_DOCKER_GID:-996}
     volumes:
       - ./logs:/app/logs
-      # Self-update files are available via this repo mount:
-      # .update-requested / .update-status.json / .update-history.json / .github-token / VERSION
+      # Self-update state lives here (persists permissions; not tracked in git)
+      - ./update-data:/app/update-data
+      # Full repo on host for git pull / VERSION / scripts (LXC)
       - ${FINANCE_HOST_APP_DIR:-.}:/opt/finance-app
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
