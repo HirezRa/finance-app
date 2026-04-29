@@ -2,10 +2,13 @@ import api from '@/services/api';
 import { useAuthStore } from '@/store/auth.store';
 
 /**
- * מגדיר את הטוקן בחנות, טוען `/users/me` ו־`/settings/profile` ומעדכן את המשתמש.
+ * מגדיר טוקנים בחנות, טוען `/users/me` ו־`/settings/profile` ומעדכן את המשתמש.
  */
-export async function establishSession(accessToken: string): Promise<void> {
-  useAuthStore.getState().setAccessToken(accessToken);
+export async function establishSession(
+  accessToken: string,
+  refreshToken?: string | null,
+): Promise<void> {
+  useAuthStore.getState().setTokens(accessToken, refreshToken ?? null);
 
   const { data: me } = await api.get<{ userId: string; email: string }>(
     '/users/me',
@@ -40,5 +43,6 @@ export async function establishSession(accessToken: string): Promise<void> {
       twoFactorEnabled,
     },
     accessToken,
+    refreshToken ?? null,
   );
 }

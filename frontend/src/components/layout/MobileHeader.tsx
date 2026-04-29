@@ -20,7 +20,7 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
   const title = pageTitles[location.pathname] || 'ניהול פיננסי';
 
   return (
-    <header className="safe-area-inset-top fixed inset-x-0 top-0 z-40 border-b border-border bg-card/95">
+    <header className="safe-area-inset-top fixed inset-x-0 top-0 z-40 border-b border-white/15 bg-white/25 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.08]">
       <div className="flex h-16 items-center justify-between px-4">
         <button
           type="button"

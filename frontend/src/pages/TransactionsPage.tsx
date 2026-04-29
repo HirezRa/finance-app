@@ -351,7 +351,7 @@ export default function TransactionsPage() {
         }
       />
 
-      <div className="sticky top-[73px] z-10 -mx-4 border-b border-border bg-background/95 px-4 py-3 md:-mx-6 md:px-6">
+      <div className="sticky top-[73px] z-10 -mx-4 border-b border-white/15 bg-white/25 px-4 py-3 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06] md:-mx-6 md:px-6">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <Checkbox
@@ -572,7 +572,7 @@ export default function TransactionsPage() {
               ))}
             </div>
           ) : (
-            <div className="overflow-hidden rounded-sm border border-border bg-card shadow-sm">
+            <div className="overflow-hidden rounded-2xl border border-white/20 bg-white/50 shadow-[0_8px_32px_rgb(15_23_42_/0.1)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.07]">
               <div className="hidden items-center gap-4 border-b bg-muted/30 p-4 text-sm font-medium text-muted-foreground md:flex">
                 <div className="w-24 shrink-0">סכום</div>
                 <div className="flex-1">פרטים</div>

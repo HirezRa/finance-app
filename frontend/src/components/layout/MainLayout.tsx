@@ -17,7 +17,7 @@ export default function MainLayout() {
   }, [location.pathname, isMobile]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100/80 via-indigo-100/30 to-violet-100/50 dark:from-slate-950 dark:via-indigo-950/50 dark:to-slate-900">
       {isMobile ? (
         <MobileHeader onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)} />
       ) : null}
@@ -44,7 +44,7 @@ export default function MainLayout() {
         {isMobile && !sidebarCollapsed ? (
           <>
             <div
-              className="fixed inset-0 z-40 bg-black/50"
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
               onClick={() => setSidebarCollapsed(true)}
             />
             <div className="fixed right-0 top-0 z-50 h-full w-64">
