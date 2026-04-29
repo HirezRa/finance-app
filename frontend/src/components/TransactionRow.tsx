@@ -94,7 +94,7 @@ function getTransactionTypeLabel(type: string | undefined): {
     TRANSFER: {
       label: 'העברה',
       icon: '🔄',
-      badgeClass: 'text-purple-600 bg-purple-500/15 dark:text-purple-400',
+      badgeClass: 'text-foreground bg-muted',
     },
     FEE: {
       label: 'עמלה',
