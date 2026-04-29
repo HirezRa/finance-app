@@ -100,10 +100,10 @@ export const transactionsApi = {
     status?: 'all' | 'pending' | 'completed';
     type?: string;
     hasInstallments?: boolean;
-    /** ×¡×™× ×•×Ÿ ×ž×™×§×•×: ×—×•"×œ / ××¨×¥ (×ž×˜×‘×¢ ×ž×§×•×¨×™) */
+    /** סינון מיקום: חו"ל / ארץ (מטבע מקורי) */
     isAbroad?: boolean;
     originalCurrency?: string;
-    /** ×©×œ×™×—×” ×¨×™×§×” (`[]`) ×©×•×œ×—×ª `accountTypes=` ×œ×¨×™×§×•×ª ×ž×›×•×•× ×ª ×‘×©×¨×ª */
+    /** שליחה ריקה (`[]`) שולחת `accountTypes=` לריקות מכוונת בשרת */
     accountTypes?: string[];
   }) => {
     const p: Record<string, string | number | boolean> = {};

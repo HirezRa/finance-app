@@ -51,7 +51,7 @@ interface LatestCheckResult {
 async function fetchLatestRelease(): Promise<LatestCheckResult> {
   const { data } = await api.get<GithubReleaseApiResponse>('/version/github-release');
   if (!data.success) {
-    throw new Error(data.messageHe ?? '×œ× × ×™×ª×Ÿ ×œ×‘×“×•×§ ×¢×“×›×•× ×™× ×ž×•×œ GitHub.');
+    throw new Error(data.messageHe ?? 'לא ניתן לבדוק עדכונים מול GitHub.');
   }
   return {
     release: data.release,
@@ -91,7 +91,7 @@ function formatQueryError(err: unknown): string {
     if (d && typeof d.message === 'string') return d.message;
     if (err.message) return err.message;
   }
-  return '×©×’×™××” ×œ× ×™×“×•×¢×” ×‘×‘×“×™×§×ª ×¢×“×›×•× ×™×.';
+  return 'שגיאה לא ידועה בבדיקת עדכונים.';
 }
 
 const MANUAL_UPDATE_ONE_LINER =
@@ -128,11 +128,11 @@ export function VersionChecker() {
     onError: (err: unknown) => {
       if (isAxiosError(err) && err.response?.status === 403) {
         const m = err.response?.data as { message?: string } | undefined;
-        toast.error(m?.message ?? '×¢×“×›×•×Ÿ ××•×˜×•×ž×˜×™ ××™× ×• ×ž×•×¤×¢×œ ×‘×©×¨×ª.');
+        toast.error(m?.message ?? 'עדכון אוטומטי אינו מופעל בשרת.');
         setManualUpdateBlock(MANUAL_UPDATE_ONE_LINER);
         return;
       }
-      toast.error('×©×’×™××” ×‘×”×¤×¢×œ×ª ×”×¢×“×›×•×Ÿ');
+      toast.error('שגיאה בהפעלת העדכון');
       setManualUpdateBlock(MANUAL_UPDATE_ONE_LINER);
     },
   });
@@ -152,19 +152,19 @@ export function VersionChecker() {
       toast.error(
         updateStatus.message ??
           updateStatus.error ??
-          '×”×¢×“×›×•×Ÿ × ×›×©×œ. ×‘×“×•×§ ×œ×•×’×™× ×‘×©×¨×ª (logs/self-update.log ××• /tmp).',
+          'העדכון נכשל. בדוק לוגים בשרת (logs/self-update.log או /tmp).',
       );
       setManualUpdateBlock(MANUAL_UPDATE_ONE_LINER);
       return;
     }
     if (updateStatus.stage === 'stale') {
       toast.message(
-        updateStatus.message ?? '×¡×˜×˜×•×¡ ×”×¢×“×›×•×Ÿ ×œ× ×‘×¨×•×¨ â€” ×‘×“×•×§ ×™×“× ×™×ª ××ª ×”×©×¨×ª.',
+        updateStatus.message ?? 'סטטוס העדכון לא ברור — בדוק ידנית את השרת.',
       );
       return;
     }
     if (updateStatus.stage === 'done') {
-      toast.success(updateStatus.message ?? '×”×¢×“×›×•×Ÿ ×”×•×©×œ×.');
+      toast.success(updateStatus.message ?? 'העדכון הושלם.');
       window.setTimeout(() => {
         window.location.reload();
       }, 4000);
@@ -239,7 +239,7 @@ export function VersionChecker() {
       </p>
 
       <div className="flex items-center justify-between border-b border-border py-2">
-        <span className="text-muted-foreground">×’×¨×¡×” ×ž×•×ª×§× ×ª:</span>
+        <span className="text-muted-foreground">גרסה מותקנת:</span>
         <Badge variant="secondary" className="font-mono">
           v{currentVersion ?? '...'}
         </Badge>
@@ -254,7 +254,7 @@ export function VersionChecker() {
 
       {latestRelease ? (
         <div className="flex items-center justify-between border-b border-border py-2">
-          <span className="text-muted-foreground">×’×¨×¡×” ××—×¨×•× ×” ×‘-GitHub:</span>
+          <span className="text-muted-foreground">גרסה אחרונה ב-GitHub:</span>
           <Badge
             variant={hasUpdate ? 'default' : 'secondary'}
             className={cn('font-mono', hasUpdate && 'bg-income text-white hover:bg-income/90')}
@@ -273,7 +273,7 @@ export function VersionChecker() {
       {manualUpdateBlock ? (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
           <p className="mb-2 font-medium text-amber-800 dark:text-amber-200">
-            ×¢×“×›×•×Ÿ ×™×“× ×™ (×ž×”×”×•×¡×˜ / LXC)
+            עדכון ידני (מההוסט / LXC)
           </p>
           <pre
             className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded border border-border bg-background p-2 font-mono text-xs"
@@ -288,10 +288,10 @@ export function VersionChecker() {
               size="sm"
               onClick={() => {
                 void navigator.clipboard.writeText(manualUpdateBlock);
-                toast.success('×”×˜×§×¡×˜ ×”×•×¢×ª×§');
+                toast.success('הטקסט הועתק');
               }}
             >
-              ×”×¢×ª×§ ×”×•×¨××•×ª
+              העתק הוראות
             </Button>
             <Button
               type="button"
@@ -300,7 +300,7 @@ export function VersionChecker() {
               className="text-muted-foreground"
               onClick={() => setManualUpdateBlock(null)}
             >
-              ×¡×’×•×¨
+              סגור
             </Button>
           </div>
         </div>
@@ -311,9 +311,9 @@ export function VersionChecker() {
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="font-medium text-primary">×ž×¢×“×›×Ÿ ××ª ×”×ž×¢×¨×›×ª...</p>
+              <p className="font-medium text-primary">מעדכן את המערכת...</p>
               <p className="text-sm text-muted-foreground">
-                {updateStatus.message ?? '×ž×ª×‘×¦×¢ ×¢×“×›×•×Ÿ ×‘×¨×§×¢'}
+                {updateStatus.message ?? 'מתבצע עדכון ברקע'}
               </p>
             </div>
           </div>
@@ -326,8 +326,8 @@ export function VersionChecker() {
             </div>
           ) : null}
           <p className="text-center text-xs text-muted-foreground">
-            ×”×‘× ×™×™×” ×•×”×”×¤×¢×œ×” ×ž×—×“×© ×¢×©×•×™×™× ×œ×§×—×ª ×ž×¡×¤×¨ ×“×§×•×ª; ×œ×•×’ ×¢×œ ×”×”×•×¡×˜:{' '}
-            <span className="font-mono">logs/self-update.log</span> ×ª×—×ª ×ª×™×§×™×™×ª ×”××¤×œ×™×§×¦×™×”.
+            הבנייה וההפעלה מחדש עשויים לקחת מספר דקות; לוג על ההוסט:{' '}
+            <span className="font-mono">logs/self-update.log</span> תחת תיקיית האפליקציה.
           </p>
         </div>
       ) : null}
@@ -345,9 +345,9 @@ export function VersionChecker() {
             <>
               <Download className="h-5 w-5 shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="font-medium">×¢×“×›×•×Ÿ ×–×ž×™×Ÿ!</p>
+                <p className="font-medium">עדכון זמין!</p>
                 <p className="text-sm opacity-80">
-                  ×’×¨×¡×” {latestRelease?.tag_name} ×–×ž×™× ×” ×œ×”×•×¨×“×”
+                  גרסה {latestRelease?.tag_name} זמינה להורדה
                 </p>
               </div>
             </>
@@ -355,13 +355,13 @@ export function VersionChecker() {
           {isUpToDate ? (
             <>
               <CheckCircle className="h-5 w-5 shrink-0" />
-              <p>×”×ž×¢×¨×›×ª ×ž×¢×•×“×›× ×ª ×œ×’×¨×¡×” ×”××—×¨×•× ×”</p>
+              <p>המערכת מעודכנת לגרסה האחרונה</p>
             </>
           ) : null}
           {isNewer ? (
             <>
               <AlertCircle className="h-5 w-5 shrink-0" />
-              <p>×”×’×¨×¡×” ×”×ž×•×ª×§× ×ª ×—×“×©×” ×™×•×ª×¨ ×ž×”-release ×”××—×¨×•×Ÿ</p>
+              <p>הגרסה המותקנת חדשה יותר מה-release האחרון</p>
             </>
           ) : null}
         </div>
@@ -371,7 +371,7 @@ export function VersionChecker() {
         <div className="space-y-3">
           {latestRelease.body ? (
             <div className="rounded-lg bg-muted/50 p-3">
-              <p className="mb-1 text-sm font-medium">×ž×” ×—×“×©:</p>
+              <p className="mb-1 text-sm font-medium">מה חדש:</p>
               <p className="line-clamp-4 whitespace-pre-line text-sm text-muted-foreground">
                 {latestRelease.body}
               </p>
@@ -387,21 +387,21 @@ export function VersionChecker() {
                   disabled={isUpdating}
                 >
                   <Rocket className="me-2 h-4 w-4 shrink-0" />
-                  ×¢×“×›×Ÿ ××•×˜×•×ž×˜×™×ª
+                  עדכן אוטומטית
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent className="max-h-[85vh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto">
                 <AlertDialogHeader>
-                  <AlertDialogTitle>×¢×“×›×•×Ÿ ×”×ž×¢×¨×›×ª ×ž×”×©×¨×ª</AlertDialogTitle>
+                  <AlertDialogTitle>עדכון המערכת מהשרת</AlertDialogTitle>
                   <AlertDialogDescription className="space-y-2 text-start">
                     <p>
-                      ×ª×•×¤×¢×œ ×¤×§×•×“×ª ×¢×“×›×•×Ÿ ×¢×œ ×”×©×¨×ª (git + docker compose). ×’×¨×¡×ª ×™×¢×“:{' '}
+                      תופעל פקודת עדכון על השרת (git + docker compose). גרסת יעד:{' '}
                       <span className="font-mono">{latestRelease.tag_name}</span>
                     </p>
                     <ul className="list-inside list-disc text-sm">
-                      <li>× ×“×¨×© ×©-SELF_UPDATE_ENABLED=true ×‘×©×¨×ª</li>
-                      <li>×”×ª×”×œ×™×š ×¢×œ×•×œ ×œ×§×—×ª ×ž×¡×¤×¨ ×“×§×•×ª</li>
-                      <li>×‘×ž×”×œ×š ×”×¢×“×›×•×Ÿ ×”×©×™×¨×•×ª ×¢×œ×•×œ ×œ×”×™×•×ª ×œ× ×–×ž×™×Ÿ ×œ×¨×’×¢×™×</li>
+                      <li>נדרש ש-SELF_UPDATE_ENABLED=true בשרת</li>
+                      <li>התהליך עלול לקחת מספר דקות</li>
+                      <li>במהלך העדכון השירות עלול להיות לא זמין לרגעים</li>
                     </ul>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -412,9 +412,9 @@ export function VersionChecker() {
                     onClick={() => performUpdateMutation.mutate()}
                   >
                     <Rocket className="me-2 h-4 w-4" />
-                    ×”×ª×—×œ ×¢×“×›×•×Ÿ
+                    התחל עדכון
                   </AlertDialogAction>
-                  <AlertDialogCancel type="button">×‘×™×˜×•×œ</AlertDialogCancel>
+                  <AlertDialogCancel type="button">ביטול</AlertDialogCancel>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -427,12 +427,12 @@ export function VersionChecker() {
               onClick={() => window.open(latestRelease.html_url, '_blank', 'noopener,noreferrer')}
             >
               <ExternalLink className="me-2 h-4 w-4" />
-              ×¦×¤×” ×‘-GitHub
+              צפה ב-GitHub
             </Button>
           </div>
 
           <div className="rounded-lg bg-muted p-3">
-            <p className="mb-2 text-xs text-muted-foreground">××• ×™×“× ×™×ª ×¢×œ ×”×©×¨×ª:</p>
+            <p className="mb-2 text-xs text-muted-foreground">או ידנית על השרת:</p>
             <code
               className="block rounded border border-border bg-background p-2 font-mono text-xs"
               dir="ltr"
@@ -446,7 +446,7 @@ export function VersionChecker() {
 
       {!checked && !busy ? (
         <p className="py-4 text-center text-sm text-muted-foreground">
-          ×œ×—×¥ &quot;×‘×“×•×§ ×¢×“×›×•× ×™×&quot; ×œ×‘×“×™×§×ª ×’×¨×¡××•×ª ×‘-GitHub (×‘××ž×¦×¢×•×ª ×”×©×¨×ª)
+          לחץ "בדוק עדכונים" לבדיקת גרסאות ב-GitHub (באמצעות השרת)
         </p>
       ) : null}
     </div>
