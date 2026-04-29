@@ -20,7 +20,7 @@ export function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="safe-area-pb fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-white/10 backdrop-blur-xl md:hidden">
+    <nav className="safe-area-pb fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card md:hidden">
       <div className="flex h-16 items-center justify-around">
         {navItems.map((item) => {
           const isActive =
@@ -33,16 +33,16 @@ export function BottomNav() {
               key={item.path}
               to={item.path}
               className={cn(
-                'flex flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 transition-all',
-                item.main && '-mt-4',
-                isActive ? 'text-primary' : 'text-foreground/50 hover:text-foreground/70',
+                'flex flex-col items-center justify-center gap-1 rounded-sm px-3 py-2 transition-colors duration-200',
+                item.main && '-mt-3',
+                isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
               <div
                 className={cn(
                   'flex items-center justify-center',
                   item.main &&
-                    'h-12 w-12 rounded-full bg-gradient-to-br from-primary to-purple-600 text-white shadow-lg shadow-primary/30',
+                    'h-11 w-11 rounded-sm border border-border bg-primary text-primary-foreground shadow-sm',
                   !item.main && 'h-8 w-8',
                 )}
               >

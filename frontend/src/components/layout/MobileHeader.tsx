@@ -20,12 +20,12 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
   const title = pageTitles[location.pathname] || 'ניהול פיננסי';
 
   return (
-    <header className="safe-area-inset-top fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-white/10 backdrop-blur-xl">
+    <header className="safe-area-inset-top fixed inset-x-0 top-0 z-40 border-b border-border bg-card/95">
       <div className="flex h-16 items-center justify-between px-4">
         <button
           type="button"
           onClick={onMenuClick}
-          className="rounded-lg p-2 text-foreground/80 transition-colors hover:bg-white/10 hover:text-foreground"
+          className="cursor-pointer rounded-sm p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="פתח תפריט"
         >
           <Menu className="h-6 w-6" />
