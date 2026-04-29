@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import {
   Download,
   CheckCircle2,
@@ -9,6 +10,7 @@ import {
   History,
   ExternalLink,
   RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -23,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { versionApi } from '@/services/api';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface UpdateInfo {
   currentVersion: string;
@@ -61,6 +64,8 @@ export function UpdateSection() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [polling, setPolling] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const logContainerRef = useRef<HTMLDivElement>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -130,6 +135,27 @@ export function UpdateSection() {
       setHistory([]);
     }
   }, []);
+
+  const clearBuildLogMutation = useMutation({
+    mutationFn: () => versionApi.clearBuildLog().then((res) => res.data),
+    onSuccess: (data) => {
+      if (data.cleared) {
+        toast.success('לוג הבנייה נוקה');
+        void fetchStatus();
+      } else {
+        toast.error('לא ניתן לנקות את לוג הבנייה');
+      }
+    },
+    onError: () => toast.error('שגיאה בניקוי לוג הבנייה'),
+  });
+
+  const buildLog = updateStatus?.buildLog ?? [];
+
+  useEffect(() => {
+    if (autoScroll && logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [buildLog, autoScroll]);
 
   useEffect(() => {
     void fetchStatus();
@@ -248,18 +274,55 @@ export function UpdateSection() {
 
           {updateStatus &&
           ['in-progress', 'failed', 'rolled-back'].includes(updateStatus.status) &&
-          updateStatus.buildLog &&
-          updateStatus.buildLog.length > 0 ? (
+          buildLog.length > 0 ? (
             <div className="mt-4">
-              <h4 className="mb-2 text-sm font-medium text-muted-foreground">לוג בנייה:</h4>
-              <div className="bg-black/50 max-h-40 w-full overflow-y-auto rounded-md border p-3">
-                <div className="font-mono space-y-0.5 text-xs">
-                  {updateStatus.buildLog.map((line, index) => (
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-sm font-medium text-muted-foreground">לוג בנייה:</h4>
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={autoScroll}
+                      onChange={(e) => setAutoScroll(e.target.checked)}
+                      className="rounded border-gray-600"
+                    />
+                    גלילה אוטומטית
+                  </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    disabled={clearBuildLogMutation.isPending}
+                    onClick={() => clearBuildLogMutation.mutate()}
+                  >
+                    <Trash2 className="me-1 h-3 w-3" />
+                    נקה
+                  </Button>
+                </div>
+              </div>
+              <div
+                ref={logContainerRef}
+                className="h-48 max-h-48 w-full overflow-y-auto rounded-md border bg-black/80 p-3"
+              >
+                <div
+                  dir="ltr"
+                  style={{ textAlign: 'left' }}
+                  className="font-mono space-y-0.5 text-xs"
+                >
+                  {buildLog.map((line, index) => (
                     <div
-                      key={`${index}-${line.slice(0, 16)}`}
-                      className={
-                        updateStatus.status === 'in-progress' ? 'text-green-400' : 'text-red-300'
-                      }
+                      key={`${index}-${line.slice(0, 24)}`}
+                      className={cn(
+                        'whitespace-pre',
+                        /ERROR|error|failed/i.test(line)
+                          ? 'text-red-400'
+                          : /WARN|warning/i.test(line)
+                            ? 'text-yellow-400'
+                            : /SUCCESS|✓/i.test(line)
+                              ? 'text-green-400'
+                              : 'text-gray-300',
+                      )}
                     >
                       {line}
                     </div>

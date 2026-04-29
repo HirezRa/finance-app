@@ -748,6 +748,10 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
         signal: AbortSignal.timeout(10_000),
       });
       if (!res.ok) {
+        this.appLogs.logExternalService('ollama', 'error', {
+          url,
+          status: res.status,
+        });
         return {
           enabled: true,
           url,
@@ -756,6 +760,7 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
           errorHe: `שרת החזיר HTTP ${res.status}`,
         };
       }
+      this.appLogs.logExternalService('ollama', 'success', { url });
       const body = (await res.json()) as { models?: { name: string }[] };
       const names = (body.models ?? []).map((m) => m.name);
       const modelBase = model.split(':')[0] ?? model;
@@ -775,6 +780,12 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
       };
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
+      const status =
+        e instanceof Error && e.name === 'TimeoutError' ? 'timeout' : 'unavailable';
+      this.appLogs.logExternalService('ollama', status, {
+        url,
+        error: msg,
+      });
       return {
         enabled: true,
         url,

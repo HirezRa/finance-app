@@ -419,6 +419,19 @@ export class VersionService implements OnModuleInit {
     }
   }
 
+  async clearBuildLog(): Promise<{ cleared: boolean }> {
+    try {
+      this.ensureUpdateDataDir();
+      if (existsSync(this.buildLogFile)) {
+        writeFileSync(this.buildLogFile, '', { encoding: 'utf-8', mode: 0o666 });
+      }
+      this.appLogs.logUpdate('לוג בנייה נוקה', { path: this.buildLogFile });
+      return { cleared: true };
+    } catch {
+      return { cleared: false };
+    }
+  }
+
   async cancelUpdate(): Promise<{ cancelled: boolean; message: string }> {
     try {
       const status = await this.getUpdateStatus();

@@ -21,6 +21,10 @@ const CATEGORIES: LogCategory[] = [
   'system',
   'api',
   'webhook',
+  'categorization',
+  'version',
+  'update',
+  'external-service',
 ];
 
 export class ListLogsQueryDto {

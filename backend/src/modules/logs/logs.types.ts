@@ -11,7 +11,9 @@ export type LogCategory =
   | 'api'
   | 'webhook'
   | 'categorization'
-  | 'version';
+  | 'version'
+  | 'update'
+  | 'external-service';
 
 export interface AppLogEntry {
   id: string;

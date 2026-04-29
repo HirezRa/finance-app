@@ -199,4 +199,49 @@ export class LogsService implements OnModuleInit {
     }
     this.add('INFO', 'system', 'יומן הלוגים נוקה');
   }
+
+  logUpdate(action: string, details: Record<string, unknown>): void {
+    this.add('INFO', 'update', action, {
+      ...details,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  logExternalService(
+    service: 'ollama' | 'openrouter' | 'n8n' | 'github',
+    status: 'success' | 'error' | 'timeout' | 'unavailable',
+    details: Record<string, unknown>,
+  ): void {
+    const level = status === 'success' ? 'INFO' : 'ERROR';
+    this.add(level, 'external-service', `${service}: ${status}`, {
+      service,
+      status,
+      ...details,
+    });
+  }
+
+  logScraperIssue(
+    bank: string,
+    errorType: 'auth' | 'timeout' | 'blocked' | 'parse' | 'network' | 'unknown',
+    message: string,
+    details?: Record<string, unknown>,
+  ): void {
+    this.add('ERROR', 'scraper', `${bank}: ${errorType} — ${message}`, {
+      bank,
+      errorType,
+      ...details,
+    });
+  }
+
+  logScraperSuccess(
+    bank: string,
+    accountsCount: number,
+    transactionsCount: number,
+  ): void {
+    this.add('INFO', 'scraper', `${bank}: סנכרון הצליח`, {
+      bank,
+      accountsCount,
+      transactionsCount,
+    });
+  }
 }

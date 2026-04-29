@@ -29,17 +29,32 @@ ensure_update_dir() {
 ensure_update_dir
 
 log(){
+  local level="${1:-INFO}"
+  shift
+  local message="$*"
   local ts
   ts=$(date '+%Y-%m-%d %H:%M:%S')
-  echo "[$ts] $1" | tee -a "$LOG_FILE"
+  local line="[$ts] [$level] $message"
+  echo "$line" | tee -a "$LOG_FILE"
+  if [ -f "$BUILD_LOG_FILE" ]; then
+    echo "$line" >> "$BUILD_LOG_FILE"
+  fi
 }
 
 log_info() {
-  log "[INFO] $*"
+  log "INFO" "$@"
+}
+
+log_warn() {
+  log "WARN" "$@"
 }
 
 log_error() {
-  log "[ERROR] $*"
+  log "ERROR" "$@"
+}
+
+log_debug() {
+  log "DEBUG" "$@"
 }
 
 esc(){
@@ -139,7 +154,7 @@ create_backup(){
   docker save finance-app-frontend:latest -o "$path/frontend-image.tar" 2>/dev/null || true
   (cd "$APP_DIR" && git rev-parse HEAD > "$path/commit-hash") || true
   echo "$name" > /tmp/finance_update_backup_name
-  log "[INFO] backup created: $name"
+  log_info "backup created: $name"
 }
 
 rollback(){
@@ -147,7 +162,7 @@ rollback(){
   local name
   name=$(cat /tmp/finance_update_backup_name 2>/dev/null || true)
   if [ -z "$name" ] || [ ! -d "$BACKUP_DIR/$name" ]; then
-    log "[ERROR] rollback unavailable (no backup): $reason"
+    log_error "rollback unavailable (no backup): $reason"
     write_status "failed" "העדכון נכשל ולא ניתן לבצע rollback" 100 "$reason"
     return 1
   fi
@@ -160,11 +175,13 @@ rollback(){
   [ -f "$path/frontend-image.tar" ] && docker load -i "$path/frontend-image.tar" >/dev/null 2>&1 || true
   (cd "$APP_DIR" && docker compose up -d) || true
   write_status "rolled-back" "בוצע rollback לגרסה קודמת" 100 "$reason"
-  log "[WARN] rollback completed"
+  log_warn "rollback completed"
 }
 
 check_health() {
-  log_info "בודק תקינות: $HEALTH_CHECK_URL"
+  log_info "=== שלב: בדיקת תקינות ==="
+  log_info "URL: $HEALTH_CHECK_URL"
+  log_info "ניסיונות מקסימום: $HEALTH_CHECK_RETRIES (כל $HEALTH_CHECK_INTERVAL שנ׳)"
 
   local retries=0
   while [ "$retries" -lt "$HEALTH_CHECK_RETRIES" ]; do
@@ -174,37 +191,44 @@ check_health() {
     fi
 
     retries=$((retries + 1))
+    log_debug "ניסיון $retries/$HEALTH_CHECK_RETRIES נכשל"
     log_info "ממתין לשרת... ($retries/$HEALTH_CHECK_RETRIES)"
     sleep "$HEALTH_CHECK_INTERVAL"
   done
 
   log_error "בדיקת תקינות נכשלה אחרי $HEALTH_CHECK_RETRIES ניסיונות"
+  log_error "URL: $HEALTH_CHECK_URL"
+  log_error "בדוק שה-backend רץ: docker compose logs backend --tail 50"
   return 1
 }
 
 build_containers() {
-  log "[INFO] building containers..."
+  log_info "=== שלב: בניית קונטיינרים ==="
   write_status "in-progress" "בונה backend..." 50
 
   cd "$APP_DIR"
   : > "$BUILD_LOG_FILE"
   chmod 666 "$BUILD_LOG_FILE" 2>/dev/null || true
 
-  log "[INFO] building backend..."
+  log_info "בונה backend..."
   if ! docker compose build --no-cache --progress=plain backend 2>&1 | tee -a "$BUILD_LOG_FILE" "$LOG_FILE"; then
-    log "[ERROR] backend build failed"
+    log_error "בניית backend נכשלה"
+    log_error "בדוק את הלוג: $BUILD_LOG_FILE"
     return 1
   fi
+  log_info "Backend נבנה בהצלחה"
 
   write_status "in-progress" "בונה frontend..." 65
 
-  log "[INFO] building frontend..."
+  log_info "בונה frontend..."
   if ! docker compose build --no-cache --progress=plain frontend 2>&1 | tee -a "$BUILD_LOG_FILE" "$LOG_FILE"; then
-    log "[ERROR] frontend build failed"
+    log_error "בניית frontend נכשלה"
+    log_error "בדוק את הלוג: $BUILD_LOG_FILE"
     return 1
   fi
+  log_info "Frontend נבנה בהצלחה"
 
-  log "[INFO] build completed"
+  log_info "=== בנייה הושלמה בהצלחה ==="
   return 0
 }
 
@@ -216,7 +240,7 @@ cleanup(){
 
 main(){
   if [ ! -f "$TRIGGER_FILE" ]; then
-    log "[ERROR] trigger file not found"
+    log_error "trigger file not found"
     exit 1
   fi
 
@@ -228,16 +252,39 @@ main(){
   write_status "in-progress" "מתחיל עדכון..." 5
   create_backup || { write_status "failed" "יצירת גיבוי נכשלה" 100 "backup failed"; cleanup; exit 1; }
 
+  log_info "=== שלב: משיכת שינויים מ-Git ==="
+  log_debug "מאגר: $(cd "$APP_DIR" && git remote get-url origin 2>/dev/null || echo '?')"
+  log_debug "ענף נוכחי: $(cd "$APP_DIR" && git branch --show-current 2>/dev/null || echo '?')"
+
   write_status "in-progress" "מושך עדכונים..." 20
-  (cd "$APP_DIR" && git fetch origin main && git checkout main --force && git pull origin main) || {
+  if ! (cd "$APP_DIR" && git fetch origin main); then
+    log_error "git fetch נכשל"
+    rollback "git fetch failed"
+    append_history "rolled-back" "Git fetch failed" "$previous_version" "$previous_version" "$start_ts"
+    cleanup
+    exit 1
+  fi
+  local behind
+  behind=$(cd "$APP_DIR" && git rev-list HEAD..origin/main --count 2>/dev/null || echo "0")
+  log_info "קומיטים לעדכון: $behind"
+
+  if ! (cd "$APP_DIR" && git checkout main --force && git pull origin main); then
+    log_error "git pull נכשל"
     rollback "משיכת עדכונים נכשלה"
     append_history "rolled-back" "Git pull failed" "$previous_version" "$previous_version" "$start_ts"
     cleanup
     exit 1
-  }
+  fi
+  log_info "Git pull הצליח"
+  log_debug "קומיט נוכחי: $(cd "$APP_DIR" && git rev-parse --short HEAD 2>/dev/null || echo '?')"
 
   write_status "in-progress" "מעדכן מסד נתונים..." 40
-  (cd "$APP_DIR" && docker compose exec -T backend npx prisma migrate deploy) || true
+  log_info "=== שלב: הרצת מיגרציות ==="
+  if (cd "$APP_DIR" && docker compose exec -T backend npx prisma migrate deploy 2>&1 | tee -a "$LOG_FILE"); then
+    log_info "מיגרציות הורצו (או אין חדשות)"
+  else
+    log_warn "מיגרציות נכשלו או אין מיגרציות — ממשיכים"
+  fi
 
   write_status "in-progress" "בונה קונטיינרים..." 55
   if ! build_containers; then
@@ -248,12 +295,17 @@ main(){
   fi
 
   write_status "in-progress" "מפעיל קונטיינרים מחדש..." 80
-  (cd "$APP_DIR" && docker compose up -d) || {
+  log_info "=== שלב: הפעלת קונטיינרים ==="
+  if ! (cd "$APP_DIR" && docker compose up -d 2>&1 | tee -a "$LOG_FILE"); then
+    log_error "הפעלת קונטיינרים נכשלה"
     rollback "הפעלה מחדש נכשלה"
     append_history "rolled-back" "Restart failed" "$previous_version" "$previous_version" "$start_ts"
     cleanup
     exit 1
-  }
+  fi
+  log_info "קונטיינרים הופעלו"
+  log_debug "סטטוס docker compose ps:"
+  (cd "$APP_DIR" && docker compose ps 2>&1 | tee -a "$LOG_FILE") || true
 
   write_status "in-progress" "בודק תקינות..." 90
   if ! check_health; then
@@ -268,7 +320,7 @@ main(){
   write_status "completed" "העדכון הושלם בהצלחה!" 100
   append_history "success" "" "$previous_version" "$new_version" "$start_ts"
 
-  log "[INFO] update completed: $previous_version -> $new_version"
+  log_info "update completed: $previous_version -> $new_version"
   cleanup
 }
 
