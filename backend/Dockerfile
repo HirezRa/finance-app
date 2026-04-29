@@ -2,6 +2,9 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Align with current npm 11.x; silences "npm notice" and uses latest lockfile features
+RUN npm install -g npm@11.3.0
+
 RUN apk add --no-cache python3 make g++ openssl libc6-compat git
 
 COPY backend/package.json ./
