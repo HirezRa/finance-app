@@ -11,9 +11,11 @@ HISTORY_FILE="$UPDATE_DATA_DIR/.update-history.json"
 BUILD_LOG_FILE="$UPDATE_DATA_DIR/build.log"
 LOG_FILE="$APP_DIR/logs/update.log"
 BACKUP_DIR="$APP_DIR/backups"
-MAX_HEALTH_RETRIES=30
-HEALTH_RETRY_DELAY=2
-HEALTH_URL="http://127.0.0.1:3000/api/v1/health"
+# Health via nginx on host :80 (backend is not published on host :3000).
+# Override: HEALTH_CHECK_URL / HEALTH_CHECK_RETRIES / HEALTH_CHECK_INTERVAL
+HEALTH_CHECK_RETRIES="${HEALTH_CHECK_RETRIES:-30}"
+HEALTH_CHECK_INTERVAL="${HEALTH_CHECK_INTERVAL:-2}"
+HEALTH_CHECK_URL="${HEALTH_CHECK_URL:-http://127.0.0.1/api/v1/health}"
 
 mkdir -p "$APP_DIR/logs" "$BACKUP_DIR"
 
@@ -30,6 +32,14 @@ log(){
   local ts
   ts=$(date '+%Y-%m-%d %H:%M:%S')
   echo "[$ts] $1" | tee -a "$LOG_FILE"
+}
+
+log_info() {
+  log "[INFO] $*"
+}
+
+log_error() {
+  log "[ERROR] $*"
 }
 
 esc(){
@@ -153,16 +163,22 @@ rollback(){
   log "[WARN] rollback completed"
 }
 
-check_health(){
-  local i
-  i=0
-  while [ $i -lt $MAX_HEALTH_RETRIES ]; do
-    if curl -sf "$HEALTH_URL" >/dev/null 2>&1; then
+check_health() {
+  log_info "בודק תקינות: $HEALTH_CHECK_URL"
+
+  local retries=0
+  while [ "$retries" -lt "$HEALTH_CHECK_RETRIES" ]; do
+    if curl -sf "$HEALTH_CHECK_URL" >/dev/null 2>&1; then
+      log_info "בדיקת תקינות עברה בהצלחה"
       return 0
     fi
-    i=$((i+1))
-    sleep $HEALTH_RETRY_DELAY
+
+    retries=$((retries + 1))
+    log_info "ממתין לשרת... ($retries/$HEALTH_CHECK_RETRIES)"
+    sleep "$HEALTH_CHECK_INTERVAL"
   done
+
+  log_error "בדיקת תקינות נכשלה אחרי $HEALTH_CHECK_RETRIES ניסיונות"
   return 1
 }
 
