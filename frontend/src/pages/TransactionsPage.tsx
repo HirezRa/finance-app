@@ -1,8 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { transactionsApi, categoriesApi } from '@/services/api';
-import { AICategorizeButton } from '@/components/AICategorizeButton';
 import { CategorizationModal } from '@/components/categorization/CategorizationModal';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -27,6 +26,8 @@ import {
   Loader2,
   Download,
   Zap,
+  Bot,
+  MoreHorizontal,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -39,6 +40,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Transaction {
   id: string;
@@ -102,6 +109,13 @@ export default function TransactionsPage() {
     'all',
   );
   const [smartCategorizationOpen, setSmartCategorizationOpen] = useState(false);
+  const [categorizationLaunch, setCategorizationLaunch] = useState<
+    'quick' | 'smart' | null
+  >(null);
+
+  const clearCategorizationLaunch = useCallback(() => {
+    setCategorizationLaunch(null);
+  }, []);
 
   const accountTypesFilter = useMemo(() => {
     const t: string[] = [];
@@ -276,13 +290,25 @@ export default function TransactionsPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setSmartCategorizationOpen(true)}
+              onClick={() => {
+                setCategorizationLaunch('quick');
+                setSmartCategorizationOpen(true);
+              }}
             >
               <Zap className="ms-2 h-4 w-4" />
+              סיווג מהיר
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setCategorizationLaunch('smart');
+                setSmartCategorizationOpen(true);
+              }}
+            >
+              <Bot className="ms-2 h-4 w-4" />
               סיווג חכם
             </Button>
-            <AICategorizeButton mode="uncategorized" />
-            <AICategorizeButton mode="improve" />
             <Button
               type="button"
               variant="outline"
@@ -296,19 +322,27 @@ export default function TransactionsPage() {
               )}
               ייצוא לאקסל
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => recategorizeMutation.mutate()}
-              disabled={recategorizeMutation.isPending}
-            >
-              {recategorizeMutation.isPending ? (
-                <Loader2 className="ms-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Tag className="ms-2 h-4 w-4" />
-              )}
-              סווג מחדש
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" className="gap-2">
+                  <MoreHorizontal className="h-4 w-4" />
+                  עוד
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[12rem]">
+                <DropdownMenuItem
+                  disabled={recategorizeMutation.isPending}
+                  onClick={() => recategorizeMutation.mutate()}
+                >
+                  {recategorizeMutation.isPending ? (
+                    <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Tag className="ms-2 h-4 w-4" />
+                  )}
+                  סווג מחדש
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button type="button" onClick={() => setShowManual(true)}>
               <Plus className="ms-2 h-4 w-4" />
               עסקה ידנית
@@ -317,7 +351,7 @@ export default function TransactionsPage() {
         }
       />
 
-      <div className="sticky top-[73px] z-10 -mx-4 border-b border-white/5 bg-slate-900/95 px-4 py-3 backdrop-blur-lg md:-mx-6 md:px-6">
+      <div className="sticky top-[73px] z-10 -mx-4 border-b border-border bg-background/95 px-4 py-3 md:-mx-6 md:px-6">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <Checkbox
@@ -349,7 +383,7 @@ export default function TransactionsPage() {
       </div>
 
       {showManual && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
           <Card className="m-4 w-full max-w-md">
             <CardContent className="space-y-4 p-6">
               <h2 className="text-lg font-semibold">עסקה ידנית</h2>
@@ -538,7 +572,7 @@ export default function TransactionsPage() {
               ))}
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/50 shadow-[0_8px_32px_rgba(15,23,42,0.1)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06] dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
+            <div className="overflow-hidden rounded-sm border border-border bg-card shadow-sm">
               <div className="hidden items-center gap-4 border-b bg-muted/30 p-4 text-sm font-medium text-muted-foreground md:flex">
                 <div className="w-24 shrink-0">סכום</div>
                 <div className="flex-1">פרטים</div>
@@ -676,7 +710,12 @@ export default function TransactionsPage() {
 
       <CategorizationModal
         open={smartCategorizationOpen}
-        onOpenChange={setSmartCategorizationOpen}
+        onOpenChange={(next) => {
+          setSmartCategorizationOpen(next);
+          if (!next) setCategorizationLaunch(null);
+        }}
+        launchWith={categorizationLaunch}
+        onLaunchConsumed={clearCategorizationLaunch}
         onComplete={() => {
           void queryClient.invalidateQueries({ queryKey: ['transactions'] });
           void queryClient.invalidateQueries({ queryKey: ['dashboard'] });

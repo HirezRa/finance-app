@@ -301,7 +301,7 @@ export default function DashboardPage() {
             <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(-1)}>
               <ChevronRight className="h-5 w-5" />
             </Button>
-            <span className="min-w-[10rem] max-w-[20rem] text-center text-sm font-medium leading-snug text-white sm:text-base">
+            <span className="min-w-[10rem] max-w-[20rem] text-center text-sm font-medium leading-snug text-foreground sm:text-base">
               {periodTitle}
             </span>
             <Button type="button" variant="ghost" size="icon" onClick={() => changeMonth(1)}>
@@ -312,48 +312,40 @@ export default function DashboardPage() {
       />
 
       {!summaryLoading && summary ? (
-        <div className="finance-card-elevated relative overflow-hidden border border-white/25 bg-gradient-to-br from-indigo-600/90 via-primary/85 to-indigo-800/90 text-primary-foreground shadow-[0_12px_48px_rgba(79,70,229,0.35)] backdrop-blur-md">
-          <div
-            className="pointer-events-none absolute -end-16 -top-20 h-48 w-48 rounded-full bg-white/20 blur-3xl"
-            aria-hidden
-          />
-          <div
-            className="pointer-events-none absolute -bottom-24 -start-12 h-40 w-40 rounded-full bg-indigo-400/25 blur-3xl"
-            aria-hidden
-          />
+        <div className="relative overflow-hidden rounded-sm border-2 border-foreground bg-foreground p-6 text-background md:p-8">
           <div className="relative">
             <div className="space-y-1">
-              <p className="text-sm text-primary-foreground/80">יתרה זמינה</p>
+              <p className="text-sm text-background/80">יתרה זמינה</p>
               <Amount
                 value={spendable}
                 size="hero"
                 showSign={false}
-                className="text-primary-foreground"
+                className="text-background"
               />
             </div>
-            <div className="mt-6 grid grid-cols-2 gap-4 border-t border-primary-foreground/20 pt-4">
+            <div className="mt-6 grid grid-cols-2 gap-4 border-t border-background/25 pt-4">
               <div>
-                <p className="text-xs text-primary-foreground/70">הכנסות החודש</p>
+                <p className="text-xs text-background/70">הכנסות החודש</p>
                 <Amount
                   value={Number(summary.income?.total ?? 0)}
                   size="lg"
                   showSign={false}
-                  className="text-primary-foreground"
+                  className="text-background"
                 />
               </div>
               <div>
-                <p className="text-xs text-primary-foreground/70">הוצאות החודש</p>
+                <p className="text-xs text-background/70">הוצאות החודש</p>
                 <Amount
                   value={-Number(summary.expenses?.total ?? 0)}
                   size="lg"
-                  className="text-primary-foreground"
+                  className="text-background"
                 />
               </div>
             </div>
           </div>
         </div>
       ) : summaryLoading ? (
-        <Skeleton className="h-48 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-sm" />
       ) : null}
 
       {showFallback && summary ? (
@@ -470,8 +462,8 @@ export default function DashboardPage() {
                   <p className="text-2xl font-bold">{summary?.transactionCount ?? 0}</p>
                 )}
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/10">
-                <CreditCard className="h-6 w-6 text-purple-500" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-sm border border-border bg-muted">
+                <CreditCard className="h-6 w-6 text-foreground" />
               </div>
             </div>
           </CardContent>
@@ -479,10 +471,10 @@ export default function DashboardPage() {
       </div>
 
       {!summaryLoading && summary?.abroad && summary.abroad.transactionCount > 0 ? (
-        <Card className="border-sky-500/30 bg-sky-500/5">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Globe className="h-5 w-5 text-sky-600 dark:text-sky-400" aria-hidden />
+              <Globe className="h-5 w-5 text-muted-foreground" aria-hidden />
               הוצאות מחו״ל במחזור
             </CardTitle>
             <CardDescription>

@@ -1,80 +1,69 @@
 :root {
-  /* Glass / fintech accents (shared) */
-  --glass-blur: 16px;
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-  --glass-shadow-dark: 0 8px 32px rgba(0, 0, 0, 0.38);
-  --accent-abroad: 217 91% 60%;
+  /* Swiss / minimal — single functional accent via --primary */
+  --glass-blur: 0px;
+  --glass-shadow: none;
+  --glass-shadow-dark: none;
+  --accent-abroad: 240 6% 35%;
 
-  /* === LIGHT MODE === */
-
-  /* Backgrounds */
-  --background: 240 6% 97%;
+  /* === LIGHT === */
+  --background: 0 0% 98%;
   --background-secondary: 0 0% 100%;
-  --background-tertiary: 220 14% 96%;
+  --background-tertiary: 240 5% 96%;
 
-  /* Surfaces */
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card-foreground: 240 10% 3.9%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 240 10% 3.9%;
 
-  /* Text */
-  --foreground: 222 47% 11%;
-  --muted: 215 16% 47%;
-  --muted-foreground: 215 16% 47%;
+  --foreground: 240 10% 3.9%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 45%;
 
-  /* Brand Colors */
-  --primary: 217 91% 60%;
+  --primary: 240 6% 10%;
   --primary-foreground: 0 0% 100%;
-  --primary-hover: 217 91% 50%;
+  --primary-hover: 240 5% 18%;
 
-  /* shadcn compatibility */
-  --secondary: 220 14% 96%;
-  --secondary-foreground: 222 47% 11%;
-  --accent: 220 14% 96%;
-  --accent-foreground: 222 47% 11%;
-  --destructive: 0 84% 60%;
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 240 6% 10%;
+  --accent: 240 5% 96%;
+  --accent-foreground: 240 6% 10%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
-  --input: 214 32% 91%;
+  --input: 240 6% 90%;
 
-  /* Semantic Colors */
-  --income: 160 84% 39%;
-  --income-light: 160 84% 95%;
-  --expense: 0 84% 60%;
-  --expense-light: 0 84% 95%;
-  --warning: 38 92% 50%;
-  --warning-light: 38 92% 95%;
-  --info: 199 89% 48%;
-  --info-light: 199 89% 95%;
-  --pending: 45 93% 47%;
+  --income: 160 55% 32%;
+  --income-light: 160 30% 94%;
+  --expense: 0 62% 48%;
+  --expense-light: 0 40% 96%;
+  --warning: 38 85% 45%;
+  --warning-light: 38 60% 95%;
+  --info: 200 50% 40%;
+  --info-light: 200 30% 95%;
+  --pending: 40 85% 42%;
 
-  /* Borders & Dividers */
-  --border: 214 32% 91%;
-  --border-light: 220 13% 95%;
-  --ring: 217 91% 60%;
+  --border: 240 6% 88%;
+  --border-light: 240 5% 94%;
+  --ring: 240 6% 10%;
 
-  /* Sidebar */
-  --sidebar-background: 222 47% 11%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-primary: 217 91% 60%;
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 240 10% 3.9%;
+  --sidebar-primary: 240 6% 10%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 217 33% 17%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-border: 217 33% 17%;
+  --sidebar-accent: 240 5% 96%;
+  --sidebar-accent-foreground: 240 6% 10%;
+  --sidebar-border: 240 6% 88%;
 
-  /* Radius */
-  --radius: 0.75rem;
-  --radius-sm: 0.5rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
+  /* Sharp corners (Swiss) */
+  --radius: 0.125rem;
+  --radius-sm: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.25rem;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.12), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+  --shadow-sm: 0 1px 0 0 hsl(240 6% 90% / 0.9);
+  --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 4px 8px -2px rgb(0 0 0 / 0.08);
 
-  /* Spacing Scale (8px grid) */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -85,7 +74,6 @@
   --space-10: 2.5rem;
   --space-12: 3rem;
 
-  /* Typography Scale */
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
@@ -97,63 +85,62 @@
   --font-size-hero: 3rem;
 }
 
-/* === DARK MODE === */
 .dark {
-  /* Slightly lifted surfaces for glass stacks on gradient */
-  --background: 222 47% 7%;
-  --background-secondary: 223 47% 10%;
-  --background-tertiary: 223 39% 14%;
+  --accent-abroad: 240 5% 70%;
 
-  --card: 223 47% 12%;
-  --card-foreground: 210 40% 96%;
-  --popover: 223 47% 10%;
-  --popover-foreground: 210 40% 96%;
+  --background: 240 6% 4%;
+  --background-secondary: 240 4% 7%;
+  --background-tertiary: 240 4% 10%;
 
-  --foreground: 210 40% 96%;
-  --muted: 215 20% 65%;
-  --muted-foreground: 215 20% 65%;
+  --card: 240 4% 7%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 4% 7%;
+  --popover-foreground: 0 0% 98%;
 
-  --primary: 213 94% 68%;
-  --primary-foreground: 222 47% 11%;
-  --primary-hover: 213 94% 58%;
+  --foreground: 0 0% 98%;
+  --muted: 240 4% 12%;
+  --muted-foreground: 240 5% 64%;
 
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 98%;
-  --accent: 223 39% 14%;
-  --accent-foreground: 210 40% 96%;
-  --destructive: 0 63% 31%;
-  --destructive-foreground: 210 40% 98%;
-  --input: 217 33% 25%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 6% 10%;
+  --primary-hover: 0 0% 90%;
 
-  --income: 160 72% 64%;
-  --income-light: 160 72% 15%;
-  --expense: 0 91% 71%;
-  --expense-light: 0 91% 15%;
-  --warning: 43 96% 56%;
-  --warning-light: 43 96% 15%;
-  --info: 199 89% 58%;
-  --info-light: 199 89% 15%;
-  --pending: 45 93% 57%;
+  --secondary: 240 4% 12%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 240 4% 12%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 240 4% 16%;
 
-  --border: 217 33% 25%;
-  --border-light: 217 33% 20%;
-  --ring: 213 94% 68%;
+  --income: 160 50% 52%;
+  --income-light: 160 25% 14%;
+  --expense: 0 58% 58%;
+  --expense-light: 0 35% 14%;
+  --warning: 43 85% 55%;
+  --warning-light: 43 40% 14%;
+  --info: 200 55% 55%;
+  --info-light: 200 30% 14%;
+  --pending: 45 80% 55%;
 
-  --sidebar-background: 223 47% 5%;
-  --sidebar-foreground: 210 40% 96%;
-  --sidebar-primary: 213 94% 68%;
-  --sidebar-primary-foreground: 222 47% 11%;
-  --sidebar-accent: 223 39% 14%;
-  --sidebar-accent-foreground: 210 40% 96%;
-  --sidebar-border: 217 33% 17%;
+  --border: 240 4% 16%;
+  --border-light: 240 4% 12%;
+  --ring: 0 0% 98%;
 
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.45), 0 4px 6px -4px rgb(0 0 0 / 0.35);
+  --sidebar-background: 240 6% 4%;
+  --sidebar-foreground: 0 0% 98%;
+  --sidebar-primary: 0 0% 98%;
+  --sidebar-primary-foreground: 240 6% 10%;
+  --sidebar-accent: 240 4% 12%;
+  --sidebar-accent-foreground: 0 0% 98%;
+  --sidebar-border: 240 4% 16%;
+
+  --shadow-sm: 0 1px 0 0 hsl(240 4% 16% / 0.8);
+  --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.25);
+  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 4px 8px -2px rgb(0 0 0 / 0.4);
 }
 
-/* === FONT SIZE SCALING === */
 html {
   font-size: 16px;
 }
@@ -170,19 +157,18 @@ html[data-font-size='xlarge'] {
   font-size: 20px;
 }
 
-/* === CATEGORY COLORS === */
 :root {
-  --category-food: #f97316;
-  --category-transport: #3b82f6;
-  --category-shopping: #ec4899;
-  --category-entertainment: #8b5cf6;
-  --category-bills: #eab308;
-  --category-health: #ef4444;
-  --category-education: #14b8a6;
-  --category-travel: #6366f1;
-  --category-groceries: #22c55e;
-  --category-cash: #6b7280;
-  --category-income: #10b981;
-  --category-transfer: #06b6d4;
-  --category-other: #64748b;
+  --category-food: #ca3500;
+  --category-transport: #2563eb;
+  --category-shopping: #db2777;
+  --category-entertainment: #6d28d9;
+  --category-bills: #a16207;
+  --category-health: #dc2626;
+  --category-education: #0d9488;
+  --category-travel: #4f46e5;
+  --category-groceries: #15803d;
+  --category-cash: #525252;
+  --category-income: #15803d;
+  --category-transfer: #0891b2;
+  --category-other: #525252;
 }

@@ -592,7 +592,7 @@ export default function CategoriesPage() {
       </div>
 
       {showAddModal || editingCategory ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
           <Card className="m-4 max-h-[90vh] w-full max-w-md overflow-y-auto">
             <CardHeader>
               <CardTitle>{editingCategory ? 'עריכת קטגוריה' : 'קטגוריה חדשה'}</CardTitle>

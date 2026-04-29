@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Zap, Bot, Check, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -24,12 +24,17 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete: () => void;
+  /** פותח את המודאל ומתחיל מיד את הזרימה (ללא מסך הבחירה) */
+  launchWith?: 'quick' | 'smart' | null;
+  onLaunchConsumed?: () => void;
 }
 
 export function CategorizationModal({
   open,
   onOpenChange,
   onComplete,
+  launchWith = null,
+  onLaunchConsumed,
 }: Props) {
   const [step, setStep] = useState<Step>('select');
   const [summary, setSummary] = useState<CategorizationSummary | null>(null);
@@ -40,20 +45,9 @@ export function CategorizationModal({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [runMode, setRunMode] = useState<RunMode>(null);
+  const wasOpenRef = useRef(false);
 
-  useEffect(() => {
-    if (open) {
-      setStep('select');
-      setSummary(null);
-      setSelectedResults(new Set());
-      setExpandedResults(false);
-      setError(null);
-      setProgress(0);
-      setRunMode(null);
-    }
-  }, [open]);
-
-  const selectHighConfidence = (s: CategorizationSummary) => {
+  const selectHighConfidence = useCallback((s: CategorizationSummary) => {
     const next = new Set<string>();
     for (const r of s.results) {
       if (!r.suggestedCategoryId) continue;
@@ -64,9 +58,9 @@ export function CategorizationModal({
       }
     }
     setSelectedResults(next);
-  };
+  }, []);
 
-  const handleQuickCategorize = async () => {
+  const handleQuickCategorize = useCallback(async () => {
     setRunMode('quick');
     setStep('quick-progress');
     setProgress(0);
@@ -86,9 +80,9 @@ export function CategorizationModal({
       setError('שגיאה בסיווג מהיר');
       setStep('select');
     }
-  };
+  }, [selectHighConfidence]);
 
-  const handleSmartCategorize = async () => {
+  const handleSmartCategorize = useCallback(async () => {
     setRunMode('smart');
     setStep('quick-progress');
     setProgress(0);
@@ -108,7 +102,33 @@ export function CategorizationModal({
       setError('שגיאה בסיווג חכם');
       setStep('select');
     }
-  };
+  }, [selectHighConfidence]);
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      setStep('select');
+      setSummary(null);
+      setSelectedResults(new Set());
+      setExpandedResults(false);
+      setError(null);
+      setProgress(0);
+      setRunMode(null);
+    }
+    wasOpenRef.current = open;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !launchWith) return;
+    onLaunchConsumed?.();
+    if (launchWith === 'quick') void handleQuickCategorize();
+    else void handleSmartCategorize();
+  }, [
+    open,
+    launchWith,
+    onLaunchConsumed,
+    handleQuickCategorize,
+    handleSmartCategorize,
+  ]);
 
   const handleApply = async () => {
     if (!summary) return;
@@ -205,7 +225,7 @@ export function CategorizationModal({
               <button
                 type="button"
                 onClick={() => void handleQuickCategorize()}
-                className="w-full rounded-xl border-2 border-border bg-card p-4 text-start transition-colors hover:border-primary/40"
+                className="w-full cursor-pointer rounded-sm border-2 border-border bg-card p-4 text-start transition-colors duration-200 hover:border-foreground/40"
               >
                 <div className="mb-1 flex items-center gap-2">
                   <Zap className="h-5 w-5 text-amber-500" />
@@ -221,7 +241,7 @@ export function CategorizationModal({
               <button
                 type="button"
                 onClick={() => void handleSmartCategorize()}
-                className="w-full rounded-xl border-2 border-border bg-card p-4 text-start transition-colors hover:border-primary/40"
+                className="w-full cursor-pointer rounded-sm border-2 border-border bg-card p-4 text-start transition-colors duration-200 hover:border-foreground/40"
               >
                 <div className="mb-1 flex items-center gap-2">
                   <Bot className="h-5 w-5 text-sky-500" />
