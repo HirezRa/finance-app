@@ -78,6 +78,7 @@ export default function SettingsPage() {
     | 'security'
     | 'notifications'
     | 'display'
+    | 'updates'
     | 'budget'
     | 'ai'
     | 'n8n'
@@ -90,6 +91,7 @@ export default function SettingsPage() {
     { id: 'security' as const, label: 'אבטחה', icon: Shield },
     { id: 'notifications' as const, label: 'התראות', icon: Bell },
     { id: 'display' as const, label: 'תצוגה', icon: Palette },
+    { id: 'updates' as const, label: 'עדכוני תוכנה', icon: Download },
     { id: 'budget' as const, label: 'תקציב', icon: PieChart },
     { id: 'ai' as const, label: 'AI', icon: Bot },
     { id: 'n8n' as const, label: 'n8n', icon: Webhook },
@@ -119,6 +121,7 @@ export default function SettingsPage() {
       {activeTab === 'security' ? <SecuritySettings /> : null}
       {activeTab === 'notifications' ? <NotificationSettings /> : null}
       {activeTab === 'display' ? <DisplaySettings /> : null}
+      {activeTab === 'updates' ? <SoftwareUpdatesSettings /> : null}
       {activeTab === 'budget' ? <BudgetSettings /> : null}
       {activeTab === 'ai' ? <AISettingsTab /> : null}
       {activeTab === 'n8n' ? <N8nSettings /> : null}
@@ -186,10 +189,19 @@ function DisplaySettings() {
       <div className="finance-card">
         <FontSizeSelector />
       </div>
+    </div>
+  );
+}
 
-      <div className="border-t border-border pt-4">
-        <VersionChecker />
-      </div>
+function SoftwareUpdatesSettings() {
+  return (
+    <div className="space-y-6">
+      <h2 className="flex items-center gap-2 text-xl font-semibold">
+        <Download className="h-5 w-5" />
+        עדכוני תוכנה
+      </h2>
+
+      <VersionChecker />
 
       <div className="border-t border-border pt-4">
         <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold">
@@ -215,6 +227,8 @@ const LOG_CATEGORIES: AppLogCategory[] = [
   'webhook',
   'categorization',
   'version',
+  'update',
+  'external-service',
 ];
 
 const CATEGORY_LABELS: Record<AppLogCategory, string> = {
@@ -229,6 +243,8 @@ const CATEGORY_LABELS: Record<AppLogCategory, string> = {
   webhook: 'Webhooks',
   categorization: 'סיווג',
   version: 'גרסאות',
+  update: 'עדכונים',
+  'external-service': 'שירותים חיצוניים',
 };
 
 function logLevelClass(level: AppLogLevel): string {
@@ -744,7 +760,7 @@ function ProfileSettings() {
         </div>
         <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
           <span>{profile?._count?.accounts ?? 0} חשבונות</span>
-          <span>â€¢</span>
+          <span aria-hidden>•</span>
           <span>{profile?._count?.categories ?? 0} קטגוריות</span>
         </div>
         <ProfileInactiveAccountsToggle />
