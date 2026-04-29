@@ -26,6 +26,7 @@ import {
 import { versionApi } from '@/services/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/store/auth.store';
 
 interface UpdateInfo {
   currentVersion: string;
@@ -57,6 +58,9 @@ interface UpdateHistoryEntry {
 }
 
 export function UpdateSection() {
+  const isAuthenticated = useAuthStore(
+    (s) => s.isAuthenticated && !!s.accessToken,
+  );
   const [checking, setChecking] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
@@ -81,6 +85,7 @@ export function UpdateSection() {
   }, []);
 
   const checkForUpdates = useCallback(async () => {
+    if (!isAuthenticated) return;
     setChecking(true);
     try {
       const { data } = await versionApi.checkForUpdate();
@@ -96,7 +101,7 @@ export function UpdateSection() {
     } finally {
       setChecking(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   const triggerUpdate = useCallback(async () => {
     setShowConfirmDialog(false);
@@ -164,9 +169,10 @@ export function UpdateSection() {
   }, [buildLog, autoScroll]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     void fetchStatus();
     void checkForUpdates();
-  }, [fetchStatus, checkForUpdates]);
+  }, [isAuthenticated, fetchStatus, checkForUpdates]);
 
   useEffect(() => {
     const st = updateStatus?.status;

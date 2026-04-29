@@ -1,10 +1,15 @@
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/store/auth.store';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api/v1',
   headers: { 'Content-Type': 'application/json' },
 });
+
+const apiBase = String(import.meta.env.VITE_API_URL || '/api/v1').replace(
+  /\/$/,
+  '',
+);
 
 /** JWT from Zustand; if persist rehydration lagged, read persisted `finance-auth` blob once. */
 function resolveAccessToken(): string | null {
@@ -23,6 +28,50 @@ function resolveAccessToken(): string | null {
   }
 }
 
+function resolveRefreshToken(): string | null {
+  const fromStore = useAuthStore.getState().refreshToken;
+  if (fromStore) return fromStore;
+  try {
+    const raw = localStorage.getItem('finance-auth');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      state?: { refreshToken?: string | null };
+    };
+    const t = parsed.state?.refreshToken;
+    return typeof t === 'string' && t.length > 0 ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function fetchRefreshedAccessToken(): Promise<string | null> {
+  const refreshToken = resolveRefreshToken();
+  if (!refreshToken) return null;
+  try {
+    const { data } = await axios.post<{
+      accessToken: string;
+      refreshToken: string;
+    }>(`${apiBase}/auth/refresh`, { refreshToken }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    useAuthStore.getState().setTokens(data.accessToken, data.refreshToken);
+    return data.accessToken;
+  } catch {
+    return null;
+  }
+}
+
+function getRefreshedAccessToken(): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetchRefreshedAccessToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 api.interceptors.request.use((config) => {
   const token = resolveAccessToken();
   if (token) {
@@ -33,12 +82,27 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
     const status = error.response?.status;
-    const reqUrl = String(error.config?.url ?? '');
-    const isPublicAuth =
-      reqUrl.includes('/auth/login') || reqUrl.includes('/auth/register');
-    if (status === 401 && !isPublicAuth) {
+
+    if (status !== 401 || !originalRequest) {
+      return Promise.reject(error);
+    }
+
+    const reqUrl = String(originalRequest.url ?? '');
+    const isPublic =
+      reqUrl.includes('/auth/login') ||
+      reqUrl.includes('/auth/register') ||
+      reqUrl.includes('/auth/refresh');
+
+    if (isPublic) {
+      return Promise.reject(error);
+    }
+
+    if (originalRequest._retry) {
       useAuthStore.getState().logout();
       if (
         !window.location.pathname.startsWith('/login') &&
@@ -46,8 +110,25 @@ api.interceptors.response.use(
       ) {
         window.location.href = '/login';
       }
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
+
+    originalRequest._retry = true;
+    const newAccess = await getRefreshedAccessToken();
+    if (!newAccess) {
+      useAuthStore.getState().logout();
+      if (
+        !window.location.pathname.startsWith('/login') &&
+        !window.location.pathname.startsWith('/register')
+      ) {
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    }
+
+    originalRequest.headers = originalRequest.headers ?? {};
+    originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+    return api(originalRequest);
   },
 );
 

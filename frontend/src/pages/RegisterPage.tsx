@@ -40,14 +40,14 @@ export default function RegisterPage() {
     try {
       await authApi.register({ email, password });
       const { data } = await authApi.login({ email, password });
-      await establishSession(data.accessToken);
+      await establishSession(data.accessToken, data.refreshToken);
       if (name.trim()) {
         try {
           await settingsApi.updateProfile({ name: name.trim() });
         } catch {
           /* לא קריטי */
         }
-        await establishSession(data.accessToken);
+        await establishSession(data.accessToken, data.refreshToken);
       }
       navigate('/dashboard', { replace: true });
     } catch (err: unknown) {

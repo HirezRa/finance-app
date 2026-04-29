@@ -46,18 +46,18 @@ export function Sidebar({ collapsed, onToggle, mobile }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex flex-col border-s border-sidebar-border bg-sidebar text-sidebar-foreground',
+        'flex flex-col border-s border-white/20 bg-sidebar/75 text-sidebar-foreground shadow-[4px_0_32px_rgb(0_0_0_/0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-sidebar/60 dark:shadow-[4px_0_40px_rgb(0_0_0_/0.35)]',
         !mobile && 'sticky top-0 h-screen shrink-0',
         collapsed && !mobile ? 'w-20' : 'w-64',
         mobile && 'h-full w-64',
         'transition-all duration-300',
       )}
     >
-      <div className="flex items-center justify-between border-b border-sidebar-border p-4">
+      <div className="flex items-center justify-between border-b border-white/10 p-4 dark:border-white/10">
         {!collapsed || mobile ? (
           <div className="flex min-w-0 items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-sidebar-border bg-sidebar-accent">
-              <span className="text-sm font-semibold text-sidebar-accent-foreground">₪</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-indigo-600 shadow-md shadow-primary/30">
+              <span className="text-sm font-bold text-white">₪</span>
             </div>
             <span className="truncate font-semibold tracking-tight">ניהול פיננסי</span>
           </div>
@@ -94,15 +94,15 @@ export function Sidebar({ collapsed, onToggle, mobile }: SidebarProps) {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  'flex cursor-pointer items-center gap-3 rounded-sm border border-transparent px-3 py-2.5 transition-colors duration-200',
-                  'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  'flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200',
+                  'hover:bg-white/10 dark:hover:bg-white/10',
                   isActive
-                    ? 'border-border bg-sidebar-accent font-medium text-sidebar-foreground'
-                    : 'text-muted-foreground',
+                    ? 'border border-primary/35 bg-primary/15 font-medium text-primary dark:text-primary'
+                    : 'border border-transparent text-muted-foreground hover:text-foreground',
                   collapsed && !mobile && 'justify-center',
                 )}
               >
-                <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-sidebar-foreground')} />
+                <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-primary')} />
                 {!collapsed || mobile ? (
                   <span className="font-medium">{item.label}</span>
                 ) : null}
@@ -112,21 +112,21 @@ export function Sidebar({ collapsed, onToggle, mobile }: SidebarProps) {
         </div>
       </nav>
 
-      <div className="space-y-3 border-t border-sidebar-border p-3">
+      <div className="space-y-3 border-t border-white/10 p-3 dark:border-white/10">
         <div className={cn('flex items-center', collapsed && !mobile ? 'justify-center' : 'justify-between')}>
           {!collapsed || mobile ? (
             <span className="text-sm text-muted-foreground">ערכת נושא</span>
           ) : null}
-          <ThemeToggle className="text-sidebar-foreground hover:bg-sidebar-accent" />
+          <ThemeToggle className="text-foreground hover:bg-white/10" />
         </div>
 
         <div
           className={cn(
-            'flex items-center gap-3 rounded-sm border border-sidebar-border bg-sidebar-accent/50 p-3',
+            'flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 p-3 dark:bg-white/5',
             collapsed && !mobile && 'justify-center',
           )}
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-sidebar-border bg-sidebar">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 dark:bg-white/15">
             <User className="h-4 w-4" />
           </div>
           {!collapsed || mobile ? (
@@ -144,7 +144,7 @@ export function Sidebar({ collapsed, onToggle, mobile }: SidebarProps) {
           size={collapsed && !mobile ? 'icon' : 'sm'}
           onClick={handleLogout}
           className={cn(
-            'w-full text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
+            'w-full text-muted-foreground hover:bg-white/10 hover:text-foreground',
             collapsed && !mobile && 'w-9',
           )}
         >

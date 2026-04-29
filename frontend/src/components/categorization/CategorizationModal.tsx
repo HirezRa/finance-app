@@ -225,7 +225,7 @@ export function CategorizationModal({
               <button
                 type="button"
                 onClick={() => void handleQuickCategorize()}
-                className="w-full cursor-pointer rounded-sm border-2 border-border bg-card p-4 text-start transition-colors duration-200 hover:border-foreground/40"
+                className="w-full cursor-pointer rounded-xl border-2 border-white/25 bg-white/40 p-4 text-start backdrop-blur-md transition-colors duration-200 hover:border-primary/40 dark:border-white/15 dark:bg-white/[0.06]"
               >
                 <div className="mb-1 flex items-center gap-2">
                   <Zap className="h-5 w-5 text-amber-500" />
@@ -241,7 +241,7 @@ export function CategorizationModal({
               <button
                 type="button"
                 onClick={() => void handleSmartCategorize()}
-                className="w-full cursor-pointer rounded-sm border-2 border-border bg-card p-4 text-start transition-colors duration-200 hover:border-foreground/40"
+                className="w-full cursor-pointer rounded-xl border-2 border-white/25 bg-white/40 p-4 text-start backdrop-blur-md transition-colors duration-200 hover:border-primary/40 dark:border-white/15 dark:bg-white/[0.06]"
               >
                 <div className="mb-1 flex items-center gap-2">
                   <Bot className="h-5 w-5 text-sky-500" />

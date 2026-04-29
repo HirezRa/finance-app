@@ -312,40 +312,44 @@ export default function DashboardPage() {
       />
 
       {!summaryLoading && summary ? (
-        <div className="relative overflow-hidden rounded-sm border-2 border-foreground bg-foreground p-6 text-background md:p-8">
-          <div className="relative">
+        <div className="finance-card-elevated relative overflow-hidden border border-indigo-400/30 bg-gradient-to-br from-indigo-500/25 via-sky-500/20 to-violet-500/20 dark:from-indigo-600/30 dark:via-sky-600/25 dark:to-violet-600/20">
+          <div
+            className="pointer-events-none absolute -end-20 -top-24 h-56 w-56 rounded-full bg-white/30 blur-3xl dark:bg-indigo-400/20"
+            aria-hidden
+          />
+          <div className="relative p-1">
             <div className="space-y-1">
-              <p className="text-sm text-background/80">יתרה זמינה</p>
+              <p className="text-sm text-muted-foreground">יתרה זמינה</p>
               <Amount
                 value={spendable}
                 size="hero"
                 showSign={false}
-                className="text-background"
+                className="text-foreground"
               />
             </div>
-            <div className="mt-6 grid grid-cols-2 gap-4 border-t border-background/25 pt-4">
+            <div className="mt-6 grid grid-cols-2 gap-4 border-t border-white/20 pt-4 dark:border-white/10">
               <div>
-                <p className="text-xs text-background/70">הכנסות החודש</p>
+                <p className="text-xs text-muted-foreground">הכנסות החודש</p>
                 <Amount
                   value={Number(summary.income?.total ?? 0)}
                   size="lg"
                   showSign={false}
-                  className="text-background"
+                  className="text-foreground"
                 />
               </div>
               <div>
-                <p className="text-xs text-background/70">הוצאות החודש</p>
+                <p className="text-xs text-muted-foreground">הוצאות החודש</p>
                 <Amount
                   value={-Number(summary.expenses?.total ?? 0)}
                   size="lg"
-                  className="text-background"
+                  className="text-foreground"
                 />
               </div>
             </div>
           </div>
         </div>
       ) : summaryLoading ? (
-        <Skeleton className="h-48 w-full rounded-sm" />
+        <Skeleton className="h-48 w-full rounded-2xl" />
       ) : null}
 
       {showFallback && summary ? (
@@ -462,8 +466,8 @@ export default function DashboardPage() {
                   <p className="text-2xl font-bold">{summary?.transactionCount ?? 0}</p>
                 )}
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-sm border border-border bg-muted">
-                <CreditCard className="h-6 w-6 text-foreground" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/15 dark:bg-purple-500/10">
+                <CreditCard className="h-6 w-6 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </CardContent>

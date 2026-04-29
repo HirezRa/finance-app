@@ -38,7 +38,7 @@ export default function LoginPage() {
 
     try {
       const { data } = await authApi.login({ email, password });
-      await establishSession(data.accessToken);
+      await establishSession(data.accessToken, data.refreshToken);
       navigate('/dashboard', { replace: true });
     } catch (err: unknown) {
       setError(messageFromAxios(err));
