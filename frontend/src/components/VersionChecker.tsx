@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import api, { versionApi, type PerformSelfUpdateResponse } from '@/services/api';
 import { isAxiosError } from 'axios';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/store/auth.store';
 
 interface GitHubRelease {
   tag_name: string;
@@ -98,6 +99,9 @@ const MANUAL_UPDATE_ONE_LINER =
   'cd /opt/finance-app && git pull origin main && docker compose build --no-cache backend frontend && docker compose up -d';
 
 export function VersionChecker() {
+  const isAuthenticated = useAuthStore(
+    (s) => s.isAuthenticated && !!s.accessToken,
+  );
   const queryClient = useQueryClient();
   const [isChecking, setIsChecking] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -175,6 +179,7 @@ export function VersionChecker() {
     queryKey: ['current-version'],
     queryFn: fetchCurrentVersion,
     staleTime: Infinity,
+    enabled: isAuthenticated,
   });
 
   const {
@@ -192,6 +197,7 @@ export function VersionChecker() {
   });
 
   const checkForUpdates = async () => {
+    if (!isAuthenticated) return;
     setIsChecking(true);
     try {
       await Promise.all([refetchCurrent(), refetchLatest()]);

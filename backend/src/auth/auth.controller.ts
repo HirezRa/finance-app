@@ -3,6 +3,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { RefreshDto } from './dto/refresh.dto';
 import { Enable2faDto } from './dto/enable-2fa.dto';
 import { Disable2faDto } from './dto/disable-2fa.dto';
 import { TwoFactorService } from './services/two-factor.service';
@@ -25,6 +26,11 @@ export class AuthController {
   @Post('login')
   async login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Post('refresh')
+  async refresh(@Body() dto: RefreshDto) {
+    return this.auth.refreshTokens(dto.refreshToken);
   }
 
   @Get('2fa/setup')

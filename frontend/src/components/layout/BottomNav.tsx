@@ -20,7 +20,7 @@ export function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="safe-area-pb fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card md:hidden">
+    <nav className="safe-area-pb fixed inset-x-0 bottom-0 z-40 border-t border-white/15 bg-white/30 shadow-[0_-8px_32px_rgb(15_23_42_/0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.08] dark:shadow-[0_-8px_32px_rgb(0_0_0_/0.35)] md:hidden">
       <div className="flex h-16 items-center justify-around">
         {navItems.map((item) => {
           const isActive =
@@ -42,7 +42,7 @@ export function BottomNav() {
                 className={cn(
                   'flex items-center justify-center',
                   item.main &&
-                    'h-11 w-11 rounded-sm border border-border bg-primary text-primary-foreground shadow-sm',
+                    'h-12 w-12 rounded-full border border-primary/30 bg-gradient-to-br from-primary to-indigo-600 text-primary-foreground shadow-lg shadow-primary/30',
                   !item.main && 'h-8 w-8',
                 )}
               >

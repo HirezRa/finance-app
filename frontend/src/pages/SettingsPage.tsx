@@ -103,7 +103,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <PageHeader title="הגדרות" subtitle="ניהול החשבון והאינטגרציות" />
 
-      <div className="sticky top-[73px] z-10 -mx-4 flex flex-wrap gap-2 border-b border-border bg-background/95 px-4 pb-2 pt-2 md:-mx-6 md:px-6">
+      <div className="sticky top-[73px] z-10 -mx-4 flex flex-wrap gap-2 border-b border-white/15 bg-white/25 px-4 pb-2 pt-2 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06] md:-mx-6 md:px-6">
         {tabs.map((tab) => (
           <Button
             key={tab.id}

@@ -86,7 +86,12 @@ export function registerRequestLogging(
       userAgent: ua.slice(0, 120),
     });
 
-    const level = statusCode >= 400 ? 'WARN' : 'DEBUG';
+    const level =
+      statusCode === 401
+        ? 'DEBUG'
+        : statusCode >= 400
+          ? 'WARN'
+          : 'DEBUG';
     logs.add(level, 'api', `→ ${method} ${pathOnly} ${statusCode}`, {
       source,
       statusCode,
