@@ -2,6 +2,20 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.25] - 2026-04-29
+
+### שיפורים (תלויות / Docker)
+
+- **npm 11.3.0** בתוך שלב ה-build ב-`backend/Dockerfile` ו-`frontend/Dockerfile` (מבטל הודעת "New major version of npm" בבניית תמונות)
+- **Backend `package.json` — `overrides`:** `archiver@7` + `rimraf@5` — מבטלים שרשראות `glob@7` / `inflight` (האזהרות `npm warn deprecated` על `inflight` / `rimraf@2` / `glob@7` מ־exceljs ו־bcrypt)
+- שדה **`engines`** (Node ≥20, npm ≥10) ב-backend
+
+### הערות
+
+- **otplib** v12 — עדיין מציג אזהרות `@otplib/*` deprecated; מעבר ל-**v13** דורש שינוי import/API (TypeScript ESM) — לעשות במשימה נפרדת
+- **israeli-bank-scrapers** (בתוך Docker) עשוי עדיין להציג `babel` / `glob@7` בזמן `npm install` — מקור בגיליון התלויות של ה-fork
+- **npm audit** — לרוב הדיווחים נפתרים רק בעדכון **Nest 11** / **@nestjs/platform-fastify@11** (שינוי שביר) — לא בוצע בגרסה זו
+
 ## [2.0.24] - 2026-04-29
 
 ### תיקונים
