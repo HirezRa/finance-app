@@ -395,7 +395,9 @@ export type AppLogCategory =
   | 'api'
   | 'webhook'
   | 'categorization'
-  | 'version';
+  | 'version'
+  | 'update'
+  | 'external-service';
 
 export interface AppLogEntry {
   id: string;
@@ -518,6 +520,8 @@ export const versionApi = {
   // New status payload
   getUpdateStatus: () =>
     api.get<UpdateStatusResponse>('/version/update-status'),
+  clearBuildLog: () =>
+    api.post<{ cleared: boolean }>('/version/clear-build-log'),
   // Legacy endpoints kept for backwards compatibility
   performSelfUpdate: () =>
     api.post<PerformSelfUpdateResponse>('/version/perform-update'),

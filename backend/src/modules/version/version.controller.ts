@@ -48,6 +48,13 @@ export class VersionGithubController {
     return this.versionService.cancelUpdate();
   }
 
+  @Post('clear-build-log')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async clearBuildLog() {
+    return this.versionService.clearBuildLog();
+  }
+
   @Get('update-history')
   @UseGuards(JwtAuthGuard)
   getUpdateHistory(): Promise<UpdateHistoryEntry[]> {

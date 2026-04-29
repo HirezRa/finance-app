@@ -4,6 +4,26 @@
 
 ## [2.0.25] - 2026-04-29
 
+### תכונות חדשות
+
+- טאב **"עדכוני תוכנה"** בהגדרות — `VersionChecker` ו-`UpdateSection` (בדיקת/הפעלת עדכונים) הועברו מטאב תצוגה
+- **POST `/version/clear-build-log`** — ניקוי `update-data/build.log` מהממשק (לצד לוג בנייה)
+
+### שיפורים (הגדרות / UI)
+
+- חלון **לוג בנייה:** כיוון LTR, גלילה אוטומטית (אופציונלי), צבעי שורה לפי ERROR/WARN/SUCCESS, כפתור ניקוי
+- הוסרה הודעת "המאגר ציבורי — … טוקן" מ-`VersionChecker`
+
+### שיפורים (לוגים בשרת)
+
+- `LogsService`: `logUpdate`, `logExternalService`, `logScraperIssue`, `logScraperSuccess` + קטגוריות `update` / `external-service`
+- **Scraper:** סיווג שגיאות (auth/timeout/בלוק/parse/רשת) ולוגי הצלחה/כשל מפורטים
+- **Ollama / OpenRouter:** לוגי `external-service` בבדיקת חיבור ובקריאות API
+
+### שיפורים (סקריפט עדכון)
+
+- `safe-update.sh`: פורמט לוג `[timestamp] [LEVEL]`, `log_debug` / `log_warn`, שלבי Git/מיגרציה/הפעלה/תקינות מפורטים, שכפול שורות ל-`build.log` כשהקובץ קיים
+
 ### שיפורים (תלויות / Docker)
 
 - **npm 11.3.0** בתוך שלב ה-build ב-`backend/Dockerfile` ו-`frontend/Dockerfile` (מבטל הודעת "New major version of npm" בבניית תמונות)

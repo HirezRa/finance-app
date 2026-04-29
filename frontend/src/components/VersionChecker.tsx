@@ -234,10 +234,6 @@ export function VersionChecker() {
         </Button>
       </div>
 
-      <p className="text-muted-foreground rounded-lg border border-border bg-muted/30 p-3 text-sm">
-        המאגר ציבורי — בדיקת עדכונים מ-GitHub לא דורשת טוקן.
-      </p>
-
       <div className="flex items-center justify-between border-b border-border py-2">
         <span className="text-muted-foreground">גרסה מותקנת:</span>
         <Badge variant="secondary" className="font-mono">

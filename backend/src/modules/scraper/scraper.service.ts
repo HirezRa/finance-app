@@ -28,6 +28,42 @@ import { shortenSyncErrorMessage } from '../../common/utils/sync-error-message';
 export class ScraperService {
   private readonly logger = new Logger(ScraperService.name);
 
+  private classifyScraperError(
+    errorType: string,
+    errorMessage: string,
+  ): 'auth' | 'timeout' | 'blocked' | 'parse' | 'network' | 'unknown' {
+    const type = errorType?.toLowerCase() || '';
+    const msg = errorMessage?.toLowerCase() || '';
+    if (
+      type.includes('invalid_password') ||
+      type.includes('change_password') ||
+      msg.includes('password')
+    ) {
+      return 'auth';
+    }
+    if (type.includes('timeout') || msg.includes('timeout')) {
+      return 'timeout';
+    }
+    if (
+      type.includes('blocked') ||
+      msg.includes('blocked') ||
+      msg.includes('captcha')
+    ) {
+      return 'blocked';
+    }
+    if (msg.includes('parse') || msg.includes('unexpected')) {
+      return 'parse';
+    }
+    if (
+      msg.includes('network') ||
+      msg.includes('econnrefused') ||
+      msg.includes('enotfound')
+    ) {
+      return 'network';
+    }
+    return 'unknown';
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ScraperConfigService,
@@ -517,6 +553,10 @@ export class ScraperService {
       companyId: config.companyId,
       configId,
     });
+    this.appLogs.add('INFO', 'scraper', `מתחיל סנכרון: ${displayName}`, {
+      scraperConfigId: configId,
+      companyId: config.companyId,
+    });
 
     const options: ScraperOptions = {
       companyId: config.companyId as CompanyTypes,
@@ -562,6 +602,16 @@ export class ScraperService {
         const errMsg =
           result.errorMessage || String(result.errorType || '') || 'Scrape failed';
         const shortMsg = shortenSyncErrorMessage(errMsg);
+        const classified = this.classifyScraperError(
+          String(result.errorType ?? ''),
+          result.errorMessage ?? '',
+        );
+        this.appLogs.logScraperIssue(
+          displayName,
+          classified,
+          result.errorMessage || errMsg,
+          { errorType: result.errorType, configId },
+        );
         this.appLogs.add('ERROR', 'sync', `סנכרון נכשל: ${displayName} — ${shortMsg}`, {
           companyId: config.companyId,
           configId,
@@ -628,6 +678,11 @@ export class ScraperService {
         companyId: config.companyId,
         durationMs: Date.now() - syncT0,
       });
+      this.appLogs.logScraperSuccess(
+        displayName,
+        updatedAccountsCount,
+        newTransactionsCount,
+      );
 
       if (newTransactionsCount > 0) {
         void this.n8nWebhook.sendSyncCompleteAlert(
@@ -649,6 +704,12 @@ export class ScraperService {
         stack?.split('\n').slice(0, 5).join('\n') ?? undefined;
       const shortMsg = shortenSyncErrorMessage(message);
       this.logger.error(`Scraper error: ${message}`, stack);
+      this.appLogs.logScraperIssue(
+        displayName,
+        'unknown',
+        message,
+        { stack: stackHead, configId },
+      );
       this.appLogs.add(
         'ERROR',
         'sync',

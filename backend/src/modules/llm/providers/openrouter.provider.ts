@@ -52,9 +52,23 @@ export class OpenRouterLlmProvider {
         headers: this.getHeaders(cfg.apiKey),
         signal: AbortSignal.timeout(10_000),
       });
+      if (response.ok) {
+        this.appLogs.logExternalService('openrouter', 'success', {
+          endpoint: 'models',
+        });
+      } else {
+        this.appLogs.logExternalService('openrouter', 'error', {
+          endpoint: 'models',
+          statusCode: response.status,
+        });
+      }
       return response.ok;
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
+      this.appLogs.logExternalService('openrouter', 'unavailable', {
+        endpoint: 'models',
+        error: msg,
+      });
       this.appLogs.add('ERROR', 'openrouter', 'בדיקת חיבור OpenRouter נכשלה', {
         error: msg,
       });
@@ -165,6 +179,11 @@ export class OpenRouterLlmProvider {
         } catch {
           if (errText) message = errText.slice(0, 500);
         }
+        this.appLogs.logExternalService('openrouter', 'error', {
+          model: modelToUse,
+          statusCode: response.status,
+          error: message,
+        });
         throw new Error(message);
       }
 
@@ -182,6 +201,10 @@ export class OpenRouterLlmProvider {
       };
       const durationMs = Date.now() - startTime;
 
+      this.appLogs.logExternalService('openrouter', 'success', {
+        model: modelToUse,
+        durationMs,
+      });
       this.appLogs.add('INFO', 'openrouter', 'תשובה התקבלה מ-OpenRouter', {
         model: modelToUse,
         durationMs,
@@ -204,6 +227,20 @@ export class OpenRouterLlmProvider {
       };
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
+      const isTimeout =
+        error instanceof Error &&
+        (error.name === 'TimeoutError' || /timeout/i.test(msg));
+      const httpErrLogged = msg.includes('OpenRouter returned');
+      if (!httpErrLogged) {
+        this.appLogs.logExternalService(
+          'openrouter',
+          isTimeout ? 'timeout' : 'error',
+          {
+            model: modelToUse,
+            error: msg,
+          },
+        );
+      }
       this.appLogs.add('ERROR', 'openrouter', 'שגיאה בבקשת OpenRouter', {
         error: msg,
         model: modelToUse,
