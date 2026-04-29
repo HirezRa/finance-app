@@ -61,6 +61,15 @@ esc(){
   echo "$1" | sed 's/"/\\"/g'
 }
 
+# ביטול עדכון מוחק את TRIGGER_FILE — יוצאים בשקט עם סטטוס idle
+check_cancelled(){
+  if [ ! -f "$TRIGGER_FILE" ]; then
+    log_warn "העדכון בוטל — קובץ trigger אינו קיים"
+    write_status "idle" "העדכון בוטל" 0
+    exit 0
+  fi
+}
+
 current_version(){
   cat "$APP_DIR/VERSION" 2>/dev/null || echo "0.0.0"
 }
@@ -203,6 +212,7 @@ check_health() {
 }
 
 build_containers() {
+  check_cancelled
   log_info "=== שלב: בניית קונטיינרים ==="
   write_status "in-progress" "בונה backend..." 50
 
@@ -217,6 +227,7 @@ build_containers() {
     return 1
   fi
   log_info "Backend נבנה בהצלחה"
+  check_cancelled
 
   write_status "in-progress" "בונה frontend..." 65
 
@@ -251,6 +262,7 @@ main(){
 
   write_status "in-progress" "מתחיל עדכון..." 5
   create_backup || { write_status "failed" "יצירת גיבוי נכשלה" 100 "backup failed"; cleanup; exit 1; }
+  check_cancelled
 
   log_info "=== שלב: משיכת שינויים מ-Git ==="
   log_debug "מאגר: $(cd "$APP_DIR" && git remote get-url origin 2>/dev/null || echo '?')"
@@ -277,6 +289,7 @@ main(){
   fi
   log_info "Git pull הצליח"
   log_debug "קומיט נוכחי: $(cd "$APP_DIR" && git rev-parse --short HEAD 2>/dev/null || echo '?')"
+  check_cancelled
 
   write_status "in-progress" "מעדכן מסד נתונים..." 40
   log_info "=== שלב: הרצת מיגרציות ==="
@@ -285,6 +298,7 @@ main(){
   else
     log_warn "מיגרציות נכשלו או אין מיגרציות — ממשיכים"
   fi
+  check_cancelled
 
   write_status "in-progress" "בונה קונטיינרים..." 55
   if ! build_containers; then
@@ -293,6 +307,7 @@ main(){
     cleanup
     exit 1
   fi
+  check_cancelled
 
   write_status "in-progress" "מפעיל קונטיינרים מחדש..." 80
   log_info "=== שלב: הפעלת קונטיינרים ==="
@@ -306,6 +321,7 @@ main(){
   log_info "קונטיינרים הופעלו"
   log_debug "סטטוס docker compose ps:"
   (cd "$APP_DIR" && docker compose ps 2>&1 | tee -a "$LOG_FILE") || true
+  check_cancelled
 
   write_status "in-progress" "בודק תקינות..." 90
   if ! check_health; then

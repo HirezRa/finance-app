@@ -11,6 +11,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { SecretInput } from '@/components/ui/SecretInput';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { getAccountDisplayName } from '@/lib/accountDisplay';
@@ -37,8 +38,6 @@ import {
   XCircle,
   Clock,
   Loader2,
-  Eye as PasswordRevealIcon,
-  EyeOff as PasswordHideIcon,
   Eye,
   EyeOff,
   Pencil,
@@ -108,7 +107,6 @@ export default function AccountsPage() {
   const [selectedInstitution, setSelectedInstitution] =
     useState<Institution | null>(null);
   const [credentials, setCredentials] = useState<Record<string, string>>({});
-  const [showPassword, setShowPassword] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncUi, setSyncUi] = useState<{
     open: boolean;
@@ -750,48 +748,44 @@ export default function AccountsPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {selectedInstitution.fields.map((field) => (
-                    <div key={field} className="space-y-2">
-                      <label className="text-sm font-medium">
-                        {fieldLabels[field] || field}
-                      </label>
-                      <div className="relative">
-                        <Input
-                          type={
-                            field.toLowerCase().includes('password') && !showPassword
-                              ? 'password'
-                              : 'text'
-                          }
-                          value={credentials[field] || ''}
-                          onChange={(e) =>
-                            setCredentials({
-                              ...credentials,
-                              [field]: e.target.value,
-                            })
-                          }
-                          dir="ltr"
-                          className={
-                            field.toLowerCase().includes('password')
-                              ? 'pe-10 text-start'
-                              : 'text-start'
-                          }
-                        />
-                        {field.toLowerCase().includes('password') ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                          >
-                            {showPassword ? (
-                              <PasswordHideIcon className="h-4 w-4" />
-                            ) : (
-                              <PasswordRevealIcon className="h-4 w-4" />
-                            )}
-                          </button>
-                        ) : null}
+                  {selectedInstitution.fields.map((field) => {
+                    const lower = field.toLowerCase();
+                    const isSecret =
+                      lower.includes('password') || lower.includes('token');
+                    return (
+                      <div key={field} className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {fieldLabels[field] || field}
+                        </label>
+                        {isSecret ? (
+                          <SecretInput
+                            value={credentials[field] || ''}
+                            onChange={(v) =>
+                              setCredentials({
+                                ...credentials,
+                                [field]: v,
+                              })
+                            }
+                            placeholder={fieldLabels[field] || field}
+                            hasExistingValue={false}
+                          />
+                        ) : (
+                          <Input
+                            type="text"
+                            value={credentials[field] || ''}
+                            onChange={(e) =>
+                              setCredentials({
+                                ...credentials,
+                                [field]: e.target.value,
+                              })
+                            }
+                            dir="ltr"
+                            className="text-start"
+                          />
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

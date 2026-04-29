@@ -65,6 +65,7 @@ export function UpdateSection() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [polling, setPolling] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [showBuildLog, setShowBuildLog] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -99,6 +100,7 @@ export function UpdateSection() {
 
   const triggerUpdate = useCallback(async () => {
     setShowConfirmDialog(false);
+    setShowBuildLog(true);
     try {
       const { data } = await versionApi.triggerUpdate();
       if (data.triggered) {
@@ -107,9 +109,11 @@ export function UpdateSection() {
         await fetchStatus();
       } else {
         toast.error(data.message);
+        setShowBuildLog(false);
       }
     } catch {
       toast.error('לא ניתן להפעיל עדכון');
+      setShowBuildLog(false);
     }
   }, [fetchStatus]);
 
@@ -118,6 +122,8 @@ export function UpdateSection() {
       const { data } = await versionApi.cancelUpdate();
       if (data.cancelled) {
         toast.success('העדכון בוטל');
+        setShowBuildLog(false);
+        setPolling(false);
         await fetchStatus();
       } else {
         toast.error(data.message);
@@ -163,6 +169,19 @@ export function UpdateSection() {
   }, [fetchStatus, checkForUpdates]);
 
   useEffect(() => {
+    const st = updateStatus?.status;
+    if (st === 'pending' || st === 'in-progress') {
+      setShowBuildLog(true);
+    }
+    if (st === 'failed' || st === 'rolled-back') {
+      setShowBuildLog(true);
+    }
+    if (st === 'idle' || st === 'completed') {
+      setShowBuildLog(false);
+    }
+  }, [updateStatus?.status]);
+
+  useEffect(() => {
     if (!polling) return;
     const interval = setInterval(() => {
       void fetchStatus();
@@ -180,9 +199,16 @@ export function UpdateSection() {
 
     if (updateStatus.status === 'pending') {
       return (
-        <div className="flex items-center gap-2 text-yellow-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>ממתין להתחלה...</span>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-yellow-400">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>ממתין להתחלה...</span>
+          </div>
+          {updateStatus.progress !== undefined ? (
+            <Progress value={updateStatus.progress} className="h-2" />
+          ) : (
+            <Progress value={5} className="h-2 opacity-70" />
+          )}
         </div>
       );
     }
@@ -190,13 +216,20 @@ export function UpdateSection() {
     if (updateStatus.status === 'in-progress') {
       return (
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-blue-400">
+          <div className="flex flex-wrap items-center gap-2 text-blue-400">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>{updateStatus.message}</span>
+            {updateStatus.progress !== undefined ? (
+              <span className="text-xs text-muted-foreground">
+                {Math.round(updateStatus.progress)}%
+              </span>
+            ) : null}
           </div>
           {updateStatus.progress !== undefined ? (
             <Progress value={updateStatus.progress} className="h-2" />
-          ) : null}
+          ) : (
+            <Progress value={15} className="h-2 opacity-70" />
+          )}
         </div>
       );
     }
@@ -273,8 +306,10 @@ export function UpdateSection() {
           {statusNode}
 
           {updateStatus &&
-          ['in-progress', 'failed', 'rolled-back'].includes(updateStatus.status) &&
-          buildLog.length > 0 ? (
+          showBuildLog &&
+          ['pending', 'in-progress', 'failed', 'rolled-back'].includes(
+            updateStatus.status,
+          ) ? (
             <div className="mt-4">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-sm font-medium text-muted-foreground">לוג בנייה:</h4>
@@ -293,7 +328,10 @@ export function UpdateSection() {
                     variant="ghost"
                     size="sm"
                     className="h-6 px-2 text-xs"
-                    disabled={clearBuildLogMutation.isPending}
+                    disabled={
+                      clearBuildLogMutation.isPending ||
+                      updateStatus.status === 'in-progress'
+                    }
                     onClick={() => clearBuildLogMutation.mutate()}
                   >
                     <Trash2 className="me-1 h-3 w-3" />
@@ -305,29 +343,38 @@ export function UpdateSection() {
                 ref={logContainerRef}
                 className="h-48 max-h-48 w-full overflow-y-auto rounded-md border bg-black/80 p-3"
               >
-                <div
-                  dir="ltr"
-                  style={{ textAlign: 'left' }}
-                  className="font-mono space-y-0.5 text-xs"
-                >
-                  {buildLog.map((line, index) => (
-                    <div
-                      key={`${index}-${line.slice(0, 24)}`}
-                      className={cn(
-                        'whitespace-pre',
-                        /ERROR|error|failed/i.test(line)
-                          ? 'text-red-400'
-                          : /WARN|warning/i.test(line)
-                            ? 'text-yellow-400'
-                            : /SUCCESS|✓/i.test(line)
-                              ? 'text-green-400'
-                              : 'text-gray-300',
-                      )}
-                    >
-                      {line}
-                    </div>
-                  ))}
-                </div>
+                {buildLog.length === 0 ? (
+                  <p
+                    dir="ltr"
+                    className="text-start font-mono text-xs text-muted-foreground"
+                  >
+                    ממתין לשורות לוג מהשרת (העדכון יתחיל בקרוב)...
+                  </p>
+                ) : (
+                  <div
+                    dir="ltr"
+                    style={{ textAlign: 'left' }}
+                    className="font-mono space-y-0.5 text-xs"
+                  >
+                    {buildLog.map((line, index) => (
+                      <div
+                        key={`${index}-${line.slice(0, 24)}`}
+                        className={cn(
+                          'whitespace-pre',
+                          /ERROR|error|failed/i.test(line)
+                            ? 'text-red-400'
+                            : /WARN|warning/i.test(line)
+                              ? 'text-yellow-400'
+                              : /SUCCESS|✓/i.test(line)
+                                ? 'text-green-400'
+                                : 'text-gray-300',
+                        )}
+                      >
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ) : null}
@@ -339,7 +386,10 @@ export function UpdateSection() {
             </div>
           ) : null}
 
-          {updateStatus?.status === 'pending' ? (
+          {updateStatus &&
+          (updateStatus.status === 'pending' ||
+            (updateStatus.status === 'in-progress' &&
+              (updateStatus.progress ?? 0) <= 50)) ? (
             <div className="mt-3">
               <Button variant="destructive" size="sm" onClick={() => void cancelUpdate()}>
                 בטל עדכון

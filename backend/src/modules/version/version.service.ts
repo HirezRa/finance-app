@@ -432,27 +432,63 @@ export class VersionService implements OnModuleInit {
     }
   }
 
-  async cancelUpdate(): Promise<{ cancelled: boolean; message: string }> {
+  private cleanupUpdateArtifacts(): void {
+    this.ensureUpdateDataDir();
     try {
-      const status = await this.getUpdateStatus();
-      if (status.status !== 'pending') {
-        return {
-          cancelled: false,
-          message: 'לא ניתן לבטל עדכון שכבר התחיל',
-        };
-      }
       if (existsSync(this.triggerFile)) {
         unlinkSync(this.triggerFile);
       }
+    } catch {
+      /* ignore */
+    }
+    try {
+      if (existsSync(this.buildLogFile)) {
+        writeFileSync(this.buildLogFile, '', { encoding: 'utf-8', mode: 0o666 });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async cancelUpdate(): Promise<{ cancelled: boolean; message: string }> {
+    try {
+      const status = await this.getUpdateStatus();
+      const progress = status.progress ?? 0;
+
+      if (!['pending', 'in-progress'].includes(status.status)) {
+        return {
+          cancelled: false,
+          message: 'אין עדכון פעיל לביטול',
+        };
+      }
+
+      if (status.status === 'in-progress' && progress > 50) {
+        return {
+          cancelled: false,
+          message: 'לא ניתן לבטל עדכון שכבר התקדם מעבר לשלב זה',
+        };
+      }
+
+      this.cleanupUpdateArtifacts();
+
       await this.writeStatus({
         status: 'idle',
         message: 'העדכון בוטל',
         currentVersion: status.currentVersion,
       });
-      this.appLogs.add('INFO', 'version', 'עדכון בוטל');
-      return { cancelled: true, message: 'העדכון בוטל' };
+
+      this.appLogs.logUpdate('עדכון בוטל', {
+        targetVersion: status.targetVersion,
+        progress: status.progress,
+        previousStatus: status.status,
+      });
+
+      return { cancelled: true, message: 'העדכון בוטל בהצלחה' };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      this.appLogs.add('ERROR', 'version', 'שגיאה בביטול עדכון', {
+        error: msg,
+      });
       return { cancelled: false, message: `שגיאה: ${msg}` };
     }
   }
