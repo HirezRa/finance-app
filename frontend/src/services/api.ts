@@ -316,6 +316,9 @@ export interface CategorizationSummary {
   };
   uncategorized: number;
   results: CategorizationResult[];
+  aiUsed?: boolean;
+  aiBatches?: number;
+  aiErrors?: string[];
 }
 
 export const categorizationApi = {
@@ -327,16 +330,11 @@ export const categorizationApi = {
       )
       .then((res) => res.data),
 
-  aiCategorize: (transactionIds: string[]) =>
+  smartCategorize: (transactionIds?: string[]) =>
     api
-      .post<{ results: CategorizationResult[] }>('/categorization/ai', {
-        transactionIds,
+      .post<CategorizationSummary>('/categorization/smart', {
+        ...(transactionIds?.length ? { transactionIds } : {}),
       })
-      .then((res) => res.data),
-
-  fullCategorize: () =>
-    api
-      .post<CategorizationSummary>('/categorization/full', {})
       .then((res) => res.data),
 
   applyResults: (

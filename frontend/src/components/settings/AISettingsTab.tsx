@@ -6,8 +6,6 @@ import {
   Server,
   Check,
   Loader2,
-  Eye,
-  EyeOff,
   RefreshCw,
   Power,
   ExternalLink,
@@ -15,6 +13,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SecretInput } from '@/components/ui/SecretInput';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import {
@@ -35,6 +34,7 @@ interface LlmSavedShape {
     model: string;
     apiKeyHint: string | null;
     configured: boolean;
+    hasOpenRouterKey?: boolean;
   };
 }
 
@@ -47,7 +47,6 @@ export function AISettingsTab() {
   const [ollamaModel, setOllamaModel] = useState('qwen2.5:7b');
   const [openrouterApiKey, setOpenrouterApiKey] = useState('');
   const [openrouterModel, setOpenrouterModel] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
   const [hasExistingApiKey, setHasExistingApiKey] = useState(false);
 
   const [connectionStatus, setConnectionStatus] =
@@ -149,7 +148,9 @@ export function AISettingsTab() {
     setOllamaModel(saved.ollama.model ?? 'qwen2.5:7b');
     setOpenrouterModel(saved.openrouter.model ?? '');
     setOpenrouterApiKey('');
-    setHasExistingApiKey(saved.openrouter.configured);
+    setHasExistingApiKey(
+      saved.openrouter.hasOpenRouterKey ?? saved.openrouter.configured,
+    );
 
     const p = saved.provider ?? 'none';
     if (p === 'none') {
@@ -409,32 +410,18 @@ export function AISettingsTab() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="openrouterApiKey">מפתח API</Label>
-              <div className="relative mt-1">
-                <Input
+              <div className="mt-1">
+                <SecretInput
                   id="openrouterApiKey"
-                  type={showApiKey ? 'text' : 'password'}
                   value={openrouterApiKey}
-                  onChange={(e) => setOpenrouterApiKey(e.target.value)}
+                  onChange={setOpenrouterApiKey}
+                  hasExistingValue={hasExistingApiKey}
                   placeholder={
                     hasExistingApiKey
                       ? 'הזן מפתח חדש להחלפה'
                       : 'sk-or-v1-...'
                   }
-                  dir="ltr"
-                  className="pe-10 font-mono text-sm"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label={showApiKey ? 'הסתר' : 'הצג'}
-                >
-                  {showApiKey ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 קבל מפתח מ-{' '}

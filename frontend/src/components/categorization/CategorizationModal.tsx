@@ -1,13 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  Zap,
-  Bot,
-  RefreshCw,
-  Check,
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import { Zap, Bot, Check, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
@@ -25,12 +17,8 @@ import {
 } from '@/services/api';
 import { cn } from '@/lib/utils';
 
-type Step =
-  | 'select'
-  | 'quick-progress'
-  | 'quick-results'
-  | 'ai-progress'
-  | 'applying';
+type Step = 'select' | 'quick-progress' | 'quick-results' | 'applying';
+type RunMode = 'quick' | 'smart' | null;
 
 interface Props {
   open: boolean;
@@ -51,6 +39,7 @@ export function CategorizationModal({
   const [expandedResults, setExpandedResults] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [runMode, setRunMode] = useState<RunMode>(null);
 
   useEffect(() => {
     if (open) {
@@ -60,6 +49,7 @@ export function CategorizationModal({
       setExpandedResults(false);
       setError(null);
       setProgress(0);
+      setRunMode(null);
     }
   }, [open]);
 
@@ -77,6 +67,7 @@ export function CategorizationModal({
   };
 
   const handleQuickCategorize = async () => {
+    setRunMode('quick');
     setStep('quick-progress');
     setProgress(0);
     setError(null);
@@ -97,7 +88,8 @@ export function CategorizationModal({
     }
   };
 
-  const handleFullCategorize = async () => {
+  const handleSmartCategorize = async () => {
+    setRunMode('smart');
     setStep('quick-progress');
     setProgress(0);
     setError(null);
@@ -105,7 +97,7 @@ export function CategorizationModal({
       setProgress((p) => Math.min(p + 4, 92));
     }, 400);
     try {
-      const result = await categorizationApi.fullCategorize();
+      const result = await categorizationApi.smartCategorize();
       window.clearInterval(tick);
       setProgress(100);
       setSummary(result);
@@ -113,66 +105,8 @@ export function CategorizationModal({
       setStep('quick-results');
     } catch {
       window.clearInterval(tick);
-      setError('שגיאה בסיווג מלא');
+      setError('שגיאה בסיווג חכם');
       setStep('select');
-    }
-  };
-
-  const handleAICategorize = async () => {
-    if (!summary) return;
-    const uncategorizedIds = summary.results
-      .filter((r) => r.source === 'none')
-      .map((r) => r.transactionId);
-    if (uncategorizedIds.length === 0) return;
-
-    setStep('ai-progress');
-    setProgress(0);
-    setError(null);
-    const tick = window.setInterval(() => {
-      setProgress((p) => Math.min(p + 6, 90));
-    }, 450);
-    try {
-      const { results: aiResults } =
-        await categorizationApi.aiCategorize(uncategorizedIds);
-      window.clearInterval(tick);
-      setProgress(100);
-
-      const updatedResults = summary.results.map((r) => {
-        const ai = aiResults.find((x) => x.transactionId === r.transactionId);
-        return ai ?? r;
-      });
-
-      const next: CategorizationSummary = {
-        ...summary,
-        results: updatedResults,
-        categorized: {
-          mapping: updatedResults.filter(
-            (r) => r.source === 'mapping' && r.suggestedCategoryId,
-          ).length,
-          historical: updatedResults.filter(
-            (r) => r.source === 'historical' && r.suggestedCategoryId,
-          ).length,
-          ai: updatedResults.filter(
-            (r) => r.source === 'ai' && r.suggestedCategoryId,
-          ).length,
-        },
-        uncategorized: updatedResults.filter((r) => !r.suggestedCategoryId)
-          .length,
-      };
-
-      setSummary(next);
-      const sel = new Set(selectedResults);
-      for (const r of aiResults) {
-        if (r.suggestedCategoryId && r.confidence >= 0.7) {
-          sel.add(r.transactionId);
-        }
-      }
-      setSelectedResults(sel);
-      setStep('quick-results');
-    } catch {
-      window.clearInterval(tick);
-      setError('שגיאה בסיווג AI');
-      setStep('quick-results');
     }
   };
 
@@ -237,9 +171,7 @@ export function CategorizationModal({
       case 'select':
         return 'סיווג חכם';
       case 'quick-progress':
-        return 'סיווג בתהליך';
-      case 'ai-progress':
-        return 'סיווג AI';
+        return runMode === 'smart' ? 'סיווג חכם בתהליך' : 'סיווג בתהליך';
       case 'applying':
         return 'מחיל שינויים';
       case 'quick-results':
@@ -267,8 +199,8 @@ export function CategorizationModal({
           {step === 'select' ? (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                בחרו שיטת סיווג — קודם התאמות מהירות (היסטוריה + מיפוי), ואז
-                אופציונלית AI לספקים לא מוכרים.
+                סיווג מהיר — רק מיפוי והיסטוריה. סיווג חכם — אותו דבר ואז AI
+                במנות לעסקאות שנותרו ללא קטגוריה (דורש מנוע AI פעיל).
               </p>
               <button
                 type="button"
@@ -283,44 +215,43 @@ export function CategorizationModal({
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  התאמה היסטורית ומיפוי ספקים — ללא AI, מהיר וחינמי
+                  מיפוי ספקים + היסטוריה — ללא AI
                 </p>
               </button>
               <button
                 type="button"
-                onClick={() => void handleFullCategorize()}
+                onClick={() => void handleSmartCategorize()}
                 className="w-full rounded-xl border-2 border-border bg-card p-4 text-start transition-colors hover:border-primary/40"
               >
                 <div className="mb-1 flex items-center gap-2">
-                  <RefreshCw className="h-5 w-5 text-sky-500" />
-                  <span className="font-medium">סיווג מלא</span>
+                  <Bot className="h-5 w-5 text-sky-500" />
+                  <span className="font-medium">סיווג חכם</span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  היסטוריה + מיפוי, ואז AI אוטומטית לכל מה שלא זוהה
+                  מיפוי + היסטוריה + AI (מנות) לעסקאות שלא סווגו
                 </p>
               </button>
             </div>
           ) : null}
 
-          {(step === 'quick-progress' ||
-            step === 'ai-progress' ||
-            step === 'applying') && (
+          {(step === 'quick-progress' || step === 'applying') && (
             <div className="space-y-4 py-6 text-center">
               {step === 'quick-progress' ? (
-                <Zap className="mx-auto h-10 w-10 animate-pulse text-amber-500" />
-              ) : null}
-              {step === 'ai-progress' ? (
-                <Bot className="mx-auto h-10 w-10 animate-pulse text-sky-500" />
+                runMode === 'smart' ? (
+                  <Bot className="mx-auto h-10 w-10 animate-pulse text-sky-500" />
+                ) : (
+                  <Zap className="mx-auto h-10 w-10 animate-pulse text-amber-500" />
+                )
               ) : null}
               {step === 'applying' ? (
                 <Check className="mx-auto h-10 w-10 text-green-600" />
               ) : null}
               <p className="text-sm text-muted-foreground">
-                {step === 'quick-progress'
-                  ? 'סורק התאמות היסטוריות ומיפוי ספקים...'
+                {step === 'quick-progress' && runMode === 'smart'
+                  ? 'מיפוי, היסטוריה וסיווג AI במנות...'
                   : null}
-                {step === 'ai-progress'
-                  ? 'שולח ל־AI רק עסקאות ללא התאמה...'
+                {step === 'quick-progress' && runMode !== 'smart'
+                  ? 'סורק התאמות היסטוריות ומיפוי ספקים...'
                   : null}
                 {step === 'applying' ? 'מעדכן קטגוריות...' : null}
               </p>
@@ -435,26 +366,13 @@ export function CategorizationModal({
                 </div>
               ) : null}
 
-              {summary.uncategorized > 0 &&
-              summary.results.some((r) => r.source === 'none') ? (
-                <div className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-4">
-                  <div className="mb-2 flex items-center gap-2 font-medium">
-                    <Bot className="h-5 w-5 text-sky-500" />
-                    נותרו {summary.uncategorized} עסקאות ללא התאמה
-                  </div>
-                  <p className="mb-3 text-sm text-muted-foreground">
-                    אפשר להריץ AI רק עליהן (דורש מנוע AI פעיל בהגדרות).
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void handleAICategorize()}
-                  >
-                    <Bot className="me-2 h-4 w-4" />
-                    סווג עם AI
-                  </Button>
-                </div>
+              {summary.aiUsed && summary.aiBatches != null ? (
+                <p className="text-center text-xs text-muted-foreground">
+                  סיווג חכם: {summary.aiBatches} מנות AI
+                  {summary.aiErrors?.length
+                    ? ` · ${summary.aiErrors.length} אזהרות`
+                    : ''}
+                </p>
               ) : null}
             </div>
           ) : null}

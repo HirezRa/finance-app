@@ -39,6 +39,8 @@ function categoryKeywords(k: unknown): string[] {
 @Injectable()
 export class CategorizationService {
   private readonly logger = new Logger(CategorizationService.name);
+  private readonly AI_BATCH_SIZE = 10;
+  private readonly AI_BATCH_DELAY_MS = 500;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -107,8 +109,7 @@ export class CategorizationService {
     const baseWhere = await this.needsCategoryWhere(userId);
     const where: Prisma.TransactionWhereInput = transactionIds?.length
       ? {
-          id: { in: transactionIds },
-          account: { userId },
+          AND: [baseWhere, { id: { in: transactionIds } }],
         }
       : baseWhere;
 
@@ -170,6 +171,39 @@ export class CategorizationService {
         ai: 0,
       },
       uncategorized: transactions.length - mappingCount - historicalCount,
+      results,
+    };
+  }
+
+  private chunkArray<T>(arr: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+      chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private recomputeSummary(
+    results: CategorizationResult[],
+  ): Omit<CategorizationSummary, 'results'> & { results: CategorizationResult[] } {
+    const mapping = results.filter(
+      (r) => r.source === 'mapping' && r.suggestedCategoryId,
+    ).length;
+    const historical = results.filter(
+      (r) => r.source === 'historical' && r.suggestedCategoryId,
+    ).length;
+    const ai = results.filter(
+      (r) => r.source === 'ai' && r.suggestedCategoryId,
+    ).length;
+    const uncategorized = results.filter((r) => !r.suggestedCategoryId).length;
+    return {
+      total: results.length,
+      categorized: { mapping, historical, ai },
+      uncategorized,
       results,
     };
   }
@@ -251,38 +285,341 @@ export class CategorizationService {
     return results;
   }
 
-  async fullCategorize(userId: string): Promise<CategorizationSummary> {
-    const quickResult = await this.quickCategorize(userId);
+  private buildBatchCategorizationPrompt(
+    transactions: Array<{
+      id: string;
+      description: string;
+      amount: { toString(): string };
+      originalCurrency?: string | null;
+      isAbroad?: boolean;
+    }>,
+    categories: Array<{
+      id: string;
+      name: string;
+      nameHe: string;
+      keywords?: unknown;
+    }>,
+  ): string {
+    const categoryLines = categories
+      .map((c, i) => {
+        const label = c.nameHe || c.name;
+        const kw = categoryKeywords(c.keywords);
+        const kwStr = kw.length ? ` (${kw.slice(0, 3).join(', ')})` : '';
+        return `${i + 1}. ${label}${kwStr} — name: ${c.name}`;
+      })
+      .join('\n');
+
+    const txLines = transactions
+      .map((tx, i) => {
+        const isExpense = Number(tx.amount) < 0;
+        const loc = tx.isAbroad ? 'מחו"ל' : 'בארץ';
+        return `${i + 1}. transactionId: "${tx.id}" | תיאור: "${tx.description}" | סכום: ₪${Math.abs(Number(tx.amount)).toFixed(2)} | ${isExpense ? 'הוצאה' : 'הכנסה'} | ${loc}`;
+      })
+      .join('\n');
+
+    return `אתה מסווג עסקאות פיננסיות ישראליות. ענה ב-JSON בלבד — מערך אובייקטים בלבד, ללא markdown.
+
+קטגוריות (categoryNumber = המספר בשורה, בין 1 ל-${categories.length}):
+${categoryLines}
+
+עסקאות לסיווג:
+${txLines}
+
+החזר מערך JSON בלבד, בפורמט:
+[
+  {"transactionId":"<uuid>","categoryNumber":<מספר 1-${categories.length} או null>,"confidence":<0-1>,"reasoning":"<קצר בעברית>"}
+]
+
+חובה לכלול ערך עבור כל transactionId מהרשימה. אם לא ניתן לסווג — categoryNumber: null ו-confidence: 0.`;
+  }
+
+  private parseBatchAIResponse(
+    content: string,
+    transactionIds: string[],
+    categories: Array<{ id: string; name: string; nameHe: string }>,
+    transactions: Array<{
+      id: string;
+      description: string;
+      amount: { toString(): string };
+      originalCurrency?: string | null;
+      isAbroad?: boolean;
+    }>,
+  ): CategorizationResult[] {
+    const idSet = new Set(transactionIds);
+    const byId = new Map(transactions.map((t) => [t.id, t]));
+    const out: CategorizationResult[] = [];
+
+    try {
+      const match = content.match(/\[[\s\S]*\]/);
+      if (!match) {
+        for (const tx of transactions) {
+          out.push(this.fallbackNoneResult(tx));
+        }
+        return out;
+      }
+      const arr = JSON.parse(match[0]) as Array<{
+        transactionId?: string;
+        categoryNumber?: number | null;
+        confidence?: number;
+        reasoning?: string;
+      }>;
+      const mapFromAi = new Map<string, (typeof arr)[0]>();
+      for (const row of arr) {
+        if (row.transactionId && idSet.has(row.transactionId)) {
+          mapFromAi.set(row.transactionId, row);
+        }
+      }
+      for (const tx of transactions) {
+        const row = mapFromAi.get(tx.id);
+        if (!row) {
+          out.push(this.fallbackNoneResult(tx));
+          continue;
+        }
+        const num = row.categoryNumber;
+        if (
+          num != null &&
+          num >= 1 &&
+          num <= categories.length
+        ) {
+          const cat = categories[num - 1];
+          out.push({
+            transactionId: tx.id,
+            description: tx.description,
+            amount: Number(tx.amount),
+            suggestedCategoryId: cat.id,
+            suggestedCategoryName: cat.nameHe || cat.name,
+            confidence: Math.min(Math.max(row.confidence ?? 0.6, 0), 1),
+            source: 'ai',
+            aiReasoning: row.reasoning || '',
+          });
+        } else {
+          out.push(this.fallbackNoneResult(tx));
+        }
+      }
+      return out;
+    } catch {
+      for (const tx of transactions) {
+        out.push(this.fallbackNoneResult(tx));
+      }
+      return out;
+    }
+  }
+
+  private fallbackNoneResult(tx: {
+    id: string;
+    description: string;
+    amount: { toString(): string };
+  }): CategorizationResult {
+    return {
+      transactionId: tx.id,
+      description: tx.description,
+      amount: Number(tx.amount),
+      suggestedCategoryId: null,
+      suggestedCategoryName: null,
+      confidence: 0,
+      source: 'none',
+    };
+  }
+
+  private async categorizeBatchWithAi(
+    userId: string,
+    transactionIds: string[],
+  ): Promise<CategorizationResult[]> {
+    const transactions = await this.prisma.transaction.findMany({
+      where: {
+        id: { in: transactionIds },
+        account: { userId },
+      },
+      select: {
+        id: true,
+        description: true,
+        amount: true,
+        originalCurrency: true,
+        isAbroad: true,
+      },
+    });
+
+    if (transactions.length === 0) return [];
+
+    const categories = await this.prisma.category.findMany({
+      where: {
+        OR: [{ userId }, { isSystem: true, userId: null }],
+        NOT: { name: 'uncategorized' },
+      },
+      select: { id: true, name: true, nameHe: true, keywords: true },
+    });
+
+    if (categories.length === 0) {
+      return transactions.map((tx) => this.fallbackNoneResult(tx));
+    }
+
+    const prompt = this.buildBatchCategorizationPrompt(transactions, categories);
+    const response = await this.llmService.completeForUser(userId, {
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 1200,
+      temperature: 0.25,
+      responseFormat: 'json',
+    });
+
+    return this.parseBatchAIResponse(
+      response.content ?? '',
+      transactionIds,
+      categories,
+      transactions,
+    );
+  }
+
+  async categorizeWithAiBatched(
+    userId: string,
+    transactionIds: string[],
+  ): Promise<{
+    results: CategorizationResult[];
+    batches: number;
+    errors: string[];
+  }> {
+    const results: CategorizationResult[] = [];
+    const errors: string[] = [];
+
+    const configured = await this.llmService.isAiConfiguredForUser(userId);
+    if (!configured) {
+      this.logsService.add(
+        'WARN',
+        'categorization',
+        'סיווג AI במנות — מנוע AI לא מוגדר למשתמש',
+        { userId, count: transactionIds.length },
+      );
+      return { results: [], batches: 0, errors: ['AI not configured'] };
+    }
+
+    const batches = this.chunkArray(transactionIds, this.AI_BATCH_SIZE);
+    this.logsService.add(
+      'INFO',
+      'categorization',
+      `סיווג AI במנות: ${transactionIds.length} עסקאות, ${batches.length} מנות`,
+      { batchSize: this.AI_BATCH_SIZE },
+    );
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      try {
+        this.logsService.add(
+          'DEBUG',
+          'categorization',
+          `מנה ${i + 1}/${batches.length}: ${batch.length} עסקאות`,
+        );
+        const batchRes = await this.categorizeBatchWithAi(userId, batch);
+        results.push(...batchRes);
+        if (i < batches.length - 1) {
+          await this.delay(this.AI_BATCH_DELAY_MS);
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`categorizeWithAiBatched batch ${i + 1}: ${msg}`);
+        this.logsService.add(
+          'ERROR',
+          'categorization',
+          `שגיאה במנה ${i + 1}/${batches.length}`,
+          { error: msg },
+        );
+        errors.push(`Batch ${i + 1}: ${msg}`);
+        for (const id of batch) {
+          const tx = await this.prisma.transaction.findFirst({
+            where: { id, account: { userId } },
+            select: { id: true, description: true, amount: true },
+          });
+          if (tx) {
+            results.push(this.fallbackNoneResult(tx));
+          }
+        }
+      }
+    }
+
+    const categorized = results.filter(
+      (r) => r.source === 'ai' && r.suggestedCategoryId,
+    ).length;
+    this.logsService.add(
+      'INFO',
+      'categorization',
+      `סיווג AI במנות הושלם: ${categorized}/${transactionIds.length} סווגו`,
+    );
+
+    return { results, batches: batches.length, errors };
+  }
+
+  async categorizeSmart(
+    userId: string,
+    transactionIds?: string[],
+  ): Promise<
+    CategorizationSummary & {
+      aiUsed: boolean;
+      aiBatches: number;
+      aiErrors?: string[];
+    }
+  > {
+    this.logsService.add('INFO', 'categorization', 'התחלת סיווג חכם (מהיר + AI במנות)', {
+      userId,
+      filterCount: transactionIds?.length,
+    });
+
+    const quickResult = await this.quickCategorize(userId, transactionIds);
     const uncategorizedIds = quickResult.results
       .filter((r) => r.source === 'none')
       .map((r) => r.transactionId);
 
-    if (uncategorizedIds.length === 0) return quickResult;
-
-    const aiResults = await this.aiCategorize(userId, uncategorizedIds);
-    for (const aiResult of aiResults) {
-      const idx = quickResult.results.findIndex(
-        (r) => r.transactionId === aiResult.transactionId,
-      );
-      if (idx !== -1) {
-        quickResult.results[idx] = aiResult;
-      }
+    if (uncategorizedIds.length === 0) {
+      return {
+        ...quickResult,
+        aiUsed: false,
+        aiBatches: 0,
+      };
     }
 
-    quickResult.categorized.mapping = quickResult.results.filter(
-      (r) => r.source === 'mapping' && r.suggestedCategoryId,
-    ).length;
-    quickResult.categorized.historical = quickResult.results.filter(
-      (r) => r.source === 'historical' && r.suggestedCategoryId,
-    ).length;
-    quickResult.categorized.ai = quickResult.results.filter(
-      (r) => r.source === 'ai' && r.suggestedCategoryId,
-    ).length;
-    quickResult.uncategorized = quickResult.results.filter(
-      (r) => !r.suggestedCategoryId,
-    ).length;
+    const aiOutcome = await this.categorizeWithAiBatched(userId, uncategorizedIds);
+    if (
+      aiOutcome.batches === 0 &&
+      aiOutcome.errors.some((e) => e.includes('AI not configured'))
+    ) {
+      return {
+        ...quickResult,
+        aiUsed: false,
+        aiBatches: 0,
+        ...(aiOutcome.errors.length ? { aiErrors: aiOutcome.errors } : {}),
+      };
+    }
 
-    return quickResult;
+    const aiById = new Map(
+      aiOutcome.results.map((r) => [r.transactionId, r]),
+    );
+    const mergedResults = quickResult.results.map(
+      (r) => aiById.get(r.transactionId) ?? r,
+    );
+    const summary = this.recomputeSummary(mergedResults);
+
+    this.logsService.add('INFO', 'categorization', 'סיווג חכם הושלם', {
+      aiBatches: aiOutcome.batches,
+      aiErrorCount: aiOutcome.errors.length,
+      uncategorizedAfter: summary.uncategorized,
+    });
+
+    return {
+      ...summary,
+      aiUsed: true,
+      aiBatches: aiOutcome.batches,
+      ...(aiOutcome.errors.length > 0
+        ? { aiErrors: aiOutcome.errors }
+        : {}),
+    };
+  }
+
+  /** תאימות לאחור — מחזיר תוצאה ללא שדות aiUsed/aiBatches */
+  async fullCategorize(userId: string): Promise<CategorizationSummary> {
+    const s = await this.categorizeSmart(userId);
+    return {
+      total: s.total,
+      categorized: s.categorized,
+      uncategorized: s.uncategorized,
+      results: s.results,
+    };
   }
 
   async applyCategorizationResults(
