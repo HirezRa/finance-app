@@ -432,6 +432,11 @@ export class SettingsService {
             s.openrouterApiKeyIv &&
             s.openrouterApiKeyTag,
         ),
+        hasOpenRouterKey: Boolean(
+          s.openrouterApiKeyEncrypted &&
+            s.openrouterApiKeyIv &&
+            s.openrouterApiKeyTag,
+        ),
       },
     };
   }

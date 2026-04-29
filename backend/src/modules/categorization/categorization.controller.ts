@@ -29,19 +29,15 @@ export class CategorizationController {
     );
   }
 
-  @Post('ai')
-  async aiCategorize(
+  @Post('smart')
+  async smartCategorize(
     @CurrentUser('id') userId: string,
-    @Body() body: { transactionIds: string[] },
+    @Body() body: { transactionIds?: string[] },
   ) {
-    const ids = body?.transactionIds ?? [];
-    const results = await this.categorizationService.aiCategorize(userId, ids);
-    return { results };
-  }
-
-  @Post('full')
-  async fullCategorize(@CurrentUser('id') userId: string) {
-    return this.categorizationService.fullCategorize(userId);
+    return this.categorizationService.categorizeSmart(
+      userId,
+      body?.transactionIds,
+    );
   }
 
   @Post('apply')
