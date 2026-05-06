@@ -18,7 +18,7 @@
 | `accounts`, `transactions`, `categories` | ישויות ליבה |
 | `budgets` | תקציב מול הוצאה בפועל |
 | `dashboard` | סיכומים חודשיים (טווח UTC) |
-| `scraper` | Bull, israeli-bank-scrapers, Chromium |
+| `scraper` | Bull, [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (upstream eshaham), Chromium |
 | `settings` | UserSettings, OLLAMA, n8n |
 | `alerts` | Cron + webhooks לסנכרון |
 
