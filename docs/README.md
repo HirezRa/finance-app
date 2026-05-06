@@ -1,6 +1,6 @@
 # Finance App — ניהול פיננסי אישי
 
-אפליקציית ווב לניהול פיננסי אישי עם סנכרון מחשבונות בישראל (בנקים וכרטיסי אשראי) באמצעות [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (מ־GitHub; תיקוני `patch-package` תחת `backend/patches`).
+אפליקציית ווב לניהול פיננסי אישי עם סנכרון חשבונות ממוסדות פיננסיים בישראל, באמצעות [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (מ־GitHub; תיקוני `patch-package` תחת `backend/patches`).
 
 ## פילוסופיה
 
@@ -45,3 +45,4 @@
 | [CREDIT_CARD_CHARGES.md](./CREDIT_CARD_CHARGES.md) | מניעת כפילות חיובי אשראי מהבנק |
 | [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | בעיות נפוצות (P3015, Chromium, cache) |
 | [SCRAPER_CHROMIUM_DOCKER.md](./SCRAPER_CHROMIUM_DOCKER.md) | Chromium ב-Docker — אבחון מפורט |
+| [SCRAPER_DATE_PICKER_DOM.md](./SCRAPER_DATE_PICKER_DOM.md) | תקלת בורר תאריך ב-DOM בסנכרון |
