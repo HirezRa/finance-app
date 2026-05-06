@@ -1,5 +1,6 @@
 /**
- * Ambient types when the installed fork ships without full .d.ts in node_modules.
+ * Project-facing typings for scraper options (e.g. browserArgs) and result shapes.
+ * Runtime package: github.com/HirezRa/israeli-bank-scrapers (folder still `node_modules/israeli-bank-scrapers`).
  */
 declare module 'israeli-bank-scrapers' {
   export enum CompanyTypes {

@@ -51,6 +51,36 @@ docker compose build --no-cache backend frontend
 docker compose up -d
 ```
 
+## פריסה על LXC (Proxmox)
+
+סביבת הייצור אצלך: קונטיינר **LXC** (למשל `pct` 115) עם Docker, והקוד תחת **`/opt/finance-app`**.
+
+### דרישות בתוך ה-LXC
+
+- **Git** — בשלב build של תמונת ה-backend (`npm ci` + `postinstall`) נדרש clone של [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) ורשת יציבה אל GitHub.
+- **דיסק** — בניית הסקרייפר (`build:js` בתוך ה-fork) ו-Puppeteer dependencies תופסים מקום; מומלץ ≥10GB פנויים כמו בדרישות למעלה.
+
+### עדכון מההוסט (ידני ב-LXC)
+
+```bash
+cd /opt/finance-app
+git pull
+docker compose build --no-cache backend frontend
+docker compose down --remove-orphans
+docker compose up -d
+```
+
+לאחר מכן בדיקת בריאות: `curl -s http://localhost/api/v1/health` (או דרך nginx לפי ההגדרה אצלך).
+
+### סקריפט מרחוק דרך Proxmox
+
+ב-repo קיים `scripts/lxc_backend_only.sh` — מתחבר להוסט Proxmox, מריץ `pct exec 115` עם `git pull` + בניית backend + `docker compose up`. התאם `PROXMOX`, מספר ה-VMID ונתיב הפרויקט אם אצלך אחרים.
+
+### הערות סקרייפר
+
+- תיקוני Yahav ועוד יושבים ב־`backend/patches/` ומוחלים אוטומטית ב־`postinstall` אחרי בניית `lib` של ה-fork.
+- אם build נכשל על clone או timeout ל-GitHub — בדוק DNS, חומת אש, ו-proxy בתוך ה-LXC.
+
 ## פקודות שימושיות
 ```bash
 # צפייה בלוגים

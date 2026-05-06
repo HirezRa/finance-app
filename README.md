@@ -23,7 +23,7 @@
 | Database | PostgreSQL 16 |
 | Cache | Redis 7 |
 | Queue | BullMQ |
-| Bank Scraping | [israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (fork; upstream [eshaham/israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers)) |
+| Bank Scraping | [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (מ־GitHub; בסיס upstream [eshaham v6.7.4](https://github.com/eshaham/israeli-bank-scrapers); `patch-package` ב־`backend/patches`) |
 | AI | Ollama / OpenRouter |
 | Container | Docker Compose |
 
@@ -40,7 +40,7 @@
 - אמריקן אקספרס
 - ועוד…
 
-מבוסס על [israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers) — [fork מקומי](https://github.com/HirezRa/israeli-bank-scrapers) עם שיפורי אבטחה.
+מבוסס על [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (fork מחוזק; מסונכרן מ־eshaham) + תיקונים מקומיים ב־`backend/patches` (למשל בורר תאריך ביהב).
 
 ## 📦 התקנה
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Remote backend rebuild on Proxmox LXC (see docs/DEPLOYMENT.md § LXC).
 set -euo pipefail
 PROXMOX="root@192.168.1.181"
 SSH_OPTS=(
