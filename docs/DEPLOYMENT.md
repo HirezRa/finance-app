@@ -77,14 +77,21 @@ docker compose up -d
 
 ### סקריפטים אופציונליים (הפעלה מרחוק)
 
-בתיקייה `scripts/` קיימים כלי עזר לפריסה/תחזוקה דרך SSH להיפרוויזור ואז `pct exec` לאורח Linux (התאימו מזהי VM ונתיבים אצלכם — **אל** לשמור ערכים אמיתיים ב-git):
+בתיקייה `scripts/` קיימים כלי עזר לפריסה/תחזוקה דרך SSH לשרת הניהול ואז הרצת פקודות על שרת האפליקציה (התאימו מזהים ונתיבים אצלכם — **אל** לשמור ערכים אמיתיים ב-git):
 
-- `FINANCE_HYPERVISOR_SSH` — יעד SSH להיפרוויזור (למשל `user@host`).
-- `FINANCE_GUEST_VMID` — מזהה האורח שבו רץ Docker והפרויקט.
-- `FINANCE_PROJECT_ON_GUEST` — נתיב הפרויקט על האורח (ברירת מחדל: `/opt/finance-app`).
-- `FINANCE_OLLAMA_GUEST_VMID` — אופציונלי; לאורח נפרד ל-Ollama (`lxc_pull_ollama_model.sh`).
+- `FINANCE_HYPERVISOR_SSH` — יעד SSH לשרת הניהול (למשל `user@host`).
+- `FINANCE_GUEST_VMID` — מזהה שרת האפליקציה שבו רץ Docker והפרויקט.
+- `FINANCE_PROJECT_ON_GUEST` — נתיב הפרויקט על שרת האפליקציה (ברירת מחדל: `/opt/finance-app`).
+- `FINANCE_OLLAMA_GUEST_VMID` — אופציונלי; שרת נפרד ל-Ollama.
 
-קבצים: `deploy_to_lxc.sh`, `lxc_backend_only.sh`, `run_split_bills_on_lxc.sh`, `lxc_pull_ollama_model.sh`.
+קבצים מומלצים לתיעוד ציבורי: `deploy_remote_guest.sh`, `rebuild_backend_remote.sh`, `run_split_bills_remote.sh`, `pull_ollama_model_remote.sh`.
+
+### CI/CD מאובטח (GitHub + עדכון שרתים)
+
+- Merge ל-`main` רק לאחר מעבר workflow: build backend/frontend + סריקת סודות.
+- שמרו פרטי SSH/גישה כ-GitHub Encrypted Secrets בלבד; אין hardcoded IP/מזהים בקוד.
+- בצעו פריסה דרך סקריפט מרוחק שמקבל מזהים ממשתני סביבה, עם timeout ו-health-check.
+- שמרו לוגי פריסה בסביבת השרת בלבד; לתיעוד ציבורי העלו סיכומים אנונימיים ללא מזהים/ספקים חיצוניים.
 
 ## פקודות שימושיות
 ```bash
