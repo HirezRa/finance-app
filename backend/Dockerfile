@@ -7,16 +7,11 @@ RUN npm install -g npm@11.3.0
 
 RUN apk add --no-cache python3 make g++ openssl libc6-compat git
 
-COPY backend/package.json ./
-RUN npm install
-
-# npm `github:` tarball often omits `src/`; clone fork and build lib/ for runtime
-RUN rm -rf node_modules/israeli-bank-scrapers && \
-    git clone --depth 1 https://github.com/HirezRa/israeli-bank-scrapers.git \
-      node_modules/israeli-bank-scrapers && \
-    cd node_modules/israeli-bank-scrapers && \
-    npm install --include=dev --no-audit --no-fund && \
-    npm run build:js
+# HirezRa fork: npm pack ללא lib/ → postinstall (ensure + patch-package) עושה clone + build:js + Yahav patch
+COPY backend/package.json backend/package-lock.json ./
+COPY backend/scripts ./scripts
+COPY backend/patches ./patches
+RUN npm ci
 
 COPY backend/prisma ./prisma
 COPY backend/scripts ./scripts

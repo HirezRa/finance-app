@@ -51,7 +51,11 @@ export class ScraperService {
     ) {
       return 'blocked';
     }
-    if (msg.includes('parse') || msg.includes('unexpected')) {
+    if (
+      msg.includes('parse') ||
+      msg.includes('unexpected') ||
+      msg.includes('waiting for selector')
+    ) {
       return 'parse';
     }
     if (
