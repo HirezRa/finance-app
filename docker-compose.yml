@@ -85,7 +85,7 @@ services:
       - ./logs:/app/logs
       # Self-update state lives here (persists permissions; not tracked in git)
       - ./update-data:/app/update-data
-      # Full repo on host for git pull / VERSION / scripts (LXC)
+      # Full repo on host for git pull / VERSION / scripts (self-update)
       - ${FINANCE_HOST_APP_DIR:-.}:/opt/finance-app
       - /var/run/docker.sock:/var/run/docker.sock
     networks:

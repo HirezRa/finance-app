@@ -51,35 +51,40 @@ docker compose build --no-cache backend frontend
 docker compose up -d
 ```
 
-## פריסה על LXC (Proxmox)
+## פריסה על שרת Linux (Docker)
 
-סביבת הייצור אצלך: קונטיינר **LXC** (למשל `pct` 115) עם Docker, והקוד תחת **`/opt/finance-app`**.
+בסביבות עם Docker על שרת Linux:
 
-### דרישות בתוך ה-LXC
+- **Git** — בשלב build של תמונת ה-backend (`npm ci` + `postinstall`) נדרשת גישה ל־GitHub לשיבוט תלות הסקרייפר.
+- **דיסק** — בניית הסקרייפר (`build:js` בתוך ה-fork) ותלות Puppeteer תופסות מקום; מומלץ ≥10GB פנויים כמו בדרישות למעלה.
 
-- **Git** — בשלב build של תמונת ה-backend (`npm ci` + `postinstall`) נדרש clone של [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) ורשת יציבה אל GitHub.
-- **דיסק** — בניית הסקרייפר (`build:js` בתוך ה-fork) ו-Puppeteer dependencies תופסים מקום; מומלץ ≥10GB פנויים כמו בדרישות למעלה.
-
-### עדכון מההוסט (ידני ב-LXC)
+### עדכון
 
 ```bash
-cd /opt/finance-app
+cd /path/to/your/checkout
 git pull
 docker compose build --no-cache backend frontend
 docker compose down --remove-orphans
 docker compose up -d
 ```
 
-לאחר מכן בדיקת בריאות: `curl -s http://localhost/api/v1/health` (או דרך nginx לפי ההגדרה אצלך).
-
-### סקריפט מרחוק דרך Proxmox
-
-ב-repo קיים `scripts/lxc_backend_only.sh` — מתחבר להוסט Proxmox, מריץ `pct exec 115` עם `git pull` + בניית backend + `docker compose up`. התאם `PROXMOX`, מספר ה-VMID ונתיב הפרויקט אם אצלך אחרים.
+בדיקת בריאות: `curl -s http://localhost/api/v1/health` (או דרך ה-reverse proxy לפי ההגדרה שלכם).
 
 ### הערות סקרייפר
 
-- תיקוני Yahav ועוד יושבים ב־`backend/patches/` ומוחלים אוטומטית ב־`postinstall` אחרי בניית `lib` של ה-fork.
-- אם build נכשל על clone או timeout ל-GitHub — בדוק DNS, חומת אש, ו-proxy בתוך ה-LXC.
+- תיקוני DOM בחבילת הסקרייפר יושבים ב־`backend/patches/` ומוחלים אוטומטית ב־`postinstall` אחרי בניית `lib` של ה-fork.
+- אם build נכשל על clone או timeout ל-GitHub — בדקו DNS, חומת אש ו-proxy.
+
+### סקריפטים אופציונליים (הפעלה מרחוק)
+
+בתיקייה `scripts/` קיימים כלי עזר לפריסה/תחזוקה דרך SSH להיפרוויזור ואז `pct exec` לאורח Linux (התאימו מזהי VM ונתיבים אצלכם — **אל** לשמור ערכים אמיתיים ב-git):
+
+- `FINANCE_HYPERVISOR_SSH` — יעד SSH להיפרוויזור (למשל `user@host`).
+- `FINANCE_GUEST_VMID` — מזהה האורח שבו רץ Docker והפרויקט.
+- `FINANCE_PROJECT_ON_GUEST` — נתיב הפרויקט על האורח (ברירת מחדל: `/opt/finance-app`).
+- `FINANCE_OLLAMA_GUEST_VMID` — אופציונלי; לאורח נפרד ל-Ollama (`lxc_pull_ollama_model.sh`).
+
+קבצים: `deploy_to_lxc.sh`, `lxc_backend_only.sh`, `run_split_bills_on_lxc.sh`, `lxc_pull_ollama_model.sh`.
 
 ## פקודות שימושיות
 ```bash

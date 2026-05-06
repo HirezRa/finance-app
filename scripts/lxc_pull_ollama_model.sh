@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Pull Ollama model on LXC 104 via Proxmox host <REDACTED_LAN_181>.
+# Pull an Ollama model on a remote Linux guest (via hypervisor SSH + pct exec).
+#   export FINANCE_HYPERVISOR_SSH='user@hypervisor.example'
+#   export FINANCE_OLLAMA_GUEST_VMID='XXX'   # or set FINANCE_GUEST_VMID
+# Optional: FINANCE_GUEST_VMID used if FINANCE_OLLAMA_GUEST_VMID unset
 set -euo pipefail
-PROXMOX="root@<REDACTED_LAN_181>"
+: "${FINANCE_HYPERVISOR_SSH:?Set FINANCE_HYPERVISOR_SSH}"
+VMID="${FINANCE_OLLAMA_GUEST_VMID:-${FINANCE_GUEST_VMID:?Set FINANCE_OLLAMA_GUEST_VMID or FINANCE_GUEST_VMID}}"
 SSH_OPTS=(
   -F /dev/null
   -o ConnectTimeout=15
@@ -10,7 +14,6 @@ SSH_OPTS=(
   -o StrictHostKeyChecking=no
 )
 MODEL="${1:-qwen2.5:7b}"
-# Explicit path: pct non-login env may omit /usr/local/bin
 GUEST="/usr/local/bin/ollama pull ${MODEL}"
-ssh "${SSH_OPTS[@]}" "${PROXMOX}" \
-  "timeout 2400 bash -c 'pct exec 104 -- timeout 2300 bash -lc \"${GUEST}\"'"
+ssh "${SSH_OPTS[@]}" "${FINANCE_HYPERVISOR_SSH}" \
+  "timeout 2400 bash -c 'pct exec ${VMID} -- timeout 2300 bash -lc \"${GUEST}\"'"

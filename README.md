@@ -27,20 +27,11 @@
 | AI | Ollama / OpenRouter |
 | Container | Docker Compose |
 
-## 🏦 בנקים נתמכים
+## 🏦 מוסדות נתמכים
 
-- בנק הפועלים
-- בנק לאומי
-- בנק דיסקונט
-- בנק מזרחי טפחות
-- בנק יהב
-- ויזה כאל
-- ישראכרט
-- מקס (לאומי קארד)
-- אמריקן אקספרס
-- ועוד…
+רשימת מזהים ושמות תצוגה מעודכנים בקוד (`getSupportedInstitutions`) — ראו [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-מבוסס על [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (fork מחוזק; מסונכרן מ־eshaham) + תיקונים מקומיים ב־`backend/patches` (למשל בורר תאריך ביהב).
+מבוסס על [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (fork מחוזק; מסונכרן מ־eshaham) + תיקונים מקומיים ב־`backend/patches` (למשל תיקוני DOM בבורר תאריך בסקרייפר). פירוט טכני: [docs/SCRAPER_DATE_PICKER_DOM.md](docs/SCRAPER_DATE_PICKER_DOM.md).
 
 ## 📦 התקנה
 

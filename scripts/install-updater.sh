@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install Finance App Updater on LXC
+# Install Finance App Updater on the application server (systemd path unit).
 
 set -euo pipefail
 
