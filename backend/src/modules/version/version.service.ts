@@ -592,7 +592,7 @@ export class VersionService implements OnModuleInit {
       messageHe: res.message,
       instructionsHe: res.triggered
         ? undefined
-        : "העדכון לא הופעל. בדוק ש-service 'finance-app-updater.path' פעיל על ה-LXC.",
+        : "העדכון לא הופעל. בדוק ש-service 'finance-app-updater.path' פעיל על שרת האפליקציה.",
     };
   }
 }
