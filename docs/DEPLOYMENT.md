@@ -110,7 +110,7 @@ $env:FINANCE_PROJECT_ON_GUEST = "/opt/finance-app"
 - שמרו פרטי SSH/גישה כ-GitHub Encrypted Secrets בלבד; אין hardcoded IP/מזהים בקוד.
 - בצעו פריסה דרך סקריפט מרוחק שמקבל מזהים ממשתני סביבה, עם timeout ו-health-check.
 - שמרו לוגי פריסה בסביבת השרת בלבד; לתיעוד ציבורי העלו סיכומים אנונימיים ללא מזהים/ספקים חיצוניים.
-- **פריסה אוטומטית מ-GitHub Actions** (אופציונלי): הגדרת Secrets/Variables ו-workflow `deploy-remote.yml` — הוראות מלאות בקובץ `.github/auto-deploy-setup.md` (לא בתיקיית `docs/` כדי לעמוד בסריקת תוכן ציבורי).
+- **פריסה אוטומטית מ-GitHub Actions** (אופציונלי): הגדרת Secrets/Variables ו-workflow `deploy-remote.yml` — הוראות מלאות בקובץ `.github/auto-deploy-setup.md`. אחרי `gh auth login`, אפשר להעלות הכל מקומית: `scripts/push-github-deploy-settings.ps1` (ראו אותו קובץ `.md`).
 
 ## פקודות שימושיות
 ```bash
