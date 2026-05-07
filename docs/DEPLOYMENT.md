@@ -54,7 +54,8 @@ docker compose up -d
 ### קובץ `VERSION` ועדכון אוטומטי (`safe-update.sh`)
 
 - ה-API והממשק קוראים את הגרסה מקובץ **`VERSION`** בשורש הפרויקט (בדרך כלל `/opt/finance-app/VERSION`).
-- **חובה** לעדכן את `VERSION` ב־`main` בכל שחרור (release) כך שיתאים לתג ב-GitHub (למשל `2.0.29` בלי קידומת `v`).
+- **חובה** לעדכן את `VERSION` ב־`main` בכל שחרור (release) כך שיתאים לתג ב-GitHub (למשל `2.0.x` בלי קידומת `v`, זהה ל־`v2.0.x` ב-Git).
+- **מומלץ** באותו קומיט release ליישר גם את השדה `version` ב־`frontend/package.json`, `backend/package.json` ובשורש `package-lock.json` של כל אחד מהם לאותו מספר SemVer כמו ב־`VERSION` — כדי למנוע פערים בכלי פיתוח, בדיקות, ודיווחי תלות.
 - אם שוחרר release לפני שקומיט של `VERSION` הגיע ל־`main`, עדיין אפשר ש־`git pull` ימשוך קוד חדש בעוד שקובץ `VERSION` נשאר ישן — ואז הממשק יציג "העדכון הושלם" אבל גרסה ישנה. הסקריפט `scripts/safe-update.sh`, אחרי בדיקת בריאות מוצלחת, **מיישר את `VERSION` ל־`targetVersion` מקובץ הטריגר** (שנוצר מ־`POST /version/trigger-update`), כך שהגרסה המוצגת תתאים לעדכון שהמשתמש ביקש.
 
 ## פריסה על שרת Linux (Docker)
