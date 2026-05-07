@@ -29,6 +29,20 @@ This workflow (`deploy-remote.yml`) runs `scripts/deploy_to_lxc.sh` from a GitHu
 - **Manual:** GitHub → Actions → **Deploy remote stack** → **Run workflow**.
 - **On push to `main`:** set `FINANCE_AUTO_DEPLOY` to `true` (use only if your SSH endpoint is reachable and you accept deploy-on-merge).
 
+## One-shot via GitHub CLI (local)
+
+If `gh` is logged in with access to the repo:
+
+```powershell
+cd /path/to/finance-app
+.\scripts\push-github-deploy-settings.ps1 `
+  -SshKeyPath "$env:USERPROFILE\.ssh\id_ed25519" `
+  -SshHost "YOUR_SSH_HOSTNAME" `
+  -GuestVmid "YOUR_CT_VMID"
+```
+
+Optional: `-AutoDeployOnPush` to set `FINANCE_AUTO_DEPLOY=true`. Omit to keep deploy **manual-only** (recommended until SSH is verified from GitHub runners).
+
 ## What the script does
 
 Same as local `deploy_to_lxc.sh`: `git pull`, `prisma migrate deploy`, rebuild backend + frontend images, `docker compose up -d`, health check.
