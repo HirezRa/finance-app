@@ -84,7 +84,19 @@ docker compose up -d
 - `FINANCE_PROJECT_ON_GUEST` — נתיב הפרויקט על שרת האפליקציה (ברירת מחדל: `/opt/finance-app`).
 - `FINANCE_OLLAMA_GUEST_VMID` — אופציונלי; שרת נפרד ל-Ollama.
 
-קבצים מומלצים לתיעוד ציבורי: `deploy_remote_guest.sh`, `rebuild_backend_remote.sh`, `run_split_bills_remote.sh`, `pull_ollama_model_remote.sh`.
+קבצים מומלצים לתיעוד ציבורי:
+
+- Bash: `deploy_remote_guest.sh`, `rebuild_backend_remote.sh`, `run_split_bills_remote.sh`, `pull_ollama_model_remote.sh`
+- PowerShell: `deploy_remote_guest.ps1`, `rebuild_backend_remote.ps1`, `run_split_bills_remote.ps1`, `pull_ollama_model_remote.ps1`
+
+דוגמה להרצה ב-PowerShell:
+
+```powershell
+$env:FINANCE_HYPERVISOR_SSH = "user@hypervisor.example"
+$env:FINANCE_GUEST_VMID = "XXX"
+$env:FINANCE_PROJECT_ON_GUEST = "/opt/finance-app"
+.\scripts\deploy_remote_guest.ps1
+```
 
 ### CI/CD מאובטח (GitHub + עדכון שרתים)
 
