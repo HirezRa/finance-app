@@ -5,6 +5,10 @@ import { randomUUID } from 'crypto';
 import { ScraperService } from './scraper.service';
 import { LogsService } from '../logs/logs.service';
 import { shortenSyncErrorMessage } from '../../common/utils/sync-error-message';
+import {
+  markSyncFailureLogged,
+  wasSyncFailureLogged,
+} from '../logs/sync-fail-marked';
 
 @Processor('scraper')
 export class ScraperProcessor {
@@ -21,10 +25,17 @@ export class ScraperProcessor {
     const syncRunId = randomUUID();
     this.logger.log(`Processing sync job: ${job.id}`);
     const jobT0 = Date.now();
+    const jobStartedAt = new Date(jobT0);
     const queueName = job.queue.name;
     const enqueueTs = job.timestamp ? new Date(job.timestamp).toISOString() : undefined;
     const dequeueTs = new Date().toISOString();
     const waitMs = job.timestamp ? Date.now() - job.timestamp : undefined;
+    const maxRetries = typeof job.opts.attempts === 'number' ? job.opts.attempts : 3;
+    const jobTimeoutMs =
+      typeof job.opts.timeout === 'number' ? job.opts.timeout : 5 * 60 * 1000;
+    const attempt =
+      typeof job.attemptsMade === 'number' ? job.attemptsMade + 1 : 1;
+
     this.appLogs.add('DEBUG', 'sync', 'sync_job_received', {
       syncRunId,
       jobId: String(job.id),
@@ -35,6 +46,9 @@ export class ScraperProcessor {
         enqueueTs,
         dequeueTs,
         waitMs,
+        maxRetries,
+        jobTimeoutMs,
+        attempt,
       },
     });
 
@@ -49,6 +63,9 @@ export class ScraperProcessor {
           enqueueTs,
           dequeueTs,
           waitMs,
+          maxRetries,
+          jobTimeoutMs,
+          attempt,
         },
       );
 
@@ -69,6 +86,27 @@ export class ScraperProcessor {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Sync job ${job.id} failed: ${message}`);
+      if (!wasSyncFailureLogged(error)) {
+        this.appLogs.logUnhandledJobSyncFail({
+          syncRunId,
+          jobId: String(job.id),
+          configId,
+          userId,
+          error,
+          durationMs: Date.now() - jobT0,
+          startedAt: jobStartedAt,
+          queue: {
+            queueName,
+            enqueueTs,
+            dequeueTs,
+            waitMs,
+            maxRetries,
+            jobTimeoutMs,
+            runMs: Date.now() - jobT0,
+          },
+        });
+        markSyncFailureLogged(error);
+      }
       this.appLogs.add(
         'ERROR',
         'sync',
