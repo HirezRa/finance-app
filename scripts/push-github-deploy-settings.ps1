@@ -28,7 +28,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-  throw "Install GitHub CLI: https://cli.github.com/ — then run: gh auth login"
+  throw 'Install GitHub CLI: https://cli.github.com/ - then run: gh auth login'
 }
 
 $resolved = Resolve-Path -LiteralPath $SshKeyPath
