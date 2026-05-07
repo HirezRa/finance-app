@@ -30,7 +30,7 @@ export function getVersion(): string {
 export const APP_VERSION = getVersion();
 
 /**
- * Git tag / ref pinned for HirezRa/israeli-bank-scrapers (matches fork release), e.g. hirez-v1.0.12.
+ * Git tag / ref pinned for HirezRa/israeli-bank-scrapers (matches fork release), e.g. hirez-v1.0.14.
  * Parsed from package.json `dependencies["israeli-bank-scrapers"]` after `#`.
  */
 export function getIsraeliBankScrapersReleaseRef(): string {
