@@ -103,6 +103,17 @@ export function UpdateSection() {
     }
   }, [isAuthenticated]);
 
+  /** רענון שקט אחרי עדכון — בלי טוסטים כפולים */
+  const refreshUpdateInfoQuiet = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const { data } = await versionApi.checkForUpdate();
+      setUpdateInfo(data as UpdateInfo);
+    } catch {
+      /* ignore */
+    }
+  }, [isAuthenticated]);
+
   const triggerUpdate = useCallback(async () => {
     setShowConfirmDialog(false);
     setShowBuildLog(true);
@@ -194,6 +205,11 @@ export function UpdateSection() {
     }, 3000);
     return () => clearInterval(interval);
   }, [polling, fetchStatus]);
+
+  useEffect(() => {
+    if (updateStatus?.status !== 'completed') return;
+    void refreshUpdateInfoQuiet();
+  }, [updateStatus?.status, refreshUpdateInfoQuiet]);
 
   const isUpdating = useMemo(
     () => updateStatus?.status === 'in-progress' || updateStatus?.status === 'pending',
