@@ -92,8 +92,8 @@ docker compose up -d
 
 קבצים מומלצים לתיעוד ציבורי:
 
-- Bash: `lxc_full_stack_update.sh` (עדכון מלא: git pull + backend + frontend), `lxc_backend_only.sh`, `run_split_bills_on_lxc.sh`, `lxc_pull_ollama_model.sh`
-- PowerShell: `lxc_full_stack_update.ps1`, `rebuild_backend_remote.ps1`, `run_split_bills_remote.ps1`, `pull_ollama_model_remote.ps1`
+- Bash: `deploy_to_lxc.sh` (מומלץ: pull + migrate + בנייה מלאה), `lxc_full_stack_update.sh` (עוטף ל־`deploy_to_lxc.sh`), `lxc_backend_only.sh`, `run_split_bills_on_lxc.sh`, `lxc_pull_ollama_model.sh`
+- PowerShell: `deploy_remote_guest.ps1`, `lxc_full_stack_update.ps1` (עוטף), `rebuild_backend_remote.ps1`, `run_split_bills_remote.ps1`, `pull_ollama_model_remote.ps1`
 
 דוגמה להרצה ב-PowerShell (עדכון מלא אחרי `git push` ל־`main`):
 
@@ -110,6 +110,7 @@ $env:FINANCE_PROJECT_ON_GUEST = "/opt/finance-app"
 - שמרו פרטי SSH/גישה כ-GitHub Encrypted Secrets בלבד; אין hardcoded IP/מזהים בקוד.
 - בצעו פריסה דרך סקריפט מרוחק שמקבל מזהים ממשתני סביבה, עם timeout ו-health-check.
 - שמרו לוגי פריסה בסביבת השרת בלבד; לתיעוד ציבורי העלו סיכומים אנונימיים ללא מזהים/ספקים חיצוניים.
+- **פריסה אוטומטית מ-GitHub Actions** (אופציונלי): הגדרת Secrets/Variables ו-workflow `deploy-remote.yml` — הוראות מלאות בקובץ `.github/auto-deploy-setup.md` (לא בתיקיית `docs/` כדי לעמוד בסריקת תוכן ציבורי).
 
 ## פקודות שימושיות
 ```bash
