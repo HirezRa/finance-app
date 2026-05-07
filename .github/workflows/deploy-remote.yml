@@ -1,0 +1,68 @@
+# Remote deploy: SSH to hypervisor, then pct exec into CT running Docker (see scripts/deploy_to_lxc.sh).
+# Setup: .github/auto-deploy-setup.md
+name: Deploy remote stack
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-remote-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: SSH deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    # Default: no auto-deploy on every push (run manually from Actions). Set repo variable FINANCE_AUTO_DEPLOY=true to deploy on each push to main.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && vars.FINANCE_AUTO_DEPLOY == 'true')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify SSH secret
+        env:
+          KEY: ${{ secrets.FINANCE_DEPLOY_SSH_KEY }}
+        run: |
+          if [ -z "${KEY:-}" ]; then
+            echo "::error::Set repository secret FINANCE_DEPLOY_SSH_KEY (SSH private key)"
+            exit 1
+          fi
+
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.FINANCE_DEPLOY_SSH_KEY }}
+          HOST: ${{ vars.FINANCE_DEPLOY_SSH_HOST }}
+        run: |
+          if [ -z "${HOST:-}" ]; then
+            echo "::error::Set repository variable FINANCE_DEPLOY_SSH_HOST"
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -T 15 -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run deploy script on guest
+        env:
+          _SSH_USER: ${{ vars.FINANCE_DEPLOY_SSH_USER }}
+          _SSH_HOST: ${{ vars.FINANCE_DEPLOY_SSH_HOST }}
+          FINANCE_GUEST_VMID: ${{ vars.FINANCE_DEPLOY_GUEST_VMID }}
+          FINANCE_PROJECT_ON_GUEST: ${{ vars.FINANCE_DEPLOY_PROJECT_PATH }}
+        run: |
+          U="${_SSH_USER:-root}"
+          export FINANCE_HYPERVISOR_SSH="${U}@${_SSH_HOST}"
+          export FINANCE_GUEST_VMID
+          export FINANCE_PROJECT_ON_GUEST="${FINANCE_PROJECT_ON_GUEST:-/opt/finance-app}"
+          if [ -z "${FINANCE_GUEST_VMID:-}" ]; then
+            echo "::error::Set repository variable FINANCE_DEPLOY_GUEST_VMID"
+            exit 1
+          fi
+          chmod +x scripts/deploy_to_lxc.sh
+          scripts/deploy_to_lxc.sh
