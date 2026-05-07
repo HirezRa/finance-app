@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
-# Full deploy on a remote Linux guest (hypervisor SSH + pct exec into guest running Docker).
-#   export FINANCE_HYPERVISOR_SSH='user@hypervisor.example'
-#   export FINANCE_GUEST_VMID='XXX'
+# Full deploy on a remote Linux guest:
+#   Default (pct): SSH to Proxmox → pct exec VMID → git/docker on guest.
+#   Direct: FINANCE_DEPLOY_VIA_PCT=false → SSH straight to Docker host (CT IP); no pct.
+#   export FINANCE_HYPERVISOR_SSH='user@host'
+#   export FINANCE_GUEST_VMID='XXX'   # required only when using pct
 #   export FINANCE_PROJECT_ON_GUEST='/path/to/finance-app'   # optional
 # Run: chmod +x scripts/deploy_to_lxc.sh && ./scripts/deploy_to_lxc.sh
 set -euo pipefail
 : "${FINANCE_HYPERVISOR_SSH:?Set FINANCE_HYPERVISOR_SSH}"
-: "${FINANCE_GUEST_VMID:?Set FINANCE_GUEST_VMID}"
+if [ "${FINANCE_DEPLOY_VIA_PCT:-true}" != "false" ]; then
+  : "${FINANCE_GUEST_VMID:?Set FINANCE_GUEST_VMID (or set FINANCE_DEPLOY_VIA_PCT=false)}"
+else
+  echo "Mode: direct SSH to Docker host (FINANCE_DEPLOY_VIA_PCT=false)."
+fi
 PROJ="${FINANCE_PROJECT_ON_GUEST:-/opt/finance-app}"
 SSH_OPTS=(
   -F /dev/null
@@ -20,11 +26,20 @@ guest_run() {
   local outer_timeout="$1"
   local inner_timeout="$2"
   local guest_cmd="$3"
-  ssh "${SSH_OPTS[@]}" "${FINANCE_HYPERVISOR_SSH}" \
-    "timeout ${outer_timeout} bash -c 'pct exec ${FINANCE_GUEST_VMID} -- timeout ${inner_timeout} bash -lc \"${guest_cmd}\"'"
+  if [ "${FINANCE_DEPLOY_VIA_PCT:-true}" = "false" ]; then
+    ssh "${SSH_OPTS[@]}" "${FINANCE_HYPERVISOR_SSH}" \
+      "timeout ${outer_timeout} bash -lc $(printf '%q' "$guest_cmd")"
+  else
+    ssh "${SSH_OPTS[@]}" "${FINANCE_HYPERVISOR_SSH}" \
+      "timeout ${outer_timeout} bash -c 'pct exec ${FINANCE_GUEST_VMID} -- timeout ${inner_timeout} bash -lc \"${guest_cmd}\"'"
+  fi
 }
 
-echo "=== Deploying (guest ${FINANCE_GUEST_VMID}) ==="
+if [ "${FINANCE_DEPLOY_VIA_PCT:-true}" = "false" ]; then
+  echo "=== Deploying (direct SSH to ${FINANCE_HYPERVISOR_SSH}) ==="
+else
+  echo "=== Deploying (guest ${FINANCE_GUEST_VMID} via pct) ==="
+fi
 
 echo "[1/5] git pull"
 guest_run 120 90 "cd ${PROJ} && git pull"

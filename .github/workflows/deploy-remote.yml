@@ -55,13 +55,15 @@ jobs:
           _SSH_HOST: ${{ vars.FINANCE_DEPLOY_SSH_HOST }}
           FINANCE_GUEST_VMID: ${{ vars.FINANCE_DEPLOY_GUEST_VMID }}
           FINANCE_PROJECT_ON_GUEST: ${{ vars.FINANCE_DEPLOY_PROJECT_PATH }}
+          FINANCE_DEPLOY_VIA_PCT: ${{ vars.FINANCE_DEPLOY_VIA_PCT }}
         run: |
           U="${_SSH_USER:-root}"
           export FINANCE_HYPERVISOR_SSH="${U}@${_SSH_HOST}"
           export FINANCE_GUEST_VMID
           export FINANCE_PROJECT_ON_GUEST="${FINANCE_PROJECT_ON_GUEST:-/opt/finance-app}"
-          if [ -z "${FINANCE_GUEST_VMID:-}" ]; then
-            echo "::error::Set repository variable FINANCE_DEPLOY_GUEST_VMID"
+          export FINANCE_DEPLOY_VIA_PCT="${FINANCE_DEPLOY_VIA_PCT:-true}"
+          if [ "${FINANCE_DEPLOY_VIA_PCT}" != "false" ] && [ -z "${FINANCE_GUEST_VMID:-}" ]; then
+            echo "::error::Set FINANCE_DEPLOY_GUEST_VMID when using Proxmox pct (default), or set FINANCE_DEPLOY_VIA_PCT=false for SSH straight to Docker host"
             exit 1
           fi
           chmod +x scripts/deploy_to_lxc.sh

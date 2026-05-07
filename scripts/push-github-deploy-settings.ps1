@@ -3,13 +3,20 @@
   One-shot: upload GitHub Actions deploy secrets/variables for deploy-remote.yml.
   Requires: gh CLI logged in (gh auth login) with repo + workflow scope.
 
-  Example:
+  Examples:
+    Proxmox (pct): SSH host = hypervisor, GuestVmid = CT id
     .\scripts\push-github-deploy-settings.ps1 `
       -SshKeyPath "$env:USERPROFILE\.ssh\id_ed25519" `
-      -SshHost "proxmox.example.com" `
-      -GuestVmid "100"
+      -SshHost "192.168.1.1" `
+      -GuestVmid "115"
 
-  Do not commit your private key. Use a deploy key or dedicated SSH key for the hypervisor.
+    Direct SSH to Docker/LXC IP (no pct on that host):
+    .\scripts\push-github-deploy-settings.ps1 `
+      -SshKeyPath "$env:USERPROFILE\.ssh\id_ed25519" `
+      -SshHost "192.168.1.197" `
+      -SshDirectToDockerHost
+
+  Do not commit your private key.
 #>
 [CmdletBinding()]
 param(
@@ -18,12 +25,16 @@ param(
   [string] $SshKeyPath,
   [Parameter(Mandatory = $true)]
   [string] $SshHost,
-  [Parameter(Mandatory = $true)]
-  [string] $GuestVmid,
+  [string] $GuestVmid = "",
   [string] $SshUser = "root",
   [string] $ProjectPath = "/opt/finance-app",
-  [switch] $AutoDeployOnPush
+  [switch] $AutoDeployOnPush,
+  [switch] $SshDirectToDockerHost
 )
+
+if (-not $SshDirectToDockerHost -and [string]::IsNullOrWhiteSpace($GuestVmid)) {
+  throw 'GuestVmid is required unless -SshDirectToDockerHost (SSH straight to machine running Docker).'
+}
 
 $ErrorActionPreference = "Stop"
 
@@ -63,9 +74,15 @@ if ($LASTEXITCODE -ne 0) { throw "gh secret set failed" }
 
 Write-Host "Setting variables on $Repo ..."
 gh variable set FINANCE_DEPLOY_SSH_HOST -R $Repo -b $SshHost
-gh variable set FINANCE_DEPLOY_GUEST_VMID -R $Repo -b $GuestVmid
 gh variable set FINANCE_DEPLOY_SSH_USER -R $Repo -b $SshUser
 gh variable set FINANCE_DEPLOY_PROJECT_PATH -R $Repo -b $ProjectPath
+if ($SshDirectToDockerHost) {
+  gh variable set FINANCE_DEPLOY_VIA_PCT -R $Repo -b "false"
+  Write-Host "(FINANCE_DEPLOY_VIA_PCT=false: SSH target is the Docker host, not Proxmox pct.)"
+} else {
+  gh variable set FINANCE_DEPLOY_GUEST_VMID -R $Repo -b $GuestVmid
+  gh variable set FINANCE_DEPLOY_VIA_PCT -R $Repo -b "true"
+}
 if ($AutoDeployOnPush) {
   gh variable set FINANCE_AUTO_DEPLOY -R $Repo -b "true"
 } else {
