@@ -7,7 +7,7 @@ RUN npm install -g npm@11.3.0
 
 RUN apk add --no-cache python3 make g++ openssl libc6-compat git
 
-# HirezRa fork: npm pack ללא lib/ → postinstall (ensure + patch-package) עושה clone + build:js + Yahav patch
+# HirezRa fork: npm pack ללא lib/ → postinstall (ensure + patch-package) עושה clone + build:js
 COPY backend/package.json backend/package-lock.json ./
 COPY backend/scripts ./scripts
 COPY backend/patches ./patches

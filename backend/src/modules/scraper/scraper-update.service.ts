@@ -68,7 +68,7 @@ export class ScraperUpdateService {
 
   async getLatestCommit(): Promise<string> {
     const response = await fetch(
-      `https://api.github.com/repos/${this.REPO_OWNER}/${this.REPO_NAME}/commits/main`,
+      `https://api.github.com/repos/${this.REPO_OWNER}/${this.REPO_NAME}/commits/master`,
       {
         headers: {
           Accept: 'application/vnd.github.v3+json',

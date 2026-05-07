@@ -45,7 +45,7 @@
     "class-validator": "^0.14.1",
     "exceljs": "^4.4.0",
     "ioredis": "^5.3.2",
-    "israeli-bank-scrapers": "github:HirezRa/israeli-bank-scrapers",
+    "israeli-bank-scrapers": "github:HirezRa/israeli-bank-scrapers#7a4efd4b34657e23dbed00ccbc4d8c5db59405e9",
     "otplib": "^12.0.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -59,10 +59,10 @@
     "@types/node": "^20.11.20",
     "@types/passport-jwt": "^4.0.1",
     "@types/qrcode": "^1.5.5",
+    "patch-package": "^8.0.0",
     "prisma": "^5.10.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "patch-package": "^8.0.0",
     "typescript": "^5.3.3"
   },
   "prisma": {
