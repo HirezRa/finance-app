@@ -2,6 +2,16 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.31] - 2026-05-07
+
+### שיפורים (לוגים וסנכרון)
+
+- **Structured logging** לסנכרון: `syncRunId`, מזהי job/config/user, שלבי lifecycle (`sync_start` … `sync_end`), טקסונומיית שגיאות (`errorKind` / `errorFingerprint`), מדדי עסקאות וחשבונות, תור Bull ו-runtime (גרסת אפליקציה, תלות סקרייפר, Node, Chromium אופציונלי).
+- **Partial sync**: כשל בחשבון בודד לא עוצר את שאר החשבונות; `status=partial` ב־`sync_end` כשמתאים.
+- **פרטיות**: הרחבת sanitization ב־`LogsService` (OTP, cookies, tokens, מסכות ל־URL/חשבון).
+- **תיעוד**: `LOGGING_GUIDE.md` (סכמה, דוגמאות trace, שאילתות).
+- **Docker / פריסה**: משתני סביבה אופציונליים `SCRAPER_GIT_SHA`, `CHROMIUM_VERSION` ב־`docker-compose` ו־`.env.example`.
+
 ## [2.0.28] - 2026-04-30
 
 ### שיפורים (UI)

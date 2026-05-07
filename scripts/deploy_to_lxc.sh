@@ -2,6 +2,7 @@
 # Full deploy on a remote Linux guest:
 #   Default (pct): SSH to Proxmox → pct exec VMID → git/docker on guest.
 #   Direct: FINANCE_DEPLOY_VIA_PCT=false → SSH straight to Docker host (CT IP); no pct.
+# Optional on the guest `.env`: SCRAPER_GIT_SHA, CHROMIUM_VERSION (structured sync logs; see LOGGING_GUIDE.md).
 #   export FINANCE_HYPERVISOR_SSH='user@host'
 #   export FINANCE_GUEST_VMID='XXX'   # required only when using pct
 #   export FINANCE_PROJECT_ON_GUEST='/path/to/finance-app'   # optional

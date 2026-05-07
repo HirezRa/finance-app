@@ -70,6 +70,9 @@ services:
       SELF_UPDATE_ENABLED: ${SELF_UPDATE_ENABLED:-false}
       APP_DIR: ${APP_DIR:-/opt/finance-app}
       UPDATE_DATA_DIR: ${UPDATE_DATA_DIR:-/app/update-data}
+      # Optional: structured sync logs (see LOGGING_GUIDE.md)
+      SCRAPER_GIT_SHA: ${SCRAPER_GIT_SHA:-}
+      CHROMIUM_VERSION: ${CHROMIUM_VERSION:-}
     depends_on:
       db:
         condition: service_healthy
