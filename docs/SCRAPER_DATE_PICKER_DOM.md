@@ -16,17 +16,13 @@
 
 ## התיקון בפרויקט Finance App
 
-1. **תלות**: `github:HirezRa/israeli-bank-scrapers` (גרסת החבילה ב־fork: `1.0.9`, שם npm פנימי `@hirez10/israeli-bank-scrapers`). Upstream המסומן ב־`upstreamSync` של ה־fork הוא **eshaham v6.7.4** — לא משתמשים ישירות בחבילת npm של eshaham.
+1. **תלות**: `github:HirezRa/israeli-bank-scrapers` עם commit מנוהל ב־`package-lock.json` (שם החבילה ב־fork: `@hirez10/israeli-bank-scrapers`). ענף ברירת המחדל ב־GitHub הוא **`master`** (לא `main`).
 
-2. **בניית `lib`**: התקנת npm מ־Git שולחת ארטיפקט דליל (שדה `files` ב־`package.json` של ה־fork). הסקריפט `backend/scripts/ensure-israeli-bank-scrapers.cjs` (ב־`postinstall`) מבצע `git clone` רדוד של ה־fork ואז `npm run build:js` בתיקייה.
+2. **בניית `lib`**: התקנת npm מ־Git שולחת ארטיפקט דליל. הסקריפט `backend/scripts/ensure-israeli-bank-scrapers.cjs` (ב־`postinstall`) מבצע `git clone --depth 1` של ה־fork ואז `npm run build:js` בתיקייה.
 
-3. **patch-package**: `backend/patches/israeli-bank-scrapers+1.0.9.patch` מחליף את הבורר ל:
+3. **תיקון Yahav בקוד ה־fork**: הבורר הגמיש (תא `.date-options-cell` עם `date-picker`, ללא `nth-child(7)` קבוע) נמצא ב־`src/scrapers/yahav.ts` ב־[HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers). **אין** עוד `patch-package` לסקרייפר בפרויקט זה (תיקיית `backend/patches/` שמורה לעתיד).
 
-   `div.date-options-cell date-picker > div:nth-child(1) > span:nth-child(2)`
-
-   (בורר התאריך הראשון בסדר ה־DOM — בדרך כלל תאריך התחלה לפני תאריך סיום).
-
-4. **Docker**: ב־`backend/Dockerfile` מותקן `git` בשלב ה־builder; מועתקים `scripts/` ו־`patches/` לפני `npm ci` כדי ש־`postinstall` יריץ ensure + patch.
+4. **Docker**: ב־`backend/Dockerfile` מותקן `git` בשלב ה־builder; מועתקים `scripts/` ו־`patches/` לפני `npm ci` כדי ש־`postinstall` יריץ ensure.
 
 5. **סיווג שגיאות**: ב־`ScraperService.classifyScraperError`, מחרוזות `waiting for selector` מסווגות כ־`parse`.
 
@@ -37,4 +33,4 @@
 
 ## תרומה ל־upstream
 
-אפשר לפתוח PR ל־[eshaham/israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers) ול־[HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) עם אותו שינוי בקוד המקור של הסקרייפר הרלוונטי תחת `src/scrapers/` כדי להסיר תלות ב־patch מקומי.
+אפשר לפתוח PR ל־[eshaham/israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers) עם אותו שינוי ב־`src/scrapers/yahav.ts` אם עדיין לא סונכרן מה־fork.
