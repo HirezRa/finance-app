@@ -2,6 +2,21 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.35] - 2026-05-08
+
+### שדרוג תלות סקרייפר
+
+- **israeli-bank-scrapers** → [hirez-v1.0.14](https://github.com/HirezRa/israeli-bank-scrapers/releases/tag/hirez-v1.0.14) — commit lockfile `2daeb3b` (ריענון תלויות/foram ב-fork, typescript-eslint ועוד; ראו release upstream).
+
+### עדכון תלויות npm (בטווח semver קיים)
+
+- **Backend:** `npm update` — למשל `@nestjs/*` 10.4.x, `@prisma/client` / `prisma` 5.22.x, `bull` 4.16.x, `ioredis` 5.10.x, `class-validator` 0.14.x, `@types/node` 20.19.x (ללא קפיצה ל-Nest 11 / Prisma 7).
+- **Frontend:** `npm update` — למשל `@tanstack/react-query` 5.100.x, `axios` 1.16.x, רכיבי `@radix-ui/*` ופוסט־פרוססורים בעדכוני patch/minor בתוך הטווח ב-`package.json`.
+
+### תיעוד ריצה
+
+- ראו `docs/RELEASE_2.0.35.md` — פירוט צעדים, גרסאות, ואימות CI/פריסה.
+
 ## [2.0.34] - 2026-05-08
 
 ### אבטחה ותיעוד
