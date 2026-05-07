@@ -31,9 +31,30 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
   throw 'Install GitHub CLI: https://cli.github.com/ - then run: gh auth login'
 }
 
-$resolved = Resolve-Path -LiteralPath $SshKeyPath
-if (-not (Test-Path -LiteralPath $resolved)) {
-  throw "SSH key file not found: $SshKeyPath"
+$SshKeyPath = $SshKeyPath.Trim().Trim('"')
+if ($SshKeyPath -match '\.\.\.') {
+  throw @'
+SshKeyPath must be the real path to your PRIVATE key file (do not copy "..." from examples).
+Example:  -SshKeyPath "$env:USERPROFILE\.ssh\id_ed25519"
+Or:       -SshKeyPath "C:\Users\You\.ssh\id_rsa"
+'@
+}
+
+try {
+  $resolved = (Resolve-Path -LiteralPath $SshKeyPath -ErrorAction Stop).ProviderPath
+} catch {
+  $hint = if (-not (Test-Path -LiteralPath (Join-Path $env:USERPROFILE '.ssh'))) {
+    "`nFolder does not exist: $($env:USERPROFILE)\.ssh`nCreate a key: ssh-keygen -t ed25519 -f `"$($env:USERPROFILE)\.ssh\id_ed25519`""
+  } else { '' }
+  throw "SSH key path not found: $SshKeyPath$hint"
+}
+
+if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) {
+  throw @"
+-SshKeyPath must be a FILE (private key), not a directory.
+You passed: $resolved
+Example file names: id_ed25519, id_rsa, or a dedicated deploy key.
+"@
 }
 
 Write-Host "Setting secret FINANCE_DEPLOY_SSH_KEY on $Repo ..."
