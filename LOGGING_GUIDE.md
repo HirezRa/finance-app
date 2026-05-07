@@ -117,7 +117,7 @@ Returns `{ logs, totalMatched }` — all in-buffer events matching filters (same
 ```
 
 ```json
-{"level":"ERROR","category":"sync","message":"sync_fail","meta":{"schemaVersion":2,"syncRunId":"…","stage":"sync_fail","errorKind":"ui_selector_timeout","errorStage":"fetch_transactions","runtime":{"appVersion":"2.0.34","scraperPackageVersion":"github:HirezRa/israeli-bank-scrapers#hirez-v1.0.12"}}}
+{"level":"ERROR","category":"sync","message":"sync_fail","meta":{"schemaVersion":2,"syncRunId":"…","stage":"sync_fail","errorKind":"ui_selector_timeout","errorStage":"fetch_transactions","runtime":{"appVersion":"2.0.35","scraperPackageVersion":"github:HirezRa/israeli-bank-scrapers#hirez-v1.0.14"}}}
 ```
 
 ### d) `db_unavailable`
