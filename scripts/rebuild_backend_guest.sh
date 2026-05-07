@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Remote backend rebuild: SSH to your hypervisor host, then run commands inside a Linux guest (e.g. pct exec).
+# Remote backend rebuild: SSH to your hypervisor host, then run commands inside a Linux guest (guest exec).
 # Prerequisites: set environment variables (do not commit real values). See docs/DEPLOYMENT.md.
 #   export FINANCE_HYPERVISOR_SSH='user@hypervisor.example'
 #   export FINANCE_GUEST_VMID='XXX'
