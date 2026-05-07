@@ -51,6 +51,12 @@ docker compose build --no-cache backend frontend
 docker compose up -d
 ```
 
+### קובץ `VERSION` ועדכון אוטומטי (`safe-update.sh`)
+
+- ה-API והממשק קוראים את הגרסה מקובץ **`VERSION`** בשורש הפרויקט (בדרך כלל `/opt/finance-app/VERSION`).
+- **חובה** לעדכן את `VERSION` ב־`main` בכל שחרור (release) כך שיתאים לתג ב-GitHub (למשל `2.0.29` בלי קידומת `v`).
+- אם שוחרר release לפני שקומיט של `VERSION` הגיע ל־`main`, עדיין אפשר ש־`git pull` ימשוך קוד חדש בעוד שקובץ `VERSION` נשאר ישן — ואז הממשק יציג "העדכון הושלם" אבל גרסה ישנה. הסקריפט `scripts/safe-update.sh`, אחרי בדיקת בריאות מוצלחת, **מיישר את `VERSION` ל־`targetVersion` מקובץ הטריגר** (שנוצר מ־`POST /version/trigger-update`), כך שהגרסה המוצגת תתאים לעדכון שהמשתמש ביקש.
+
 ## פריסה על שרת Linux (Docker)
 
 בסביבות עם Docker על שרת Linux:
@@ -86,16 +92,16 @@ docker compose up -d
 
 קבצים מומלצים לתיעוד ציבורי:
 
-- Bash: `deploy_remote_guest.sh`, `rebuild_backend_remote.sh`, `run_split_bills_remote.sh`, `pull_ollama_model_remote.sh`
-- PowerShell: `deploy_remote_guest.ps1`, `rebuild_backend_remote.ps1`, `run_split_bills_remote.ps1`, `pull_ollama_model_remote.ps1`
+- Bash: `lxc_full_stack_update.sh` (עדכון מלא: git pull + backend + frontend), `lxc_backend_only.sh`, `run_split_bills_on_lxc.sh`, `lxc_pull_ollama_model.sh`
+- PowerShell: `lxc_full_stack_update.ps1`, `rebuild_backend_remote.ps1`, `run_split_bills_remote.ps1`, `pull_ollama_model_remote.ps1`
 
-דוגמה להרצה ב-PowerShell:
+דוגמה להרצה ב-PowerShell (עדכון מלא אחרי `git push` ל־`main`):
 
 ```powershell
 $env:FINANCE_HYPERVISOR_SSH = "user@hypervisor.example"
 $env:FINANCE_GUEST_VMID = "XXX"
 $env:FINANCE_PROJECT_ON_GUEST = "/opt/finance-app"
-.\scripts\deploy_remote_guest.ps1
+.\scripts\lxc_full_stack_update.ps1
 ```
 
 ### CI/CD מאובטח (GitHub + עדכון שרתים)

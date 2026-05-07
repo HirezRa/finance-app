@@ -167,8 +167,10 @@ export function VersionChecker() {
       );
       return;
     }
-    if (updateStatus.stage === 'done') {
+    if (updateStatus.stage === 'done' || updateStatus.stage === 'completed') {
       toast.success(updateStatus.message ?? 'העדכון הושלם.');
+      void queryClient.invalidateQueries({ queryKey: ['current-version'] });
+      void queryClient.invalidateQueries({ queryKey: ['latest-release'] });
       window.setTimeout(() => {
         window.location.reload();
       }, 4000);
