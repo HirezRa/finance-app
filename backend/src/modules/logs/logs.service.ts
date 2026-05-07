@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import {
   existsSync,
   mkdirSync,
@@ -8,7 +8,18 @@ import {
   unlinkSync,
 } from 'fs';
 import { join } from 'path';
-import type { AppLogEntry, LogCategory, LogLevel } from './logs.types';
+import { APP_VERSION } from '../../version';
+import type {
+  AppLogEntry,
+  ErrorKind,
+  LogCategory,
+  LogLevel,
+  ProviderType,
+  SyncFailureMeta,
+  SyncLifecycleEventMeta,
+  SyncRuntimeInfo,
+  SyncTraceContext,
+} from './logs.types';
 
 const MAX_LOGS = 1000;
 
@@ -24,6 +35,8 @@ const SENSITIVE_META_KEYS = new Set([
   'credentialsIv',
   'credentialsAuthTag',
 ]);
+
+const MASKED_TEXT = '***';
 
 @Injectable()
 export class LogsService implements OnModuleInit {
@@ -45,7 +58,7 @@ export class LogsService implements OnModuleInit {
 
   onModuleInit(): void {
     this.loadFromDisk();
-    this.add('INFO', 'system', 'המערכת עלתה', {
+    this.add('INFO', 'system', 'system_boot', {
       nodeEnv: process.env.NODE_ENV ?? 'development',
     });
   }
@@ -82,7 +95,47 @@ export class LogsService implements OnModuleInit {
     }
   }
 
-  /** הסתרת אימייל ב-meta (למשל auth) */
+  getSyncRuntimeInfo(): SyncRuntimeInfo {
+    return {
+      appVersion: APP_VERSION,
+      scraperPackageVersion: this.getScraperPackageVersion(),
+      scraperGitSha: process.env.SCRAPER_GIT_SHA,
+      nodeVersion: process.version,
+      nodeEnv: process.env.NODE_ENV ?? 'development',
+      browserEngine: 'chromium',
+      browserVersion: process.env.CHROMIUM_VERSION,
+      osPlatform: `${process.platform}/${process.arch}`,
+    };
+  }
+
+  createSyncTraceContext(input: {
+    syncRunId?: string;
+    jobId: string;
+    configId: string;
+    userId: string;
+    providerId: string;
+    providerType: ProviderType;
+    providerName: string;
+    accountRef?: string;
+    tenantId?: string;
+    workspaceId?: string;
+    queueName?: string;
+  }): SyncTraceContext {
+    return {
+      syncRunId: input.syncRunId ?? randomUUID(),
+      jobId: input.jobId,
+      configId: input.configId,
+      userId: input.userId,
+      providerId: input.providerId,
+      providerType: input.providerType,
+      providerName: input.providerName,
+      accountRef: input.accountRef,
+      tenantId: input.tenantId,
+      workspaceId: input.workspaceId,
+      queueName: input.queueName,
+    };
+  }
+
   maskEmailInString(email: string): string {
     const e = email.trim();
     if (!e.includes('@')) return '***@***';
@@ -92,6 +145,109 @@ export class LogsService implements OnModuleInit {
     const maskedLocal =
       local.length > 2 ? `${local.substring(0, 2)}***` : '***';
     return `${maskedLocal}@${domain}`;
+  }
+
+  maskIdentifier(value: string | undefined | null, keepLast = 4): string | undefined {
+    if (!value) return undefined;
+    const clean = String(value).trim();
+    if (!clean) return undefined;
+    const suffix = clean.slice(-Math.max(2, keepLast));
+    return `***${suffix}`;
+  }
+
+  maskUrl(value: string | undefined | null): string | undefined {
+    if (!value) return undefined;
+    try {
+      const url = new URL(value);
+      url.search = '';
+      url.hash = '';
+      return url.toString();
+    } catch {
+      return value.split('?')[0];
+    }
+  }
+
+  buildErrorFingerprint(input: {
+    errorKind: ErrorKind;
+    errorStage: string;
+    providerId?: string;
+    code?: string;
+    message: string;
+  }): string {
+    const stable = [
+      input.errorKind,
+      input.errorStage,
+      input.providerId ?? '',
+      input.code ?? '',
+      input.message.slice(0, 180),
+    ].join('|');
+    return createHash('sha256').update(stable).digest('hex').slice(0, 16);
+  }
+
+  logSyncLifecycle(
+    level: LogLevel,
+    message: string,
+    trace: SyncTraceContext,
+    lifecycle: SyncLifecycleEventMeta,
+    extraMeta?: Record<string, unknown>,
+  ): void {
+    this.assertCriticalSyncFields(trace, lifecycle);
+    this.add(level, 'sync', message, {
+      ...trace,
+      ...lifecycle,
+      ...extraMeta,
+    });
+  }
+
+  logSyncFailure(
+    trace: SyncTraceContext,
+    lifecycle: SyncLifecycleEventMeta,
+    failure: SyncFailureMeta,
+    extraMeta?: Record<string, unknown>,
+  ): void {
+    this.assertCriticalSyncFields(trace, lifecycle);
+    this.add('ERROR', 'sync', 'step_fail', {
+      ...trace,
+      ...lifecycle,
+      ...failure,
+      ...extraMeta,
+    });
+  }
+
+  private assertCriticalSyncFields(
+    trace: SyncTraceContext,
+    lifecycle: SyncLifecycleEventMeta,
+  ): void {
+    const requiredTrace = [
+      'syncRunId',
+      'jobId',
+      'configId',
+      'userId',
+      'providerId',
+      'providerType',
+      'providerName',
+    ] as const;
+    const missingTrace = requiredTrace.filter((k) => !trace[k]);
+    const requiredLifecycle = ['stage', 'status', 'startedAt', 'endedAt', 'durationMs'] as const;
+    const missingLifecycle = requiredLifecycle.filter((k) => lifecycle[k] === undefined || lifecycle[k] === null);
+    if (missingTrace.length || missingLifecycle.length) {
+      this.logger.warn(
+        `Critical sync log missing fields: trace=[${missingTrace.join(',')}], lifecycle=[${missingLifecycle.join(',')}]`,
+      );
+    }
+  }
+
+  private getScraperPackageVersion(): string {
+    try {
+      const packageJson = join(process.cwd(), 'package.json');
+      if (!existsSync(packageJson)) return 'unknown';
+      const pkg = JSON.parse(readFileSync(packageJson, 'utf-8')) as {
+        dependencies?: Record<string, string>;
+      };
+      return pkg.dependencies?.['israeli-bank-scrapers'] ?? 'unknown';
+    } catch {
+      return 'unknown';
+    }
   }
 
   private sanitizeMeta(
@@ -111,13 +267,27 @@ export class LogsService implements OnModuleInit {
       if (
         SENSITIVE_META_KEYS.has(key) ||
         lower.includes('password') ||
+        lower.includes('otp') ||
+        lower.includes('cookie') ||
+        lower.includes('token') ||
         (lower.includes('secret') && key !== 'message')
       ) {
-        out[key] = '***';
+        out[key] = MASKED_TEXT;
         continue;
       }
       if (key === 'credentials' || key === 'encryptedCredentials') {
         out[key] = '[REDACTED]';
+        continue;
+      }
+      if (typeof raw === 'string' && lower.includes('account')) {
+        out[key] = this.maskIdentifier(raw);
+        continue;
+      }
+      if (
+        typeof raw === 'string' &&
+        (lower.endsWith('url') || lower.includes('url'))
+      ) {
+        out[key] = this.maskUrl(raw);
         continue;
       }
       if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
@@ -197,7 +367,7 @@ export class LogsService implements OnModuleInit {
     } catch {
       /* ignore */
     }
-    this.add('INFO', 'system', 'יומן הלוגים נוקה');
+    this.add('INFO', 'system', 'logs_cleared');
   }
 
   logUpdate(action: string, details: Record<string, unknown>): void {

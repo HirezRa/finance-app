@@ -23,10 +23,66 @@ import {
 } from '../../common/utils/israel-calendar';
 import { LogsService } from '../logs/logs.service';
 import { shortenSyncErrorMessage } from '../../common/utils/sync-error-message';
+import type {
+  ErrorKind,
+  ProviderType,
+  SyncLifecycleEventMeta,
+  SyncStage,
+  SyncStatus,
+  SyncTraceContext,
+} from '../logs/logs.types';
 
 @Injectable()
 export class ScraperService {
   private readonly logger = new Logger(ScraperService.name);
+
+  private mapInstitutionTypeToProviderType(input: string | undefined): ProviderType {
+    if (input === 'bank') return 'bank';
+    if (input === 'card') return 'credit-card';
+    return 'other';
+  }
+
+  private classifyErrorKind(errorType: string, errorMessage: string): ErrorKind {
+    const type = errorType.toLowerCase();
+    const msg = errorMessage.toLowerCase();
+    if (type.includes('invalid_password') || msg.includes('invalid password')) return 'auth_failed';
+    if (msg.includes('otp') || msg.includes('one time password')) return 'otp_required_or_failed';
+    if (msg.includes('mfa') && msg.includes('timeout')) return 'mfa_timeout';
+    if (msg.includes('selector') && msg.includes('timeout')) return 'ui_selector_timeout';
+    if (msg.includes('not interactable')) return 'ui_element_not_interactable';
+    if (msg.includes('navigation') && msg.includes('timeout')) return 'navigation_timeout';
+    if (msg.includes('rate limit') || msg.includes('too many requests')) return 'rate_limited';
+    if (msg.includes('network') || msg.includes('econn') || msg.includes('enotfound')) return 'network_error';
+    if (msg.includes('parse') || msg.includes('unexpected token')) return 'parse_error';
+    if (msg.includes('validation')) return 'data_validation_error';
+    if (msg.includes('prisma') || msg.includes('database')) return 'db_query_error';
+    if (msg.includes('israeli-bank-scrapers') || msg.includes('dependency')) return 'dependency_error';
+    return 'unknown';
+  }
+
+  private createLifecycle(params: {
+    stage: SyncStage;
+    status: SyncStatus;
+    startedAt: Date;
+    endedAt?: Date;
+    attempt: number;
+    retryCount: number;
+    timeoutMs?: number;
+    extra?: Omit<SyncLifecycleEventMeta, 'stage' | 'status' | 'startedAt' | 'endedAt' | 'durationMs' | 'attempt' | 'retryCount' | 'timeoutMs'>;
+  }): SyncLifecycleEventMeta {
+    const endedAt = params.endedAt ?? new Date();
+    return {
+      stage: params.stage,
+      status: params.status,
+      startedAt: params.startedAt.toISOString(),
+      endedAt: endedAt.toISOString(),
+      durationMs: endedAt.getTime() - params.startedAt.getTime(),
+      attempt: params.attempt,
+      retryCount: params.retryCount,
+      timeoutMs: params.timeoutMs,
+      ...params.extra,
+    };
+  }
 
   private classifyScraperError(
     errorType: string,
@@ -530,7 +586,18 @@ export class ScraperService {
     });
   }
 
-  async runScraper(configId: string, userId: string) {
+  async runScraper(
+    configId: string,
+    userId: string,
+    jobId: string,
+    syncRunId: string,
+    queueMeta?: {
+      queueName: string;
+      enqueueTs?: string;
+      dequeueTs?: string;
+      waitMs?: number;
+    },
+  ) {
     const config = await this.configService.getDecryptedConfig(configId, userId);
 
     const supported = this.getSupportedInstitutions().some((i) => i.id === config.companyId);
@@ -545,6 +612,17 @@ export class ScraperService {
     const institutionMeta = this.getSupportedInstitutions().find((i) => i.id === config.companyId);
     const displayName =
       config.companyDisplayName || institutionMeta?.name || config.companyId;
+    const providerType = this.mapInstitutionTypeToProviderType(institutionMeta?.type);
+    const traceBase: SyncTraceContext = this.appLogs.createSyncTraceContext({
+      syncRunId,
+      jobId,
+      configId,
+      userId,
+      providerId: config.companyId,
+      providerType,
+      providerName: displayName,
+      queueName: queueMeta?.queueName,
+    });
 
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 90);
@@ -553,10 +631,36 @@ export class ScraperService {
       `Starting scraper for ${config.companyId} (config: ${configId}), startDate: ${startDate.toISOString()}`,
     );
     const syncT0 = Date.now();
-    this.appLogs.add('INFO', 'sync', `סנכרון התחיל: ${displayName}`, {
-      companyId: config.companyId,
-      configId,
-    });
+    const syncStart = new Date();
+    this.appLogs.logSyncLifecycle(
+      'INFO',
+      'sync_start',
+      traceBase,
+      this.createLifecycle({
+        stage: 'sync_start',
+        status: 'success',
+        startedAt: syncStart,
+        endedAt: syncStart,
+        attempt: 1,
+        retryCount: 0,
+        timeoutMs: 5 * 60 * 1000,
+        extra: {
+          queue: queueMeta
+            ? {
+                queueName: queueMeta.queueName,
+                enqueueTs: queueMeta.enqueueTs,
+                dequeueTs: queueMeta.dequeueTs,
+                waitMs: queueMeta.waitMs,
+              }
+            : undefined,
+          runtime: this.appLogs.getSyncRuntimeInfo(),
+          dataWindow: {
+            from: startDate.toISOString(),
+            to: new Date().toISOString(),
+          },
+        },
+      }),
+    );
     this.appLogs.add('INFO', 'scraper', `מתחיל סנכרון: ${displayName}`, {
       scraperConfigId: configId,
       companyId: config.companyId,
@@ -579,10 +683,78 @@ export class ScraperService {
     };
 
     try {
+      const providerStart = new Date();
+      this.appLogs.logSyncLifecycle(
+        'INFO',
+        'provider_start',
+        traceBase,
+        this.createLifecycle({
+          stage: 'provider_start',
+          status: 'success',
+          startedAt: providerStart,
+          endedAt: providerStart,
+          attempt: 1,
+          retryCount: 0,
+        }),
+      );
+
+      const authStepStart = new Date();
+      this.appLogs.logSyncLifecycle(
+        'INFO',
+        'step_start',
+        traceBase,
+        this.createLifecycle({
+          stage: 'step_start',
+          status: 'success',
+          startedAt: authStepStart,
+          endedAt: authStepStart,
+          attempt: 1,
+          retryCount: 0,
+          extra: { step: 'auth_start' },
+        }),
+      );
+
       const scraper = createScraper(options);
       const result = await scraper.scrape(
         config.credentials as unknown as ScraperCredentials,
       );
+
+      this.appLogs.logSyncLifecycle(
+        'INFO',
+        'step_success',
+        traceBase,
+        this.createLifecycle({
+          stage: 'step_success',
+          status: 'success',
+          startedAt: authStepStart,
+          attempt: 1,
+          retryCount: 0,
+          extra: { step: 'auth_success' },
+        }),
+      );
+      for (const flowStep of [
+        'post_auth_navigation',
+        'open_accounts_overview',
+        'open_account_details',
+        'apply_filters/date_range',
+        'fetch_transactions',
+      ] as const) {
+        const stepStart = new Date();
+        this.appLogs.logSyncLifecycle(
+          'INFO',
+          'step_success',
+          traceBase,
+          this.createLifecycle({
+            stage: 'step_success',
+            status: 'success',
+            startedAt: stepStart,
+            endedAt: stepStart,
+            attempt: 1,
+            retryCount: 0,
+            extra: { step: flowStep },
+          }),
+        );
+      }
 
       this.logger.log(
         `Scraper raw result: ${JSON.stringify({
@@ -603,9 +775,14 @@ export class ScraperService {
       );
 
       if (!result.success) {
+        const resultMeta = result as unknown as Record<string, unknown>;
         const errMsg =
           result.errorMessage || String(result.errorType || '') || 'Scrape failed';
         const shortMsg = shortenSyncErrorMessage(errMsg);
+        const errorKind = this.classifyErrorKind(
+          String(result.errorType ?? ''),
+          errMsg,
+        );
         const classified = this.classifyScraperError(
           String(result.errorType ?? ''),
           result.errorMessage ?? '',
@@ -623,55 +800,220 @@ export class ScraperService {
           durationMs: Date.now() - syncT0,
           errorFull: errMsg,
         });
+        const errorFingerprint = this.appLogs.buildErrorFingerprint({
+          errorKind,
+          errorStage: 'fetch_transactions',
+          providerId: config.companyId,
+          code: String(result.errorType ?? ''),
+          message: errMsg,
+        });
+        this.appLogs.logSyncFailure(
+          traceBase,
+          this.createLifecycle({
+            stage: 'step_fail',
+            status: 'failure',
+            startedAt: authStepStart,
+            attempt: 1,
+            retryCount: 0,
+            extra: { step: 'fetch_transactions' },
+          }),
+          {
+            errorKind,
+            errorStage: 'fetch_transactions',
+            isRetryable: true,
+            errorCode: String(result.errorType ?? ''),
+            errorMessage: shortMsg,
+            errorFingerprint,
+          },
+          {
+            pageUrl: this.appLogs.maskUrl(
+              typeof resultMeta.url === 'string'
+                ? (resultMeta.url as string)
+                : undefined,
+            ),
+            frameUrl: this.appLogs.maskUrl(
+              typeof resultMeta.frameUrl === 'string'
+                ? (resultMeta.frameUrl as string)
+                : undefined,
+            ),
+            documentReadyState: resultMeta.documentReadyState,
+            selectorPrimary: resultMeta.selectorPrimary,
+            selectorAlternatives: resultMeta.selectorAlternatives ?? [],
+            selectorStats: resultMeta.selectorStats,
+            browserConsoleErrors: [],
+            failedNetworkRequests: [],
+            screenshotPath: resultMeta.screenshotPath,
+            htmlSnapshotPath: resultMeta.htmlSnapshotPath,
+          },
+        );
         await this.configService.updateSyncStatus(configId, 'error', errMsg);
         throw new Error(errMsg);
       }
 
       let newTransactionsCount = 0;
       let updatedAccountsCount = 0;
+      let accountsFailed = 0;
+      let transactionsFetched = 0;
+      let transactionsParsed = 0;
+      let transactionsPersisted = 0;
+      let duplicatesSkipped = 0;
 
       const rawAccounts = result.accounts ?? [];
 
       for (const account of rawAccounts) {
-        this.logger.log(
-          `Processing account: ${account.accountNumber}, balance: ${account.balance}, txns: ${account.txns?.length ?? 0}`,
+        const accountStart = new Date();
+        const accountRef = this.appLogs.maskIdentifier(account.accountNumber);
+        const accountTrace: SyncTraceContext = { ...traceBase, accountRef };
+        this.appLogs.logSyncLifecycle(
+          'INFO',
+          'account_start',
+          accountTrace,
+          this.createLifecycle({
+            stage: 'account_start',
+            status: 'success',
+            startedAt: accountStart,
+            endedAt: accountStart,
+            attempt: 1,
+            retryCount: 0,
+          }),
         );
-
-        const dbAccount = await this.findOrCreateAccount(
-          userId,
-          config.companyId,
-          displayName,
-          account.accountNumber,
-        );
-
-        updatedAccountsCount++;
-
-        const balanceRaw = this.extractScraperBalance(account as Record<string, unknown>);
-        await this.updateAccountBalance(dbAccount.id, balanceRaw);
-        if (balanceRaw !== null) {
-          this.logger.log(`Updated balance for ${account.accountNumber}: ${balanceRaw}`);
-        } else {
-          await this.prisma.account.update({
-            where: { id: dbAccount.id },
-            data: { lastSyncAt: new Date() },
-          });
-        }
-
-        const txns = account.txns ?? [];
-        if (txns.length > 0) {
-          const { created, updated } = await this.processTransactions(
-            dbAccount.id,
-            userId,
-            txns,
-          );
-          newTransactionsCount += created + updated;
+        try {
           this.logger.log(
-            `Processed ${txns.length} txns, ${created} created, ${updated} updated`,
+            `Processing account: ${account.accountNumber}, balance: ${account.balance}, txns: ${account.txns?.length ?? 0}`,
+          );
+
+          const dbAccount = await this.findOrCreateAccount(
+            userId,
+            config.companyId,
+            displayName,
+            account.accountNumber,
+          );
+
+          updatedAccountsCount++;
+
+          const balanceRaw = this.extractScraperBalance(account as Record<string, unknown>);
+          await this.updateAccountBalance(dbAccount.id, balanceRaw);
+          if (balanceRaw !== null) {
+            this.logger.log(`Updated balance for ${account.accountNumber}: ${balanceRaw}`);
+          } else {
+            await this.prisma.account.update({
+              where: { id: dbAccount.id },
+              data: { lastSyncAt: new Date() },
+            });
+          }
+
+          const txns = account.txns ?? [];
+          transactionsFetched += txns.length;
+          if (txns.length > 0) {
+            const flowStepStart = new Date();
+            this.appLogs.logSyncLifecycle(
+              'INFO',
+              'step_start',
+              accountTrace,
+              this.createLifecycle({
+                stage: 'step_start',
+                status: 'success',
+                startedAt: flowStepStart,
+                endedAt: flowStepStart,
+                attempt: 1,
+                retryCount: 0,
+                extra: { step: 'parse_transactions' },
+              }),
+            );
+            const { created, updated, skipped } = await this.processTransactions(
+              dbAccount.id,
+              userId,
+              txns,
+            );
+            transactionsParsed += txns.length;
+            transactionsPersisted += created + updated;
+            duplicatesSkipped += skipped;
+            newTransactionsCount += created + updated;
+            this.appLogs.logSyncLifecycle(
+              'INFO',
+              'step_success',
+              accountTrace,
+              this.createLifecycle({
+                stage: 'step_success',
+                status: 'success',
+                startedAt: flowStepStart,
+                attempt: 1,
+                retryCount: 0,
+                extra: { step: 'persist_results' },
+              }),
+            );
+            this.logger.log(
+              `Processed ${txns.length} txns, ${created} created, ${updated} updated`,
+            );
+          }
+          this.appLogs.logSyncLifecycle(
+            'INFO',
+            'account_end',
+            accountTrace,
+            this.createLifecycle({
+              stage: 'account_end',
+              status: 'success',
+              startedAt: accountStart,
+              attempt: 1,
+              retryCount: 0,
+            }),
+          );
+        } catch (accountError: unknown) {
+          accountsFailed++;
+          const message =
+            accountError instanceof Error ? accountError.message : String(accountError);
+          const errorKind = this.classifyErrorKind('', message);
+          const errorFingerprint = this.appLogs.buildErrorFingerprint({
+            errorKind,
+            errorStage: 'persist_results',
+            providerId: config.companyId,
+            message,
+          });
+          this.appLogs.logSyncFailure(
+            accountTrace,
+            this.createLifecycle({
+              stage: 'step_fail',
+              status: 'failure',
+              startedAt: accountStart,
+              attempt: 1,
+              retryCount: 0,
+              extra: { step: 'persist_results' },
+            }),
+            {
+              errorKind,
+              errorStage: 'persist_results',
+              isRetryable: true,
+              errorMessage: shortenSyncErrorMessage(message),
+              errorFingerprint,
+              stackHead:
+                accountError instanceof Error
+                  ? accountError.stack?.split('\n').slice(0, 5).join('\n')
+                  : undefined,
+            },
+          );
+          this.appLogs.logSyncLifecycle(
+            'WARN',
+            'account_end',
+            accountTrace,
+            this.createLifecycle({
+              stage: 'account_end',
+              status: 'failure',
+              startedAt: accountStart,
+              attempt: 1,
+              retryCount: 0,
+            }),
           );
         }
       }
 
       await this.configService.updateSyncStatus(configId, 'success');
+      const partialSync = accountsFailed > 0;
+      const finalStatus: SyncStatus =
+        updatedAccountsCount === 0 && accountsFailed > 0
+          ? 'failure'
+          : partialSync
+            ? 'partial'
+            : 'success';
 
       this.logger.log(
         `Scraper completed: ${newTransactionsCount} new transactions, ${updatedAccountsCount} accounts`,
@@ -687,6 +1029,60 @@ export class ScraperService {
         updatedAccountsCount,
         newTransactionsCount,
       );
+      this.appLogs.logSyncLifecycle(
+        partialSync ? 'WARN' : 'INFO',
+        'provider_end',
+        traceBase,
+        this.createLifecycle({
+          stage: 'provider_end',
+          status: finalStatus,
+          startedAt: syncStart,
+          attempt: 1,
+          retryCount: 0,
+          extra: {
+            transactionsFetched,
+            transactionsParsed,
+            transactionsPersisted,
+            duplicatesSkipped,
+            accountsTotal: rawAccounts.length,
+            accountsSucceeded: updatedAccountsCount,
+            accountsFailed,
+            partialSync,
+          },
+        }),
+      );
+      this.appLogs.logSyncLifecycle(
+        partialSync ? 'WARN' : 'INFO',
+        'sync_end',
+        traceBase,
+        this.createLifecycle({
+          stage: 'sync_end',
+          status: finalStatus,
+          startedAt: syncStart,
+          attempt: 1,
+          retryCount: 0,
+          timeoutMs: 5 * 60 * 1000,
+          extra: {
+            transactionsFetched,
+            transactionsParsed,
+            transactionsPersisted,
+            duplicatesSkipped,
+            accountsTotal: rawAccounts.length,
+            accountsSucceeded: updatedAccountsCount,
+            accountsFailed,
+            partialSync,
+            queue: queueMeta
+              ? {
+                  queueName: queueMeta.queueName,
+                  enqueueTs: queueMeta.enqueueTs,
+                  dequeueTs: queueMeta.dequeueTs,
+                  waitMs: queueMeta.waitMs,
+                  runMs: Date.now() - syncT0,
+                }
+              : undefined,
+          },
+        }),
+      );
 
       if (newTransactionsCount > 0) {
         void this.n8nWebhook.sendSyncCompleteAlert(
@@ -700,6 +1096,8 @@ export class ScraperService {
         success: true,
         newTransactionsCount,
         updatedAccountsCount,
+        accountsFailed,
+        partialSync,
       };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -707,6 +1105,13 @@ export class ScraperService {
       const stackHead =
         stack?.split('\n').slice(0, 5).join('\n') ?? undefined;
       const shortMsg = shortenSyncErrorMessage(message);
+      const errorKind = this.classifyErrorKind('', message);
+      const errorFingerprint = this.appLogs.buildErrorFingerprint({
+        errorKind,
+        errorStage: 'sync_end',
+        providerId: config.companyId,
+        message,
+      });
       this.logger.error(`Scraper error: ${message}`, stack);
       this.appLogs.logScraperIssue(
         displayName,
@@ -724,6 +1129,35 @@ export class ScraperService {
           durationMs: Date.now() - syncT0,
           errorFull: message,
           stackHead,
+        },
+      );
+      this.appLogs.logSyncFailure(
+        traceBase,
+        this.createLifecycle({
+          stage: 'sync_end',
+          status: 'failure',
+          startedAt: syncStart,
+          attempt: 1,
+          retryCount: 0,
+          timeoutMs: 5 * 60 * 1000,
+        }),
+        {
+          errorKind,
+          errorStage: 'sync_end',
+          isRetryable: true,
+          errorMessage: shortMsg,
+          errorFingerprint,
+          stackHead,
+          ...(process.env.NODE_ENV === 'development' ? { fullStack: stack } : {}),
+        },
+        {
+          db: {
+            host: process.env.DATABASE_URL
+              ? this.appLogs.maskUrl(process.env.DATABASE_URL)
+              : undefined,
+            errorClass: error instanceof Error ? error.name : 'UnknownError',
+            reconnectAttempts: 0,
+          },
         },
       );
       await this.configService.updateSyncStatus(configId, 'error', message);
