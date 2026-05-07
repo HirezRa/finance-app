@@ -50,13 +50,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate public docs do not leak infra details
-        run: |
-          set -euo pipefail
-          forbidden='(LXC|lxc|Proxmox|pct exec|192\.168\.)'
-          if rg -n -i "$forbidden" docs README.md; then
-            echo "Forbidden infrastructure pattern found in public docs"
-            exit 1
-          fi
+        run: node scripts/verify-public-docs-safety.cjs
 
   secret-scan:
     runs-on: ubuntu-latest

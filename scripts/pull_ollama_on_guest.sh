@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pull an Ollama model on a remote Linux guest (via hypervisor SSH + pct exec).
+# Pull an Ollama model on a remote Linux guest (via hypervisor SSH + guest exec).
 #   export FINANCE_HYPERVISOR_SSH='user@hypervisor.example'
 #   export FINANCE_OLLAMA_GUEST_VMID='XXX'   # or set FINANCE_GUEST_VMID
 # Optional: FINANCE_GUEST_VMID used if FINANCE_OLLAMA_GUEST_VMID unset

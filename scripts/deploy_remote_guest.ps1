@@ -2,12 +2,12 @@ $ErrorActionPreference = "Stop"
 
 if (-not $env:FINANCE_HYPERVISOR_SSH) { throw "Set FINANCE_HYPERVISOR_SSH" }
 
-# true (default): SSH to Proxmox host, then pct exec VMID (needs FINANCE_GUEST_VMID).
-# false: SSH directly to the machine running Docker (CT/LXC IP) — no pct on that host.
+# true (default): SSH to management host, then guest-exec with VMID (needs FINANCE_GUEST_VMID).
+# false: SSH directly to the machine running Docker — no guest-exec on that host.
 $viaPct = ($env:FINANCE_DEPLOY_VIA_PCT -ne 'false')
 if ($viaPct -and -not $env:FINANCE_GUEST_VMID) { throw "Set FINANCE_GUEST_VMID (or set FINANCE_DEPLOY_VIA_PCT=false for direct SSH to Docker host)" }
 if (-not $viaPct) {
-  Write-Host "Mode: direct SSH to Docker host (FINANCE_DEPLOY_VIA_PCT=false). pct is not used."
+  Write-Host "Mode: direct SSH to Docker host (FINANCE_DEPLOY_VIA_PCT=false). Guest-exec is not used."
 }
 
 $projectOnGuest = if ($env:FINANCE_PROJECT_ON_GUEST) { $env:FINANCE_PROJECT_ON_GUEST } else { "/opt/finance-app" }
