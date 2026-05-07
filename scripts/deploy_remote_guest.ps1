@@ -1,7 +1,14 @@
 $ErrorActionPreference = "Stop"
 
 if (-not $env:FINANCE_HYPERVISOR_SSH) { throw "Set FINANCE_HYPERVISOR_SSH" }
-if (-not $env:FINANCE_GUEST_VMID) { throw "Set FINANCE_GUEST_VMID" }
+
+# true (default): SSH to Proxmox host, then pct exec VMID (needs FINANCE_GUEST_VMID).
+# false: SSH directly to the machine running Docker (CT/LXC IP) — no pct on that host.
+$viaPct = ($env:FINANCE_DEPLOY_VIA_PCT -ne 'false')
+if ($viaPct -and -not $env:FINANCE_GUEST_VMID) { throw "Set FINANCE_GUEST_VMID (or set FINANCE_DEPLOY_VIA_PCT=false for direct SSH to Docker host)" }
+if (-not $viaPct) {
+  Write-Host "Mode: direct SSH to Docker host (FINANCE_DEPLOY_VIA_PCT=false). pct is not used."
+}
 
 $projectOnGuest = if ($env:FINANCE_PROJECT_ON_GUEST) { $env:FINANCE_PROJECT_ON_GUEST } else { "/opt/finance-app" }
 
@@ -31,11 +38,19 @@ function Invoke-GuestCommand {
     [string]$GuestCommand
   )
 
-  $remote = "timeout $OuterTimeout bash -c 'pct exec $($env:FINANCE_GUEST_VMID) -- timeout $InnerTimeout bash -lc `"$GuestCommand`"'"
+  if ($viaPct) {
+    $remote = "timeout $OuterTimeout bash -c 'pct exec $($env:FINANCE_GUEST_VMID) -- timeout $InnerTimeout bash -lc `"$GuestCommand`"'"
+  } else {
+    $remote = "timeout $OuterTimeout bash -lc `"$GuestCommand`""
+  }
   Invoke-SshChecked -Arguments (@($sshOptions + @($env:FINANCE_HYPERVISOR_SSH, $remote)))
 }
 
-Write-Host "=== Deploying (guest $($env:FINANCE_GUEST_VMID)) ==="
+if ($viaPct) {
+  Write-Host "=== Deploying via pct (guest VMID $($env:FINANCE_GUEST_VMID)) ==="
+} else {
+  Write-Host "=== Deploying (direct SSH to $($env:FINANCE_HYPERVISOR_SSH)) ==="
+}
 Write-Host "[1/5] git pull"
 Invoke-GuestCommand -OuterTimeout 120 -InnerTimeout 90 -GuestCommand "cd $projectOnGuest && git pull"
 
