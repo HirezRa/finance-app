@@ -1,6 +1,6 @@
 # Finance App — ניהול פיננסי אישי
 
-אפליקציית ווב לניהול פיננסי אישי עם סנכרון חשבונות ממוסדות פיננסיים בישראל, באמצעות [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (מ־GitHub; תיקוני `patch-package` תחת `backend/patches`).
+אפליקציית ווב לניהול פיננסי אישי עם סנכרון חשבונות ממוסדות פיננסיים בישראל, באמצעות [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (מ־GitHub; `postinstall` + `patch-package` לפי הצורך).
 
 ## פילוסופיה
 
@@ -24,7 +24,7 @@
 | Frontend | React 18 + TypeScript + Vite + Tailwind + Radix/shadcn-style components |
 | Backend | NestJS 10 + Fastify + Prisma 5 + PostgreSQL 16 |
 | תור | Bull (@nestjs/bull) + Redis 7 |
-| סקרייפר | `github:HirezRa/israeli-bank-scrapers` (בניית `lib` ב־postinstall) + `patch-package` + Chromium באלפין |
+| סקרייפר | `github:HirezRa/israeli-bank-scrapers` (בניית `lib` ב־postinstall) + Chromium באלפין |
 | פריסה | Docker Compose (nginx מקדים, frontend static, backend) |
 
 ## מסמכים

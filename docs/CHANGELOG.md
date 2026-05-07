@@ -2,6 +2,15 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים בקובץ זה.
 
+## [2.0.30] - 2026-05-07
+
+### טכני
+
+- עדכון `israeli-bank-scrapers` ל־commit `7a4efd4` ([HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers), ענף `master`)
+- הסרת `patch-package` ל־Yahav — התיקון נמצא בקוד ה־fork
+- תיקון `ScraperUpdateService`: בדיקת commit אחרון מול `master` (לא `main`)
+- הסרת תלות כפולה `@hirez10/israeli-bank-scrapers` מ־`package.json`
+
 ## [1.0.0] - 2026-04-08
 
 ### תכונות עיקריות

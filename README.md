@@ -23,7 +23,7 @@
 | Database | PostgreSQL 16 |
 | Cache | Redis 7 |
 | Queue | BullMQ |
-| Bank Scraping | [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (מ־GitHub; בסיס upstream [eshaham v6.7.4](https://github.com/eshaham/israeli-bank-scrapers); `patch-package` ב־`backend/patches`) |
+| Bank Scraping | [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (מ־GitHub; בסיס upstream [eshaham](https://github.com/eshaham/israeli-bank-scrapers); commit מנוהל ב־lockfile + `ensure-israeli-bank-scrapers` + `patch-package` אם יש טלאים) |
 | AI | Ollama / OpenRouter |
 | Container | Docker Compose |
 
@@ -31,7 +31,7 @@
 
 רשימת מזהים ושמות תצוגה מעודכנים בקוד (`getSupportedInstitutions`) — ראו [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-מבוסס על [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (fork מחוזק; מסונכרן מ־eshaham) + תיקונים מקומיים ב־`backend/patches` (למשל תיקוני DOM בבורר תאריך בסקרייפר). פירוט טכני: [docs/SCRAPER_DATE_PICKER_DOM.md](docs/SCRAPER_DATE_PICKER_DOM.md).
+מבוסס על [HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (fork; מסונכרן מ־eshaham). תיקוני DOM ל־Yahav נמצאים בקוד ה־fork. פירוט: [docs/SCRAPER_DATE_PICKER_DOM.md](docs/SCRAPER_DATE_PICKER_DOM.md).
 
 ## 📦 התקנה
 
