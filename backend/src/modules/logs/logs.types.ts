@@ -15,18 +15,24 @@ export type LogCategory =
   | 'update'
   | 'external-service';
 
-export type ProviderType = 'bank' | 'credit-card' | 'other';
+/** Log schema version stored in meta for forward compatibility (older JSONL lines have no field). */
+export const LOG_SCHEMA_VERSION = 2;
+
+export type ProviderType = 'bank' | 'credit_card' | 'other';
 
 export type SyncStage =
   | 'sync_start'
+  | 'sync_end'
+  | 'sync_fail'
   | 'provider_start'
+  | 'provider_end'
+  | 'provider_fail'
   | 'account_start'
+  | 'account_end'
+  | 'account_fail'
   | 'step_start'
   | 'step_success'
-  | 'step_fail'
-  | 'account_end'
-  | 'provider_end'
-  | 'sync_end';
+  | 'step_fail';
 
 export type SyncStep =
   | 'auth_start'
@@ -41,6 +47,20 @@ export type SyncStep =
   | 'persist_results';
 
 export type SyncStatus = 'success' | 'failure' | 'partial';
+
+export type SyncTerminalMessage =
+  | 'sync_start'
+  | 'sync_end'
+  | 'sync_fail'
+  | 'provider_start'
+  | 'provider_end'
+  | 'provider_fail'
+  | 'account_start'
+  | 'account_end'
+  | 'account_fail'
+  | 'step_start'
+  | 'step_success'
+  | 'step_fail';
 
 export type ErrorKind =
   | 'auth_failed'
@@ -60,13 +80,17 @@ export type ErrorKind =
 
 export interface SyncRuntimeInfo {
   appVersion: string;
+  /** e.g. github:owner/repo#tag or semver from package.json */
   scraperPackageVersion: string;
+  scraperPackageSource?: string;
   scraperGitSha?: string;
   nodeVersion: string;
   nodeEnv: string;
   browserEngine?: string;
   browserVersion?: string;
   osPlatform: string;
+  /** OCI digest or image id if provided (e.g. CONTAINER_IMAGE_DIGEST) */
+  containerImageDigest?: string;
 }
 
 export interface SyncTraceContext {
@@ -79,11 +103,17 @@ export interface SyncTraceContext {
   providerId: string;
   providerType: ProviderType;
   providerName: string;
+  /** Masked last digits — human scan */
   accountRef?: string;
+  /** Stable hash for correlation without reversible account numbers */
+  accountRefHash?: string;
   queueName?: string;
+  requestId?: string;
+  traceparent?: string;
 }
 
 export interface SyncLifecycleEventMeta {
+  schemaVersion?: number;
   stage: SyncStage;
   status: SyncStatus;
   startedAt: string;
@@ -91,6 +121,7 @@ export interface SyncLifecycleEventMeta {
   durationMs: number;
   attempt: number;
   retryCount: number;
+  maxRetries?: number;
   timeoutMs?: number;
   step?: SyncStep;
   transactionsFetched?: number;
@@ -108,17 +139,21 @@ export interface SyncLifecycleEventMeta {
     dequeueTs?: string;
     waitMs?: number;
     runMs?: number;
+    maxRetries?: number;
+    jobTimeoutMs?: number;
   };
   runtime?: SyncRuntimeInfo;
 }
 
 export interface SyncFailureMeta {
   errorKind: ErrorKind;
-  errorStage: SyncStage | SyncStep;
+  /** Short stage label, e.g. open_from_date_picker, persist_transactions */
+  errorStage: string;
   isRetryable: boolean;
   errorCode?: string;
   errorMessage: string;
   errorFingerprint: string;
+  /** 5–15 lines */
   stackHead?: string;
   fullStack?: string;
 }
@@ -131,4 +166,3 @@ export interface AppLogEntry {
   message: string;
   meta?: Record<string, unknown>;
 }
-

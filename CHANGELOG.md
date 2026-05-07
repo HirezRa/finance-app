@@ -2,6 +2,13 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.32] - 2026-05-07
+
+### שיפורים (סקרייפר)
+
+- **israeli-bank-scrapers** עודכן ל־[hirez-v1.0.12](https://github.com/HirezRa/israeli-bank-scrapers/releases/tag/hirez-v1.0.12) (תיקון Yahav date-picker ועוד).
+- **`ensure-israeli-bank-scrapers`**: שכפול ref מ־`package.json`, חותמת דילוג כשה־ref לא השתנה, ו־`git fetch`/`checkout` בעת שדרוג תג — מונע סנכרון שקט ל־`master` או lib ישן אחרי bump.
+
 ## [2.0.31] - 2026-05-07
 
 ### שיפורים (לוגים וסנכרון)
