@@ -331,6 +331,15 @@ main(){
     exit 1
   fi
 
+  # יישור VERSION לגרסת היעד מהטריגר — גם אם ב-main עדיין לא עודכן קובץ VERSION
+  # (למשל release ב-GitHub לפני קומיט של VERSION).
+  local tgt_sync
+  tgt_sync=$(target_version | tr -d '\n' | sed 's/^v//i')
+  if [ -n "$tgt_sync" ]; then
+    printf '%s\n' "$tgt_sync" > "$APP_DIR/VERSION"
+    log_info "קובץ VERSION עודכן לגרסת היעד מהטריגר: $tgt_sync"
+  fi
+
   local new_version
   new_version=$(current_version | tr -d '\n')
   write_status "completed" "העדכון הושלם בהצלחה!" 100
