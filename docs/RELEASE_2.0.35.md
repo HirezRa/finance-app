@@ -41,6 +41,10 @@
 gh run list --workflow="CI Security and Build" --limit 3
 ```
 
+**ריצה מאומתת (push 1d7601d):** workflow `CI Security and Build` — הצלחה מלאה (`version-align`, `docs-public-safety`, `secret-scan`, `build`).
+
+**פריסה אוטומטית (Deploy remote stack):** עלולה להיכשל מ-runners של GitHub שלא מגיעים ליעד SSH ברשת פרטית (timeout). במקרה כזה — הרצת `scripts/deploy_remote_guest.sh` (או מקביל PS) **מהרשת שמגיעה לשרת**.
+
 ## פריסה לשרת האפליקציה (Linux / Docker)
 
 העדכון בפועל על השרת **אינו** מתבצע אוטומטית מסביבת הפיתוח ב-AI. אחרי `git pull` על השרת:
