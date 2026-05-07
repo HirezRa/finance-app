@@ -57,6 +57,7 @@ docker compose up -d
 - **חובה** לעדכן את `VERSION` ב־`main` בכל שחרור (release) כך שיתאים לתג ב-GitHub (למשל `2.0.x` בלי קידומת `v`, זהה ל־`v2.0.x` ב-Git).
 - **מומלץ** באותו קומיט release ליישר גם את השדה `version` ב־`frontend/package.json`, `backend/package.json` ובשורש `package-lock.json` של כל אחד מהם לאותו מספר SemVer כמו ב־`VERSION` — כדי למנוע פערים בכלי פיתוח, בדיקות, ודיווחי תלות. לאחר השינויים: `npm install` ב־`frontend/` ו־`npm install --package-lock-only` ב־`backend/` (או `npm install` מלא) לרענון ה-lockfiles.
 - **אימות לפני push:** `node scripts/verify-version-align.cjs` — אותו בדיקה רצה ב־CI (`version-align` ב־`.github/workflows/ci-security.yml`).
+- **תיעוד ציבורי:** `node scripts/verify-public-docs-safety.cjs` — בודק שאין דפוסי תשתית ברירת מחדל ב־`docs/`, `README.md` ו־`.github/auto-deploy-setup.md` (גם ב־CI).
 - אם שוחרר release לפני שקומיט של `VERSION` הגיע ל־`main`, עדיין אפשר ש־`git pull` ימשוך קוד חדש בעוד שקובץ `VERSION` נשאר ישן — ואז הממשק יציג "העדכון הושלם" אבל גרסה ישנה. הסקריפט `scripts/safe-update.sh`, אחרי בדיקת בריאות מוצלחת, **מיישר את `VERSION` ל־`targetVersion` מקובץ הטריגר** (שנוצר מ־`POST /version/trigger-update`), כך שהגרסה המוצגת תתאים לעדכון שהמשתמש ביקש.
 
 ## פריסה על שרת Linux (Docker)
@@ -94,8 +95,8 @@ docker compose up -d
 
 קבצים מומלצים לתיעוד ציבורי:
 
-- Bash: `deploy_to_lxc.sh` (מומלץ: pull + migrate + בנייה מלאה), `lxc_full_stack_update.sh` (עוטף ל־`deploy_to_lxc.sh`), `lxc_backend_only.sh`, `run_split_bills_on_lxc.sh`, `lxc_pull_ollama_model.sh`
-- PowerShell: `deploy_remote_guest.ps1`, `lxc_full_stack_update.ps1` (עוטף), `rebuild_backend_remote.ps1`, `run_split_bills_remote.ps1`, `pull_ollama_model_remote.ps1`
+- Bash: `deploy_remote_guest.sh` (מומלץ: pull + migrate + בנייה מלאה), `full_stack_update_remote.sh` (עוטף), `rebuild_backend_guest.sh`, `run_split_bills_guest.sh`, `pull_ollama_on_guest.sh`
+- PowerShell: `deploy_remote_guest.ps1`, `full_stack_update_remote.ps1` (עוטף), `rebuild_backend_remote.ps1`, `run_split_bills_remote.ps1`, `pull_ollama_model_remote.ps1`
 
 דוגמה להרצה ב-PowerShell (עדכון מלא אחרי `git push` ל־`main`):
 
@@ -103,7 +104,7 @@ docker compose up -d
 $env:FINANCE_HYPERVISOR_SSH = "user@hypervisor.example"
 $env:FINANCE_GUEST_VMID = "XXX"
 $env:FINANCE_PROJECT_ON_GUEST = "/opt/finance-app"
-.\scripts\lxc_full_stack_update.ps1
+.\scripts\full_stack_update_remote.ps1
 ```
 
 ### CI/CD מאובטח (GitHub + עדכון שרתים)
@@ -113,7 +114,7 @@ $env:FINANCE_PROJECT_ON_GUEST = "/opt/finance-app"
 - בצעו פריסה דרך סקריפט מרוחק שמקבל מזהים ממשתני סביבה, עם timeout ו-health-check.
 - שמרו לוגי פריסה בסביבת השרת בלבד; לתיעוד ציבורי העלו סיכומים אנונימיים ללא מזהים/ספקים חיצוניים.
 - **פריסה אוטומטית מ-GitHub Actions** (אופציונלי): הגדרת Secrets/Variables ו-workflow `deploy-remote.yml` — הוראות מלאות בקובץ `.github/auto-deploy-setup.md`. אחרי `gh auth login`, אפשר להעלות הכל מקומית: `scripts/push-github-deploy-settings.ps1`.
-- **`pct: command not found`** כשמריצים `deploy_remote_guest.ps1`: כנראה מתחברים לכתובת האורח (המכונה עם Docker) במקום לשרת שמריץ `pct`. או להפנות SSH לשרת הניהול הנכון, או להגדיר **`FINANCE_DEPLOY_VIA_PCT=false`** ו-SSH ישירות למכונה שמריצה Docker (ראו `.github/auto-deploy-setup.md`).
+- **`guest-exec`: command not found** כשמריצים `deploy_remote_guest.ps1`: לרוב מתחברים לשרת האפליקציה (Docker) במקום לשרת הניהול שמריץ את פקודת ה־guest. להפנות SSH לנקודת הניהול הנכונה, או להגדיר **`FINANCE_DEPLOY_VIA_PCT=false`** ו־SSH ישירות למכונה שמריצה Docker (ראו `.github/auto-deploy-setup.md`).
 - **`fatal: not a git repository`** בשלב `git pull`: על השרת חייב להיות **clone** של הריפו בנתיב הפרויקט (ברירת מחדל `/opt/finance-app`, עם תיקיית `.git`). אם הקוד במקום אחר — הגדר `$env:FINANCE_PROJECT_ON_GUEST` (PowerShell) או `FINANCE_PROJECT_ON_GUEST` לפני ההרצה. אחרת: `git clone https://github.com/HirezRa/finance-app.git /opt/finance-app` על האורח (או נתיב מתאים).
 
 ## פקודות שימושיות

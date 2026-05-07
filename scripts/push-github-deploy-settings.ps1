@@ -3,17 +3,17 @@
   One-shot: upload GitHub Actions deploy secrets/variables for deploy-remote.yml.
   Requires: gh CLI logged in (gh auth login) with repo + workflow scope.
 
-  Examples:
-    Proxmox (pct): SSH host = hypervisor, GuestVmid = CT id
+  Examples (replace hostnames and IDs with your own — do not paste real internal IPs into issues):
+    Guest-exec mode: SSH host = management endpoint, GuestVmid = numeric guest id
     .\scripts\push-github-deploy-settings.ps1 `
       -SshKeyPath "$env:USERPROFILE\.ssh\id_ed25519" `
-      -SshHost "<REDACTED_LAN_1>" `
+      -SshHost "mgmt.example.internal" `
       -GuestVmid "115"
 
-    Direct SSH to Docker/LXC IP (no pct on that host):
+    Direct SSH to Docker host (no guest-exec on that hop):
     .\scripts\push-github-deploy-settings.ps1 `
       -SshKeyPath "$env:USERPROFILE\.ssh\id_ed25519" `
-      -SshHost "<REDACTED_LAN_197>" `
+      -SshHost "docker-host.example.internal" `
       -SshDirectToDockerHost
 
   Do not commit your private key.
@@ -78,7 +78,7 @@ gh variable set FINANCE_DEPLOY_SSH_USER -R $Repo -b $SshUser
 gh variable set FINANCE_DEPLOY_PROJECT_PATH -R $Repo -b $ProjectPath
 if ($SshDirectToDockerHost) {
   gh variable set FINANCE_DEPLOY_VIA_PCT -R $Repo -b "false"
-  Write-Host "(FINANCE_DEPLOY_VIA_PCT=false: SSH target is the Docker host, not Proxmox pct.)"
+  Write-Host "(FINANCE_DEPLOY_VIA_PCT=false: SSH target is the Docker host, not the management guest-exec endpoint.)"
 } else {
   gh variable set FINANCE_DEPLOY_GUEST_VMID -R $Repo -b $GuestVmid
   gh variable set FINANCE_DEPLOY_VIA_PCT -R $Repo -b "true"
