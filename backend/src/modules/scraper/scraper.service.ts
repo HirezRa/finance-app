@@ -23,8 +23,11 @@ import {
 } from '../../common/utils/israel-calendar';
 import { LogsService } from '../logs/logs.service';
 import { shortenSyncErrorMessage } from '../../common/utils/sync-error-message';
+import {
+  markSyncFailureLogged,
+  wasSyncFailureLogged,
+} from '../logs/sync-fail-marked';
 import type {
-  ErrorKind,
   ProviderType,
   SyncLifecycleEventMeta,
   SyncStage,
@@ -38,26 +41,20 @@ export class ScraperService {
 
   private mapInstitutionTypeToProviderType(input: string | undefined): ProviderType {
     if (input === 'bank') return 'bank';
-    if (input === 'card') return 'credit-card';
+    if (input === 'card') return 'credit_card';
     return 'other';
   }
 
-  private classifyErrorKind(errorType: string, errorMessage: string): ErrorKind {
-    const type = errorType.toLowerCase();
-    const msg = errorMessage.toLowerCase();
-    if (type.includes('invalid_password') || msg.includes('invalid password')) return 'auth_failed';
-    if (msg.includes('otp') || msg.includes('one time password')) return 'otp_required_or_failed';
-    if (msg.includes('mfa') && msg.includes('timeout')) return 'mfa_timeout';
-    if (msg.includes('selector') && msg.includes('timeout')) return 'ui_selector_timeout';
-    if (msg.includes('not interactable')) return 'ui_element_not_interactable';
-    if (msg.includes('navigation') && msg.includes('timeout')) return 'navigation_timeout';
-    if (msg.includes('rate limit') || msg.includes('too many requests')) return 'rate_limited';
-    if (msg.includes('network') || msg.includes('econn') || msg.includes('enotfound')) return 'network_error';
-    if (msg.includes('parse') || msg.includes('unexpected token')) return 'parse_error';
-    if (msg.includes('validation')) return 'data_validation_error';
-    if (msg.includes('prisma') || msg.includes('database')) return 'db_query_error';
-    if (msg.includes('israeli-bank-scrapers') || msg.includes('dependency')) return 'dependency_error';
-    return 'unknown';
+  private truncateBrowserConsoleErrors(raw: unknown): unknown[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.slice(0, 25).map((x) => {
+      if (x !== null && typeof x === 'object') {
+        const o = x as Record<string, unknown>;
+        const text = String(o.text ?? o.message ?? '').slice(0, 400);
+        return { type: String(o.type ?? 'error'), text };
+      }
+      return { type: 'unknown', text: String(x).slice(0, 200) };
+    });
   }
 
   private createLifecycle(params: {
@@ -68,7 +65,19 @@ export class ScraperService {
     attempt: number;
     retryCount: number;
     timeoutMs?: number;
-    extra?: Omit<SyncLifecycleEventMeta, 'stage' | 'status' | 'startedAt' | 'endedAt' | 'durationMs' | 'attempt' | 'retryCount' | 'timeoutMs'>;
+    maxRetries?: number;
+    extra?: Omit<
+      SyncLifecycleEventMeta,
+      | 'stage'
+      | 'status'
+      | 'startedAt'
+      | 'endedAt'
+      | 'durationMs'
+      | 'attempt'
+      | 'retryCount'
+      | 'timeoutMs'
+      | 'maxRetries'
+    >;
   }): SyncLifecycleEventMeta {
     const endedAt = params.endedAt ?? new Date();
     return {
@@ -80,6 +89,7 @@ export class ScraperService {
       attempt: params.attempt,
       retryCount: params.retryCount,
       timeoutMs: params.timeoutMs,
+      maxRetries: params.maxRetries,
       ...params.extra,
     };
   }
@@ -596,20 +606,16 @@ export class ScraperService {
       enqueueTs?: string;
       dequeueTs?: string;
       waitMs?: number;
+      maxRetries?: number;
+      jobTimeoutMs?: number;
+      attempt?: number;
     },
   ) {
     const config = await this.configService.getDecryptedConfig(configId, userId);
 
-    const supported = this.getSupportedInstitutions().some((i) => i.id === config.companyId);
-    if (!supported) {
-      this.appLogs.add('ERROR', 'sync', `סנכרון נחסם: מוסד לא נתמך (${config.companyId})`, {
-        configId,
-        companyId: config.companyId,
-      });
-      throw new Error(`Unsupported companyId: ${config.companyId}`);
-    }
-
-    const institutionMeta = this.getSupportedInstitutions().find((i) => i.id === config.companyId);
+    const institutionMeta = this.getSupportedInstitutions().find(
+      (i) => i.id === config.companyId,
+    );
     const displayName =
       config.companyDisplayName || institutionMeta?.name || config.companyId;
     const providerType = this.mapInstitutionTypeToProviderType(institutionMeta?.type);
@@ -632,6 +638,10 @@ export class ScraperService {
     );
     const syncT0 = Date.now();
     const syncStart = new Date();
+    const attemptNo = queueMeta?.attempt ?? 1;
+    const retryCount = Math.max(0, attemptNo - 1);
+    const jobTimeoutMs = queueMeta?.jobTimeoutMs ?? 5 * 60 * 1000;
+
     this.appLogs.logSyncLifecycle(
       'INFO',
       'sync_start',
@@ -641,9 +651,10 @@ export class ScraperService {
         status: 'success',
         startedAt: syncStart,
         endedAt: syncStart,
-        attempt: 1,
-        retryCount: 0,
-        timeoutMs: 5 * 60 * 1000,
+        attempt: attemptNo,
+        retryCount,
+        timeoutMs: jobTimeoutMs,
+        maxRetries: queueMeta?.maxRetries,
         extra: {
           queue: queueMeta
             ? {
@@ -651,6 +662,8 @@ export class ScraperService {
                 enqueueTs: queueMeta.enqueueTs,
                 dequeueTs: queueMeta.dequeueTs,
                 waitMs: queueMeta.waitMs,
+                maxRetries: queueMeta.maxRetries,
+                jobTimeoutMs: queueMeta.jobTimeoutMs,
               }
             : undefined,
           runtime: this.appLogs.getSyncRuntimeInfo(),
@@ -661,6 +674,58 @@ export class ScraperService {
         },
       }),
     );
+
+    const supported = this.getSupportedInstitutions().some((i) => i.id === config.companyId);
+    if (!supported) {
+      const err = new Error(`Unsupported companyId: ${config.companyId}`);
+      const shortMsg = shortenSyncErrorMessage(err.message);
+      const errorFingerprint = this.appLogs.buildErrorFingerprint({
+        errorKind: 'dependency_error',
+        errorStage: 'unsupported_provider',
+        providerId: config.companyId,
+        message: err.message,
+      });
+      this.appLogs.logSyncFailure(
+        'sync_fail',
+        traceBase,
+        this.createLifecycle({
+          stage: 'sync_fail',
+          status: 'failure',
+          startedAt: syncStart,
+          attempt: attemptNo,
+          retryCount,
+          timeoutMs: jobTimeoutMs,
+          maxRetries: queueMeta?.maxRetries,
+          extra: {
+            queue: queueMeta
+              ? {
+                  queueName: queueMeta.queueName,
+                  enqueueTs: queueMeta.enqueueTs,
+                  dequeueTs: queueMeta.dequeueTs,
+                  waitMs: queueMeta.waitMs,
+                  maxRetries: queueMeta.maxRetries,
+                  jobTimeoutMs: queueMeta.jobTimeoutMs,
+                }
+              : undefined,
+            runtime: this.appLogs.getSyncRuntimeInfo(),
+            dataWindow: {
+              from: startDate.toISOString(),
+              to: new Date().toISOString(),
+            },
+          },
+        }),
+        {
+          errorKind: 'dependency_error',
+          errorStage: 'unsupported_provider',
+          isRetryable: false,
+          errorMessage: shortMsg,
+          errorFingerprint,
+        },
+      );
+      markSyncFailureLogged(err);
+      await this.configService.updateSyncStatus(configId, 'error', err.message);
+      throw err;
+    }
     this.appLogs.add('INFO', 'scraper', `מתחיל סנכרון: ${displayName}`, {
       scraperConfigId: configId,
       companyId: config.companyId,
@@ -693,8 +758,8 @@ export class ScraperService {
           status: 'success',
           startedAt: providerStart,
           endedAt: providerStart,
-          attempt: 1,
-          retryCount: 0,
+          attempt: attemptNo,
+          retryCount,
         }),
       );
 
@@ -708,8 +773,8 @@ export class ScraperService {
           status: 'success',
           startedAt: authStepStart,
           endedAt: authStepStart,
-          attempt: 1,
-          retryCount: 0,
+          attempt: attemptNo,
+          retryCount,
           extra: { step: 'auth_start' },
         }),
       );
@@ -727,8 +792,8 @@ export class ScraperService {
           stage: 'step_success',
           status: 'success',
           startedAt: authStepStart,
-          attempt: 1,
-          retryCount: 0,
+          attempt: attemptNo,
+          retryCount,
           extra: { step: 'auth_success' },
         }),
       );
@@ -749,8 +814,8 @@ export class ScraperService {
             status: 'success',
             startedAt: stepStart,
             endedAt: stepStart,
-            attempt: 1,
-            retryCount: 0,
+            attempt: attemptNo,
+            retryCount,
             extra: { step: flowStep },
           }),
         );
@@ -779,7 +844,7 @@ export class ScraperService {
         const errMsg =
           result.errorMessage || String(result.errorType || '') || 'Scrape failed';
         const shortMsg = shortenSyncErrorMessage(errMsg);
-        const errorKind = this.classifyErrorKind(
+        const errorKind = this.appLogs.classifyErrorKindFromStrings(
           String(result.errorType ?? ''),
           errMsg,
         );
@@ -787,6 +852,17 @@ export class ScraperService {
           String(result.errorType ?? ''),
           result.errorMessage ?? '',
         );
+        const selectorPrimary =
+          typeof resultMeta.selectorPrimary === 'string'
+            ? resultMeta.selectorPrimary
+            : undefined;
+        const waitTimeoutMs =
+          typeof resultMeta.waitTimeoutMs === 'number'
+            ? resultMeta.waitTimeoutMs
+            : typeof resultMeta.timeout === 'number'
+              ? resultMeta.timeout
+              : undefined;
+
         this.appLogs.logScraperIssue(
           displayName,
           classified,
@@ -806,15 +882,17 @@ export class ScraperService {
           providerId: config.companyId,
           code: String(result.errorType ?? ''),
           message: errMsg,
+          selectorPrimary,
         });
         this.appLogs.logSyncFailure(
+          'step_fail',
           traceBase,
           this.createLifecycle({
             stage: 'step_fail',
             status: 'failure',
             startedAt: authStepStart,
-            attempt: 1,
-            retryCount: 0,
+            attempt: attemptNo,
+            retryCount,
             extra: { step: 'fetch_transactions' },
           }),
           {
@@ -837,17 +915,104 @@ export class ScraperService {
                 : undefined,
             ),
             documentReadyState: resultMeta.documentReadyState,
-            selectorPrimary: resultMeta.selectorPrimary,
+            selectorPrimary,
             selectorAlternatives: resultMeta.selectorAlternatives ?? [],
             selectorStats: resultMeta.selectorStats,
-            browserConsoleErrors: [],
-            failedNetworkRequests: [],
+            waitTimeoutMs,
+            screenshotArtifactId: resultMeta.screenshotArtifactId,
             screenshotPath: resultMeta.screenshotPath,
             htmlSnapshotPath: resultMeta.htmlSnapshotPath,
+            browserConsoleErrors: this.truncateBrowserConsoleErrors(
+              resultMeta.browserConsoleErrors,
+            ),
+            failedNetworkRequests: Array.isArray(resultMeta.failedNetworkRequests)
+              ? (resultMeta.failedNetworkRequests as unknown[]).slice(0, 30)
+              : [],
           },
         );
+
+        this.appLogs.logSyncFailure(
+          'provider_fail',
+          traceBase,
+          this.createLifecycle({
+            stage: 'provider_fail',
+            status: 'failure',
+            startedAt: providerStart,
+            attempt: attemptNo,
+            retryCount,
+            extra: {
+              dataWindow: {
+                from: startDate.toISOString(),
+                to: new Date().toISOString(),
+              },
+            },
+          }),
+          {
+            errorKind,
+            errorStage: 'scraper_returned_failure',
+            isRetryable: true,
+            errorCode: String(result.errorType ?? ''),
+            errorMessage: shortMsg,
+            errorFingerprint: this.appLogs.buildErrorFingerprint({
+              errorKind,
+              errorStage: 'provider_scrape_failed',
+              providerId: config.companyId,
+              code: String(result.errorType ?? ''),
+              message: errMsg,
+              selectorPrimary,
+            }),
+          },
+        );
+
+        const terminalErr = new Error(errMsg);
+        this.appLogs.logSyncFailure(
+          'sync_fail',
+          traceBase,
+          this.createLifecycle({
+            stage: 'sync_fail',
+            status: 'failure',
+            startedAt: syncStart,
+            attempt: attemptNo,
+            retryCount,
+            timeoutMs: jobTimeoutMs,
+            maxRetries: queueMeta?.maxRetries,
+            extra: {
+              queue: queueMeta
+                ? {
+                    queueName: queueMeta.queueName,
+                    enqueueTs: queueMeta.enqueueTs,
+                    dequeueTs: queueMeta.dequeueTs,
+                    waitMs: queueMeta.waitMs,
+                    runMs: Date.now() - syncT0,
+                    maxRetries: queueMeta.maxRetries,
+                    jobTimeoutMs: queueMeta.jobTimeoutMs,
+                  }
+                : undefined,
+              dataWindow: {
+                from: startDate.toISOString(),
+                to: new Date().toISOString(),
+              },
+            },
+          }),
+          {
+            errorKind,
+            errorStage: 'fetch_transactions',
+            isRetryable: true,
+            errorCode: String(result.errorType ?? ''),
+            errorMessage: shortMsg,
+            errorFingerprint: this.appLogs.buildErrorFingerprint({
+              errorKind,
+              errorStage: 'sync_terminal_scrape',
+              providerId: config.companyId,
+              code: String(result.errorType ?? ''),
+              message: errMsg,
+              selectorPrimary,
+            }),
+          },
+        );
+        markSyncFailureLogged(terminalErr);
         await this.configService.updateSyncStatus(configId, 'error', errMsg);
-        throw new Error(errMsg);
+        throw terminalErr;
       }
 
       let newTransactionsCount = 0;
@@ -863,7 +1028,16 @@ export class ScraperService {
       for (const account of rawAccounts) {
         const accountStart = new Date();
         const accountRef = this.appLogs.maskIdentifier(account.accountNumber);
-        const accountTrace: SyncTraceContext = { ...traceBase, accountRef };
+        const accountRefHash = this.appLogs.accountRefHash(
+          userId,
+          config.companyId,
+          String(account.accountNumber ?? ''),
+        );
+        const accountTrace: SyncTraceContext = {
+          ...traceBase,
+          accountRef,
+          accountRefHash,
+        };
         this.appLogs.logSyncLifecycle(
           'INFO',
           'account_start',
@@ -873,8 +1047,8 @@ export class ScraperService {
             status: 'success',
             startedAt: accountStart,
             endedAt: accountStart,
-            attempt: 1,
-            retryCount: 0,
+            attempt: attemptNo,
+            retryCount,
           }),
         );
         try {
@@ -915,9 +1089,24 @@ export class ScraperService {
                 status: 'success',
                 startedAt: flowStepStart,
                 endedAt: flowStepStart,
-                attempt: 1,
-                retryCount: 0,
+                attempt: attemptNo,
+                retryCount,
                 extra: { step: 'parse_transactions' },
+              }),
+            );
+            const normStart = new Date();
+            this.appLogs.logSyncLifecycle(
+              'INFO',
+              'step_success',
+              accountTrace,
+              this.createLifecycle({
+                stage: 'step_success',
+                status: 'success',
+                startedAt: normStart,
+                endedAt: normStart,
+                attempt: attemptNo,
+                retryCount,
+                extra: { step: 'normalize_transactions' },
               }),
             );
             const { created, updated, skipped } = await this.processTransactions(
@@ -937,8 +1126,8 @@ export class ScraperService {
                 stage: 'step_success',
                 status: 'success',
                 startedAt: flowStepStart,
-                attempt: 1,
-                retryCount: 0,
+                attempt: attemptNo,
+                retryCount,
                 extra: { step: 'persist_results' },
               }),
             );
@@ -954,54 +1143,89 @@ export class ScraperService {
               stage: 'account_end',
               status: 'success',
               startedAt: accountStart,
-              attempt: 1,
-              retryCount: 0,
+              attempt: attemptNo,
+              retryCount,
             }),
           );
         } catch (accountError: unknown) {
           accountsFailed++;
           const message =
             accountError instanceof Error ? accountError.message : String(accountError);
-          const errorKind = this.classifyErrorKind('', message);
+          const errorKind = this.appLogs.classifyErrorKindFromUnknown(
+            accountError,
+            message,
+          );
+          const prismaCode = this.appLogs.prismaErrorCodeFromUnknown(accountError);
           const errorFingerprint = this.appLogs.buildErrorFingerprint({
             errorKind,
-            errorStage: 'persist_results',
+            errorStage: 'persist_transactions',
             providerId: config.companyId,
+            code: prismaCode,
             message,
           });
+          const stackHead =
+            accountError instanceof Error
+              ? accountError.stack?.split('\n').slice(0, 15).join('\n')
+              : undefined;
           this.appLogs.logSyncFailure(
+            'step_fail',
             accountTrace,
             this.createLifecycle({
               stage: 'step_fail',
               status: 'failure',
               startedAt: accountStart,
-              attempt: 1,
-              retryCount: 0,
+              attempt: attemptNo,
+              retryCount,
               extra: { step: 'persist_results' },
             }),
             {
               errorKind,
-              errorStage: 'persist_results',
+              errorStage: 'persist_transactions',
               isRetryable: true,
+              errorCode: prismaCode,
               errorMessage: shortenSyncErrorMessage(message),
               errorFingerprint,
-              stackHead:
-                accountError instanceof Error
-                  ? accountError.stack?.split('\n').slice(0, 5).join('\n')
-                  : undefined,
+              stackHead,
+              ...(process.env.NODE_ENV === 'development' &&
+              accountError instanceof Error
+                ? { fullStack: accountError.stack }
+                : {}),
+            },
+            {
+              db: {
+                ...this.appLogs.parseDatabaseUrlForLog(process.env.DATABASE_URL),
+                prismaErrorCode: prismaCode,
+                errorClass:
+                  accountError instanceof Error ? accountError.name : 'UnknownError',
+                reconnectAttempts: 0,
+              },
             },
           );
-          this.appLogs.logSyncLifecycle(
-            'WARN',
-            'account_end',
+          this.appLogs.logSyncFailure(
+            'account_fail',
             accountTrace,
             this.createLifecycle({
-              stage: 'account_end',
+              stage: 'account_fail',
               status: 'failure',
               startedAt: accountStart,
-              attempt: 1,
-              retryCount: 0,
+              attempt: attemptNo,
+              retryCount,
             }),
+            {
+              errorKind,
+              errorStage: 'account_persist',
+              isRetryable: true,
+              errorCode: prismaCode,
+              errorMessage: shortenSyncErrorMessage(message),
+              errorFingerprint: this.appLogs.buildErrorFingerprint({
+                errorKind,
+                errorStage: 'account_fail',
+                providerId: config.companyId,
+                code: prismaCode,
+                message,
+              }),
+              stackHead,
+            },
           );
         }
       }
@@ -1037,8 +1261,10 @@ export class ScraperService {
           stage: 'provider_end',
           status: finalStatus,
           startedAt: syncStart,
-          attempt: 1,
-          retryCount: 0,
+          attempt: attemptNo,
+          retryCount,
+          timeoutMs: jobTimeoutMs,
+          maxRetries: queueMeta?.maxRetries,
           extra: {
             transactionsFetched,
             transactionsParsed,
@@ -1048,6 +1274,10 @@ export class ScraperService {
             accountsSucceeded: updatedAccountsCount,
             accountsFailed,
             partialSync,
+            dataWindow: {
+              from: startDate.toISOString(),
+              to: new Date().toISOString(),
+            },
           },
         }),
       );
@@ -1059,9 +1289,10 @@ export class ScraperService {
           stage: 'sync_end',
           status: finalStatus,
           startedAt: syncStart,
-          attempt: 1,
-          retryCount: 0,
-          timeoutMs: 5 * 60 * 1000,
+          attempt: attemptNo,
+          retryCount,
+          timeoutMs: jobTimeoutMs,
+          maxRetries: queueMeta?.maxRetries,
           extra: {
             transactionsFetched,
             transactionsParsed,
@@ -1071,6 +1302,10 @@ export class ScraperService {
             accountsSucceeded: updatedAccountsCount,
             accountsFailed,
             partialSync,
+            dataWindow: {
+              from: startDate.toISOString(),
+              to: new Date().toISOString(),
+            },
             queue: queueMeta
               ? {
                   queueName: queueMeta.queueName,
@@ -1078,6 +1313,8 @@ export class ScraperService {
                   dequeueTs: queueMeta.dequeueTs,
                   waitMs: queueMeta.waitMs,
                   runMs: Date.now() - syncT0,
+                  maxRetries: queueMeta.maxRetries,
+                  jobTimeoutMs: queueMeta.jobTimeoutMs,
                 }
               : undefined,
           },
@@ -1100,16 +1337,31 @@ export class ScraperService {
         partialSync,
       };
     } catch (error: unknown) {
+      if (wasSyncFailureLogged(error)) {
+        await this.configService.updateSyncStatus(
+          configId,
+          'error',
+          error instanceof Error ? error.message : String(error),
+        );
+        void this.n8nWebhook.sendSyncErrorAlert(
+          userId,
+          displayName,
+          error instanceof Error ? error.message : String(error),
+        );
+        throw error;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
-      const stackHead =
-        stack?.split('\n').slice(0, 5).join('\n') ?? undefined;
+      const stackHead = stack?.split('\n').slice(0, 15).join('\n') ?? undefined;
       const shortMsg = shortenSyncErrorMessage(message);
-      const errorKind = this.classifyErrorKind('', message);
+      const errorKind = this.appLogs.classifyErrorKindFromUnknown(error, message);
+      const prismaCode = this.appLogs.prismaErrorCodeFromUnknown(error);
       const errorFingerprint = this.appLogs.buildErrorFingerprint({
         errorKind,
-        errorStage: 'sync_end',
+        errorStage: 'sync_uncaught',
         providerId: config.companyId,
+        code: prismaCode,
         message,
       });
       this.logger.error(`Scraper error: ${message}`, stack);
@@ -1132,19 +1384,74 @@ export class ScraperService {
         },
       );
       this.appLogs.logSyncFailure(
+        'provider_fail',
         traceBase,
         this.createLifecycle({
-          stage: 'sync_end',
+          stage: 'provider_fail',
           status: 'failure',
           startedAt: syncStart,
-          attempt: 1,
-          retryCount: 0,
-          timeoutMs: 5 * 60 * 1000,
+          attempt: attemptNo,
+          retryCount,
+          timeoutMs: jobTimeoutMs,
+          maxRetries: queueMeta?.maxRetries,
+          extra: {
+            dataWindow: {
+              from: startDate.toISOString(),
+              to: new Date().toISOString(),
+            },
+          },
         }),
         {
           errorKind,
-          errorStage: 'sync_end',
+          errorStage: 'provider_uncaught',
           isRetryable: true,
+          errorCode: prismaCode,
+          errorMessage: shortMsg,
+          errorFingerprint: this.appLogs.buildErrorFingerprint({
+            errorKind,
+            errorStage: 'provider_uncaught',
+            providerId: config.companyId,
+            code: prismaCode,
+            message,
+          }),
+          stackHead,
+          ...(process.env.NODE_ENV === 'development' ? { fullStack: stack } : {}),
+        },
+      );
+      this.appLogs.logSyncFailure(
+        'sync_fail',
+        traceBase,
+        this.createLifecycle({
+          stage: 'sync_fail',
+          status: 'failure',
+          startedAt: syncStart,
+          attempt: attemptNo,
+          retryCount,
+          timeoutMs: jobTimeoutMs,
+          maxRetries: queueMeta?.maxRetries,
+          extra: {
+            queue: queueMeta
+              ? {
+                  queueName: queueMeta.queueName,
+                  enqueueTs: queueMeta.enqueueTs,
+                  dequeueTs: queueMeta.dequeueTs,
+                  waitMs: queueMeta.waitMs,
+                  runMs: Date.now() - syncT0,
+                  maxRetries: queueMeta.maxRetries,
+                  jobTimeoutMs: queueMeta.jobTimeoutMs,
+                }
+              : undefined,
+            dataWindow: {
+              from: startDate.toISOString(),
+              to: new Date().toISOString(),
+            },
+          },
+        }),
+        {
+          errorKind,
+          errorStage: 'sync_uncaught',
+          isRetryable: true,
+          errorCode: prismaCode,
           errorMessage: shortMsg,
           errorFingerprint,
           stackHead,
@@ -1152,14 +1459,14 @@ export class ScraperService {
         },
         {
           db: {
-            host: process.env.DATABASE_URL
-              ? this.appLogs.maskUrl(process.env.DATABASE_URL)
-              : undefined,
+            ...this.appLogs.parseDatabaseUrlForLog(process.env.DATABASE_URL),
+            prismaErrorCode: prismaCode,
             errorClass: error instanceof Error ? error.name : 'UnknownError',
             reconnectAttempts: 0,
           },
         },
       );
+      markSyncFailureLogged(error);
       await this.configService.updateSyncStatus(configId, 'error', message);
       void this.n8nWebhook.sendSyncErrorAlert(userId, displayName, message);
       throw error;

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { ExportLogsQueryDto } from './dto/export-logs-query.dto';
 import { ListLogsQueryDto } from './dto/list-logs-query.dto';
 import { LogsService } from './logs.service';
 import type { AppLogEntry } from './logs.types';
@@ -27,6 +28,19 @@ export class LogsController {
       limit: query.limit,
     });
     return { logs };
+  }
+
+  @Get('export')
+  export(
+    @Query() query: ExportLogsQueryDto,
+  ): { logs: AppLogEntry[]; totalMatched: number } {
+    return this.logsService.exportTrace({
+      syncRunId: query.syncRunId,
+      providerId: query.providerId,
+      from: query.from,
+      to: query.to,
+      limit: query.limit,
+    });
   }
 
   @Delete()

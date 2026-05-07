@@ -28,3 +28,31 @@ export function getVersion(): string {
 }
 
 export const APP_VERSION = getVersion();
+
+/**
+ * Git tag / ref pinned for HirezRa/israeli-bank-scrapers (matches fork release), e.g. hirez-v1.0.12.
+ * Parsed from package.json `dependencies["israeli-bank-scrapers"]` after `#`.
+ */
+export function getIsraeliBankScrapersReleaseRef(): string {
+  try {
+    const pkgPath = path.join(process.cwd(), 'package.json');
+    if (!fs.existsSync(pkgPath)) {
+      return 'unknown';
+    }
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as {
+      dependencies?: Record<string, string>;
+    };
+    const dep = pkg.dependencies?.['israeli-bank-scrapers']?.trim();
+    if (!dep) {
+      return 'unknown';
+    }
+    const hashIdx = dep.lastIndexOf('#');
+    if (hashIdx >= 0) {
+      const ref = dep.slice(hashIdx + 1).trim();
+      return ref || 'unknown';
+    }
+    return dep;
+  } catch {
+    return 'unknown';
+  }
+}
