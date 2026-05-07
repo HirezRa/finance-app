@@ -112,6 +112,7 @@ $env:FINANCE_PROJECT_ON_GUEST = "/opt/finance-app"
 - שמרו לוגי פריסה בסביבת השרת בלבד; לתיעוד ציבורי העלו סיכומים אנונימיים ללא מזהים/ספקים חיצוניים.
 - **פריסה אוטומטית מ-GitHub Actions** (אופציונלי): הגדרת Secrets/Variables ו-workflow `deploy-remote.yml` — הוראות מלאות בקובץ `.github/auto-deploy-setup.md`. אחרי `gh auth login`, אפשר להעלות הכל מקומית: `scripts/push-github-deploy-settings.ps1`.
 - **`pct: command not found`** כשמריצים `deploy_remote_guest.ps1`: כנראה מתחברים לכתובת האורח (המכונה עם Docker) במקום לשרת שמריץ `pct`. או להפנות SSH לשרת הניהול הנכון, או להגדיר **`FINANCE_DEPLOY_VIA_PCT=false`** ו-SSH ישירות למכונה שמריצה Docker (ראו `.github/auto-deploy-setup.md`).
+- **`fatal: not a git repository`** בשלב `git pull`: על השרת חייב להיות **clone** של הריפו בנתיב הפרויקט (ברירת מחדל `/opt/finance-app`, עם תיקיית `.git`). אם הקוד במקום אחר — הגדר `$env:FINANCE_PROJECT_ON_GUEST` (PowerShell) או `FINANCE_PROJECT_ON_GUEST` לפני ההרצה. אחרת: `git clone https://github.com/HirezRa/finance-app.git /opt/finance-app` על האורח (או נתיב מתאים).
 
 ## פקודות שימושיות
 ```bash

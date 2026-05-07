@@ -14,6 +14,7 @@ else
   echo "Mode: direct SSH to Docker host (FINANCE_DEPLOY_VIA_PCT=false)."
 fi
 PROJ="${FINANCE_PROJECT_ON_GUEST:-/opt/finance-app}"
+echo "Remote project dir: ${PROJ} (override with FINANCE_PROJECT_ON_GUEST)"
 SSH_OPTS=(
   -F /dev/null
   -o ConnectTimeout=15
@@ -42,7 +43,7 @@ else
 fi
 
 echo "[1/5] git pull"
-guest_run 120 90 "cd ${PROJ} && git pull"
+guest_run 120 90 "cd ${PROJ} && git rev-parse --git-dir >/dev/null 2>&1 || { echo DEPLOY_NOT_GIT_REPO path=${PROJ}; exit 1; } && git pull"
 
 echo "[2/5] prisma migrate deploy"
 guest_run 180 120 "cd ${PROJ} && docker compose exec -T backend npx prisma migrate deploy"

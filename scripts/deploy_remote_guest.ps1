@@ -11,6 +11,7 @@ if (-not $viaPct) {
 }
 
 $projectOnGuest = if ($env:FINANCE_PROJECT_ON_GUEST) { $env:FINANCE_PROJECT_ON_GUEST } else { "/opt/finance-app" }
+Write-Host "Remote project dir: $projectOnGuest (override with `$env:FINANCE_PROJECT_ON_GUEST)"
 
 $sshOptions = @(
   "-F", "/dev/null",
@@ -52,7 +53,9 @@ if ($viaPct) {
   Write-Host "=== Deploying (direct SSH to $($env:FINANCE_HYPERVISOR_SSH)) ==="
 }
 Write-Host "[1/5] git pull"
-Invoke-GuestCommand -OuterTimeout 120 -InnerTimeout 90 -GuestCommand "cd $projectOnGuest && git pull"
+# Avoid nested quotes (breaks pct exec wrapping); message is still clear.
+$gitPull = "cd $projectOnGuest && git rev-parse --git-dir >/dev/null 2>&1 || { echo DEPLOY_NOT_GIT_REPO path=$projectOnGuest hint=clone_or_set_FINANCE_PROJECT_ON_GUEST; exit 1; } && git pull"
+Invoke-GuestCommand -OuterTimeout 120 -InnerTimeout 90 -GuestCommand $gitPull
 
 Write-Host "[2/5] prisma migrate deploy"
 Invoke-GuestCommand -OuterTimeout 180 -InnerTimeout 120 -GuestCommand "cd $projectOnGuest && docker compose exec -T backend npx prisma migrate deploy"
