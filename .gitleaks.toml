@@ -1,0 +1,49 @@
+# Finance_App — extended default rules + organization-sensitive patterns.
+# See: skills/security-git-sensitive-data-sanitization/SKILL.md
+
+title = "Finance_App Sensitive Data Rules"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "org-generic-password-assignment"
+description = "Potential hardcoded password, token, or API key assignment"
+regex = '''(?i)\b(pass(word)?|passwd|pwd|secret|token|api[_-]?key|client[_-]?secret)\b\s*[:=]\s*["']?[^"'\s]{8,}'''
+keywords = ["password", "passwd", "pwd", "secret", "token", "api_key", "client_secret"]
+tags = ["secret", "credential", "critical"]
+
+[[rules]]
+id = "org-private-ip"
+description = "Private/internal IP address"
+regex = '''\b(?:10|127|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b'''
+tags = ["infrastructure", "network", "medium"]
+
+[[rules]]
+id = "org-container-or-instance-id"
+description = "Potential container or instance identifier"
+regex = '''(?i)\b(?:container[_-]?id|instance[_-]?id|ctid|vmid)\s*[:=]\s*["']?\d{2,10}'''
+keywords = ["container", "instance", "ctid", "vmid"]
+tags = ["infrastructure", "container", "medium"]
+
+[[rules]]
+id = "org-internal-hostname"
+description = "Internal hostname or private domain"
+regex = '''(?i)\b[a-z0-9][a-z0-9-]{1,63}\.(?:internal|local|corp|lan|intra)\b'''
+tags = ["infrastructure", "hostname", "medium"]
+
+[[rules]]
+id = "org-payment-card-candidate"
+description = "Potential payment card number candidate; requires Luhn validation outside regex"
+regex = '''\b(?:\d[ -]*?){13,19}\b'''
+tags = ["payment", "pii", "requires-validation"]
+
+# Lockfiles: card-like digit runs are almost always false positives — skip them globally.
+
+[allowlist]
+paths = [
+  '''package-lock\.json''',
+  '''pnpm-lock\.yaml''',
+  '''yarn\.lock''',
+  '''(^|/)skills/''',
+]

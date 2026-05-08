@@ -102,7 +102,7 @@ echo "vm.overcommit_memory=1" >> /etc/sysctl.conf && sysctl -p
 docker compose ps
 docker compose logs --tail=100 backend
 docker compose logs --tail=50 frontend
-curl -sS --max-time 10 http://127.0.0.1/api/v1/health
+curl -sS --max-time 10 http://localhost/api/v1/health
 ```
 
 ---
