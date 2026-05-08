@@ -67,3 +67,10 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Repo pattern scan (keys / private IPs)
+        run: node scripts/verify-sensitive-repo-patterns.cjs
+
+      - name: TruffleHog verified secrets scan
+        run: |
+          docker run --rm -v "$PWD:/repo" trufflesecurity/trufflehog:latest git file:///repo --only-verified --no-update
