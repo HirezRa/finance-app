@@ -357,7 +357,7 @@ export function AISettingsTab() {
                 id="ollamaUrl"
                 value={ollamaUrl}
                 onChange={(e) => setOllamaUrl(e.target.value)}
-                placeholder="http://127.0.0.1:11434"
+                placeholder="http://localhost:11434"
                 dir="ltr"
                 className="mt-1 font-mono text-sm"
               />

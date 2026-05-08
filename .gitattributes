@@ -1,0 +1,5 @@
+# Shell hooks must use LF so Git Bash / Linux runners execute them reliably.
+*.sh text eol=lf
+scripts/git-hooks/*.sh text eol=lf
+scripts/install-git-hooks.sh text eol=lf
+.githooks/pre-commit text eol=lf
