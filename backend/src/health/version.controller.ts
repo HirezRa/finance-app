@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
-import { APP_VERSION, getIsraeliBankScrapersReleaseRef } from '../version';
+import { getIsraeliBankScrapersReleaseRef, getVersion } from '../version';
 
 @Controller()
 @SkipThrottle()
@@ -13,7 +13,7 @@ export class VersionController {
     name: string;
     environment: string;
   } {
-    const core = APP_VERSION;
+    const core = getVersion();
     return {
       version: core,
       coreVersion: core,

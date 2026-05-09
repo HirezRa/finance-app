@@ -1,9 +1,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+function hostRepoRoot(): string | undefined {
+  const dir = process.env.APP_DIR?.trim();
+  return dir && dir.length > 0 ? dir : undefined;
+}
+
 export function getVersion(): string {
   try {
+    const root = hostRepoRoot();
     const candidates = [
+      ...(root ? [path.join(root, 'VERSION')] : []),
       path.join(process.cwd(), 'VERSION'),
       path.join(process.cwd(), '..', 'VERSION'),
     ];
@@ -35,8 +42,13 @@ export const APP_VERSION = getVersion();
  */
 export function getIsraeliBankScrapersReleaseRef(): string {
   try {
-    const pkgPath = path.join(process.cwd(), 'package.json');
-    if (!fs.existsSync(pkgPath)) {
+    const root = hostRepoRoot();
+    const pkgPathCandidates = [
+      ...(root ? [path.join(root, 'backend', 'package.json')] : []),
+      path.join(process.cwd(), 'package.json'),
+    ];
+    const pkgPath = pkgPathCandidates.find((p) => fs.existsSync(p));
+    if (!pkgPath) {
       return 'unknown';
     }
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as {
