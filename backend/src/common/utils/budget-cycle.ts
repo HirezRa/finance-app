@@ -22,6 +22,15 @@ export function getIsraelYmd(d: Date): { year: number; month: number; day: numbe
 export type BudgetCycleDay = { y: number; m: number; d: number };
 
 /**
+ * יום תחילת מחזור (1–31 לפי ימים אזרחיים בישראל). ערכים לא תקינים נכנסים לטווח התקף.
+ */
+export function clampBudgetCycleStartDay(cycleStartDay: number): number {
+  const d = Math.floor(Number(cycleStartDay));
+  if (!Number.isFinite(d) || d < 1) return 1;
+  return Math.min(31, d);
+}
+
+/**
  * Wide UTC window for Prisma queries; filter rows with {@link isInBudgetCycle}.
  */
 export function getUtcWideRangeForBudgetCycle(
@@ -29,7 +38,8 @@ export function getUtcWideRangeForBudgetCycle(
   month: number,
   cycleStartDay: number,
 ): { start: Date; end: Date } {
-  if (cycleStartDay === 1) {
+  const csd = clampBudgetCycleStartDay(cycleStartDay);
+  if (csd === 1) {
     return getUtcWideRangeForIsraelMonth(year, month);
   }
   const start = new Date(Date.UTC(year, month - 3, 1, 0, 0, 0, 0));
@@ -38,9 +48,9 @@ export function getUtcWideRangeForBudgetCycle(
 }
 
 /**
- * Budget cycle labeled (budgetYear, budgetMonth):
- * - startDay 1: Israel calendar month
- * - startDay 10: from budgetMonth/startDay through day 9 of the following month
+ * האם `anchor` שייך למחזור התקציב שמתויג (budgetYear, budgetMonth):
+ * - יום 1: חודש קלנדרי ישראל (Asia/Jerusalem)
+ * - אחרת: מיום `cycleStartDay` בחודש עד יום `cycleStartDay - 1` בחודש הבא (כל התאריכים אזרחיים בישראל)
  */
 export function isInBudgetCycle(
   anchor: Date,
@@ -48,16 +58,18 @@ export function isInBudgetCycle(
   budgetMonth: number,
   cycleStartDay: number,
 ): boolean {
+  const csd = clampBudgetCycleStartDay(cycleStartDay);
   const { year: y, month: m, day: d } = getIsraelYmd(anchor);
-  if (cycleStartDay === 1) {
+  if (csd === 1) {
     return y === budgetYear && m === budgetMonth;
   }
-  if (y === budgetYear && m === budgetMonth && d >= cycleStartDay) {
+  if (y === budgetYear && m === budgetMonth && d >= csd) {
     return true;
   }
   const ny = budgetMonth === 12 ? budgetYear + 1 : budgetYear;
   const nm = budgetMonth === 12 ? 1 : budgetMonth + 1;
-  return y === ny && m === nm && d <= 9;
+  const spillEndDay = csd - 1;
+  return y === ny && m === nm && d <= spillEndDay;
 }
 
 /** Which budget-cycle label (month/year) an Israel date belongs to. */
@@ -65,11 +77,12 @@ export function getBudgetCycleLabelForIsraelDate(
   date: Date,
   cycleStartDay: number,
 ): { year: number; month: number } {
-  if (cycleStartDay === 1) {
+  const csd = clampBudgetCycleStartDay(cycleStartDay);
+  if (csd === 1) {
     return getIsraelYearMonth(date);
   }
   const { year: y, month: m, day: d } = getIsraelYmd(date);
-  if (d >= cycleStartDay) {
+  if (d >= csd) {
     return { year: y, month: m };
   }
   if (m === 1) {
@@ -87,10 +100,11 @@ export function getBudgetCycleStartCivil(
   budgetMonth: number,
   cycleStartDay: number,
 ): BudgetCycleDay {
-  if (cycleStartDay === 1) {
+  const csd = clampBudgetCycleStartDay(cycleStartDay);
+  if (csd === 1) {
     return { y: budgetYear, m: budgetMonth, d: 1 };
   }
-  return { y: budgetYear, m: budgetMonth, d: cycleStartDay };
+  return { y: budgetYear, m: budgetMonth, d: csd };
 }
 
 export function getBudgetCycleEndCivil(
@@ -98,7 +112,8 @@ export function getBudgetCycleEndCivil(
   budgetMonth: number,
   cycleStartDay: number,
 ): BudgetCycleDay {
-  if (cycleStartDay === 1) {
+  const csd = clampBudgetCycleStartDay(cycleStartDay);
+  if (csd === 1) {
     return {
       y: budgetYear,
       m: budgetMonth,
@@ -107,7 +122,7 @@ export function getBudgetCycleEndCivil(
   }
   const ny = budgetMonth === 12 ? budgetYear + 1 : budgetYear;
   const nm = budgetMonth === 12 ? 1 : budgetMonth + 1;
-  return { y: ny, m: nm, d: 9 };
+  return { y: ny, m: nm, d: csd - 1 };
 }
 
 /**
@@ -120,9 +135,10 @@ export function daysRemainingInBudgetCycle(
   budgetMonth: number,
   cycleStartDay: number,
 ): number | null {
+  const csd = clampBudgetCycleStartDay(cycleStartDay);
   const today = getIsraelYmd(now);
-  const start = getBudgetCycleStartCivil(budgetYear, budgetMonth, cycleStartDay);
-  const end = getBudgetCycleEndCivil(budgetYear, budgetMonth, cycleStartDay);
+  const start = getBudgetCycleStartCivil(budgetYear, budgetMonth, csd);
+  const end = getBudgetCycleEndCivil(budgetYear, budgetMonth, csd);
 
   const todayT = atUtcNoon(today.year, today.month, today.day).getTime();
   const startT = atUtcNoon(start.y, start.m, start.d).getTime();
@@ -142,8 +158,9 @@ export function listBudgetCycleDays(
   budgetMonth: number,
   cycleStartDay: number,
 ): BudgetCycleDay[] {
+  const csd = clampBudgetCycleStartDay(cycleStartDay);
   const out: BudgetCycleDay[] = [];
-  if (cycleStartDay === 1) {
+  if (csd === 1) {
     const dim = daysInMonth(budgetYear, budgetMonth);
     for (let d = 1; d <= dim; d++) {
       out.push({ y: budgetYear, m: budgetMonth, d });
@@ -151,12 +168,12 @@ export function listBudgetCycleDays(
     return out;
   }
   const dim = daysInMonth(budgetYear, budgetMonth);
-  for (let d = cycleStartDay; d <= dim; d++) {
+  for (let d = csd; d <= dim; d++) {
     out.push({ y: budgetYear, m: budgetMonth, d });
   }
   const ny = budgetMonth === 12 ? budgetYear + 1 : budgetYear;
   const nm = budgetMonth === 12 ? 1 : budgetMonth + 1;
-  for (let d = 1; d <= 9; d++) {
+  for (let d = 1; d <= csd - 1; d++) {
     out.push({ y: ny, m: nm, d });
   }
   return out;

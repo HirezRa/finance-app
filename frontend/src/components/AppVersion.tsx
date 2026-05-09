@@ -12,7 +12,8 @@ export function AppVersion({ className }: { className?: string }) {
   const { data } = useQuery({
     queryKey: ['version'],
     queryFn: () => api.get<VersionPayload>('/version').then((res) => res.data),
-    staleTime: Infinity,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
     retry: false,
   });
 
