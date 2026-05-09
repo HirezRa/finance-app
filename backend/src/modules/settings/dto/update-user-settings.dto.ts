@@ -5,7 +5,6 @@ import {
   IsOptional,
   Min,
   Max,
-  IsIn,
   IsInt,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -73,11 +72,12 @@ export class UpdateUserSettingsDto {
   @IsBoolean()
   excludeCreditCardChargesFromBudget?: boolean;
 
-  /** 1 = calendar month; 10 = 10th → 9th next month (Israel civil dates). */
+  /** 1 = חודש קלנדרי; N>1 = מ־N בחודש עד יום N−1 בחודש הבא (לפי לוח אזרחי Asia/Jerusalem). */
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @IsIn([1, 10])
+  @Min(1)
+  @Max(31)
   budgetCycleStartDay?: number;
 
   @IsOptional()
