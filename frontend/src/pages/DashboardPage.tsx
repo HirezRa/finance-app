@@ -289,7 +289,11 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="לוח בקרה"
-        subtitle={`${nonCalendarCycle ? 'מחזור תקציב' : 'סיכום חודשי'}: ${periodTitle}`}
+        subtitle={`${nonCalendarCycle ? 'מחזור תקציב' : 'סיכום חודשי'}: ${periodTitle}${
+          nonCalendarCycle
+            ? ` · ימים 1–${cycleStartDay - 1} בראש כל חודש קלנדרי נספרים במחזור הקודם`
+            : ''
+        }`}
         actions={
           <>
             {!isCurrentMonth ? (
