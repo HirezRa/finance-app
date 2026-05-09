@@ -2,6 +2,12 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.36] - 2026-05-09
+
+### שדרוג תלות סקרייפר
+
+- **israeli-bank-scrapers** → [hirez-v1.0.15](https://github.com/HirezRa/israeli-bank-scrapers/releases/tag/hirez-v1.0.15) (commit `ca59b62` — יישור `package-lock` עם ה־tag).
+
 ## [2.0.35] - 2026-05-08
 
 ### שדרוג תלות סקרייפר
