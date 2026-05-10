@@ -11,6 +11,7 @@ RUN apk add --no-cache python3 make g++ openssl libc6-compat git
 COPY backend/package.json backend/package-lock.json ./
 COPY backend/scripts ./scripts
 COPY backend/patches ./patches
+COPY backend/scraper-overlays ./scraper-overlays
 RUN npm ci
 
 COPY backend/prisma ./prisma
