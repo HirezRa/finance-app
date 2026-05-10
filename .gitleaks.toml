@@ -1,5 +1,4 @@
 # Finance_App — extended default rules + organization-sensitive patterns.
-# See: .cursor/skills/security-git-sensitive-data-sanitization/SKILL.md
 
 title = "Finance_App Sensitive Data Rules"
 
@@ -45,7 +44,6 @@ paths = [
   '''package-lock\.json''',
   '''pnpm-lock\.yaml''',
   '''yarn\.lock''',
-  '''(^|/)skills/''',
   '''(^|/)backend/src/modules/logs/logs\.service\.spec\.ts''',
   '''(^|/)finance-app-cursor-prompt\.md''',
 ]

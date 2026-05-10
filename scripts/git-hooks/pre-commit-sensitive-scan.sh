@@ -19,10 +19,8 @@ else
   echo "WARN: gitleaks not found in PATH — skipping gitleaks protect (install: https://github.com/gitleaks/gitleaks)"
 fi
 
-# Exclude skills/ — security SKILL docs contain example regexes that trip naive greps.
 # Exclude gitleaks config/ignore — legitimate regexes contain keywords like password/secret.
 STAGED_DIFF="$(git diff --cached --unified=0 -- . \
-  ':(exclude)skills' \
   ':(exclude).gitleaks.toml' \
   ':(exclude).gitleaksignore' \
   || true)"
