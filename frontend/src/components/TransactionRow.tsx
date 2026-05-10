@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
   MoreVertical,
@@ -174,12 +174,25 @@ export function TransactionRow({
     instTotal > 1 &&
     transaction.installmentNumber != null;
 
-  const dateSrc = transaction.effectiveDate || transaction.date;
+  /** תאריך הבנק — תואם דף העו״ש; effectiveDate משמש לדשבורד/תקציב בלבד */
+  const bankDate = new Date(transaction.date);
   let formattedDate: string;
   try {
-    formattedDate = format(new Date(dateSrc), 'd MMM yyyy', { locale: he });
+    formattedDate = format(bankDate, 'd MMM yyyy', { locale: he });
   } catch {
     formattedDate = transaction.date;
+  }
+
+  let budgetAnchorHint: string | null = null;
+  if (transaction.effectiveDate) {
+    try {
+      const eff = new Date(transaction.effectiveDate);
+      if (!isSameDay(bankDate, eff)) {
+        budgetAnchorHint = format(eff, 'd MMM yyyy', { locale: he });
+      }
+    } catch {
+      budgetAnchorHint = null;
+    }
   }
 
   const accountName = transaction.account
@@ -266,6 +279,13 @@ export function TransactionRow({
 
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <span>{formattedDate}</span>
+          {budgetAnchorHint ? (
+            <>
+              <span className="text-xs opacity-90" title="ייחוס לתקציב (למשל משכורת בסוף החודש)">
+                · בתקציב: {budgetAnchorHint}
+              </span>
+            </>
+          ) : null}
           {transaction.account ? (
             <>
               <span>•</span>

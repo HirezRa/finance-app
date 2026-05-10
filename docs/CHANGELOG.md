@@ -4,6 +4,13 @@
 
 **מקור אמת מומלץ:** קובץ `CHANGELOG.md` בשורש הריפו (מסונכרן עם תגי GitHub `v*`). קובץ זה ב־`docs/` משוכפל לנוחות; אם יש סתירה — עדיפות לשורש.
 
+## [2.0.38] - 2026-05-10
+
+### תיקון UI וסקרייפר Yahav
+
+- תאריך בשורת עסקה: תאריך בנק + סימון · בתקציב כשיש `effectiveDate`.
+- Yahav: overlay ב־`backend/scraper-overlays/` דרך `ensure-israeli-bank-scrapers`; ללא patch-package על כל החבילה.
+
 ## [2.0.36] - 2026-05-09
 
 ### תלויות
