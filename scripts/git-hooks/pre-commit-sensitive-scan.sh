@@ -20,7 +20,12 @@ else
 fi
 
 # Exclude skills/ — security SKILL docs contain example regexes that trip naive greps.
-STAGED_DIFF="$(git diff --cached --unified=0 -- . ':(exclude)skills' || true)"
+# Exclude gitleaks config/ignore — legitimate regexes contain keywords like password/secret.
+STAGED_DIFF="$(git diff --cached --unified=0 -- . \
+  ':(exclude)skills' \
+  ':(exclude).gitleaks.toml' \
+  ':(exclude).gitleaksignore' \
+  || true)"
 # Only inspect added lines (+); removals (-) still contain old literals and would block cleanup commits.
 STAGED_TEXT="$(echo "$STAGED_DIFF" | grep '^+' | grep -v '^+++' || true)"
 
