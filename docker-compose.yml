@@ -69,7 +69,8 @@ services:
       DAILY_SYNC_CRON: ${DAILY_SYNC_CRON:-0 6 * * *}
       SELF_UPDATE_ENABLED: ${SELF_UPDATE_ENABLED:-false}
       APP_DIR: ${APP_DIR:-/opt/finance-app}
-      UPDATE_DATA_DIR: ${UPDATE_DATA_DIR:-/app/update-data}
+      # Must match the bind mount below so `.update-requested` appears on the host under the repo (same path systemd Path watches: /opt/finance-app/update-data/).
+      UPDATE_DATA_DIR: ${UPDATE_DATA_DIR:-/opt/finance-app/update-data}
       # Optional: structured sync logs (see LOGGING_GUIDE.md)
       SCRAPER_GIT_SHA: ${SCRAPER_GIT_SHA:-}
       CHROMIUM_VERSION: ${CHROMIUM_VERSION:-}
@@ -84,8 +85,8 @@ services:
       - ${DOCKER_HOST_DOCKER_GID:-996}
     volumes:
       - ./logs:/app/logs
-      # Self-update state lives here (persists permissions; not tracked in git)
-      - ./update-data:/app/update-data
+      # Self-update triggers/status — same directory tree as APP_DIR on host so systemd finance-app-updater.path sees `.update-requested`
+      - ${FINANCE_HOST_APP_DIR:-.}/update-data:/opt/finance-app/update-data
       # Full repo on host for git pull / VERSION / scripts (self-update)
       - ${FINANCE_HOST_APP_DIR:-.}:/opt/finance-app
       - /var/run/docker.sock:/var/run/docker.sock

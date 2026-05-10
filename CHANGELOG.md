@@ -2,6 +2,12 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.39] - 2026-05-10
+
+### תיקון עדכון עצמי (Docker)
+
+- **`UPDATE_DATA_DIR`**: ברירת המחדל ב־`docker-compose` הייתה `/app/update-data` בעוד ש־`systemd` (`finance-app-updater.path`) מחכה ל־`/opt/finance-app/update-data/.update-requested` על ה-host — הטריגר לא הגיע למארח והעדכון נשאר `pending`. כעת הנתיב וה-volume מיושרים ל־`/opt/finance-app/update-data` (ראו `.env.example`).
+
 ## [2.0.38] - 2026-05-10
 
 ### תיקון UI (עסקאות)
