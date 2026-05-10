@@ -20,9 +20,9 @@
 
 2. **בניית `lib`**: התקנת npm מ־Git שולחת ארטיפקט דליל. הסקריפט `backend/scripts/ensure-israeli-bank-scrapers.cjs` (ב־`postinstall`) מבצע `git clone --depth 1` של ה־fork ואז `npm run build:js` בתיקייה.
 
-3. **תיקון Yahav בקוד ה־fork**: הבורר הגמיש (תא `.date-options-cell` עם `date-picker`, ללא `nth-child(7)` קבוע) נמצא ב־`src/scrapers/yahav.ts` ב־[HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers). **אין** עוד `patch-package` לסקרייפר בפרויקט זה (תיקיית `backend/patches/` שמורה לעתיד).
+3. **תיקון Yahav**: רוב השינויים ב־`src/scrapers/yahav.ts` מגיעים מה־tag ב־[HirezRa/israeli-bank-scrapers](https://github.com/HirezRa/israeli-bank-scrapers) (בורר תאריך גמיש וכו'). **פרסור שורות טבלה** (תאריכים כפולים, חובה/זכות דינמיים) מוחל אחרי `build:js` מקובץ overlay בפרויקט: `backend/scraper-overlays/israeli-bank-scrapers/src/scrapers/yahav.ts`, באמצעות `ensure-israeli-bank-scrapers.cjs` (השוואת תוכן ל־`node_modules/.../yahav.ts` — ריענון אוטומטי אחרי `git checkout` של ה־fork). **לא** משתמשים ב־`patch-package` על כל חבילת הסקרייפר (הדיפ מול התקנה רזה מייצר קובץ ענק ובלתי ניתן לתחזוקה).
 
-4. **Docker**: ב־`backend/Dockerfile` מותקן `git` בשלב ה־builder; מועתקים `scripts/` ו־`patches/` לפני `npm ci` כדי ש־`postinstall` יריץ ensure.
+4. **Docker**: ב־`backend/Dockerfile` מועתקים `scripts/`, `patches/` ו־`scraper-overlays/` לפני `npm ci` כדי ש־`postinstall` יריץ ensure + overlay.
 
 5. **סיווג שגיאות**: ב־`ScraperService.classifyScraperError`, מחרוזות `waiting for selector` מסווגות כ־`parse`.
 

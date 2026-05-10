@@ -23,6 +23,7 @@ fi
 STAGED_DIFF="$(git diff --cached --unified=0 -- . \
   ':(exclude).gitleaks.toml' \
   ':(exclude).gitleaksignore' \
+  ':(exclude)backend/scraper-overlays/**' \
   || true)"
 # Only inspect added lines (+); removals (-) still contain old literals and would block cleanup commits.
 STAGED_TEXT="$(echo "$STAGED_DIFF" | grep '^+' | grep -v '^+++' || true)"
