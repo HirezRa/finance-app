@@ -1,3 +1,6 @@
+# Local gitleaks JSON report (regenerate when refreshing .gitleaksignore)
+gitleaks-report.json
+
 # ========================================
 # 🔒 SECURITY - NEVER COMMIT THESE!
 # ========================================
