@@ -487,12 +487,15 @@ export interface AppLogEntry {
   meta?: Record<string, unknown>;
 }
 
+export type LogsExportPreset = 'diagnostic';
+
 export const logsApi = {
   get: (params?: {
     level?: AppLogLevel;
     category?: AppLogCategory;
     q?: string;
     limit?: number;
+    preset?: LogsExportPreset;
   }) => {
     const p: Record<string, string | number> = {};
     if (params?.level) p.level = params.level;
@@ -501,7 +504,27 @@ export const logsApi = {
     if (params?.limit != null && !Number.isNaN(params.limit)) {
       p.limit = params.limit;
     }
+    if (params?.preset) p.preset = params.preset;
     return api.get<{ logs: AppLogEntry[] }>('/logs', { params: p });
+  },
+  /** Server-side filter: sync|scraper|version|update + WARN|ERROR (reduces DEBUG/api noise). */
+  exportBundle: (params?: {
+    preset?: LogsExportPreset;
+    limit?: number;
+    syncRunId?: string;
+    from?: string;
+    to?: string;
+  }) => {
+    const p: Record<string, string | number> = {};
+    if (params?.preset) p.preset = params.preset;
+    if (params?.limit != null) p.limit = params.limit;
+    if (params?.syncRunId?.trim()) p.syncRunId = params.syncRunId.trim();
+    if (params?.from?.trim()) p.from = params.from.trim();
+    if (params?.to?.trim()) p.to = params.to.trim();
+    return api.get<{ logs: AppLogEntry[]; totalMatched: number }>(
+      '/logs/export',
+      { params: p },
+    );
   },
   clear: () =>
     api.delete<{ success: boolean; messageHe: string }>('/logs'),

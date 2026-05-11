@@ -91,10 +91,15 @@ export class VersionService implements OnModuleInit {
   private readonly logger = new Logger(VersionService.name);
   private readonly appDir: string;
   private readonly updateDataDir: string;
+  /** Raw configured path before legacy normalization (for audit logs). */
+  private readonly rawUpdateDataDirFromConfig: string;
+  private readonly legacyUpdatePathNormalized: boolean;
   private readonly triggerFile: string;
   private readonly statusFile: string;
   private readonly historyFile: string;
   private readonly buildLogFile: string;
+  /** Dedupe mirroring host `.update-status.json` terminal states into LogsService. */
+  private lastMirroredTerminalUpdateKey = '';
 
   constructor(
     private readonly config: ConfigService,
@@ -104,15 +109,18 @@ export class VersionService implements OnModuleInit {
     const rawUpdateDataDir = this.config
       .get<string>('UPDATE_DATA_DIR', join(this.appDir, 'update-data'))
       .trim();
+    this.rawUpdateDataDirFromConfig = rawUpdateDataDir;
     // Stale Docker/Portainer env: /app/update-data is not bind-mounted to the host while APP_DIR
     // points at the repo on /opt/finance-app — systemd never sees `.update-requested`.
     if (rawUpdateDataDir === '/app/update-data' && this.appDir === '/opt/finance-app') {
       this.updateDataDir = join(this.appDir, 'update-data');
+      this.legacyUpdatePathNormalized = true;
       this.logger.warn(
         `UPDATE_DATA_DIR was /app/update-data (legacy); using ${this.updateDataDir}. Update container env / compose on the server.`,
       );
     } else {
       this.updateDataDir = rawUpdateDataDir;
+      this.legacyUpdatePathNormalized = false;
     }
     this.triggerFile = join(this.updateDataDir, '.update-requested');
     this.statusFile = join(this.updateDataDir, '.update-status.json');
@@ -376,6 +384,13 @@ export class VersionService implements OnModuleInit {
       this.appLogs.add('INFO', 'version', 'עדכון הופעל', {
         targetVersion: check.latestVersion,
       });
+      this.appLogs.add('INFO', 'version', 'פרטי טריגר עדכון', {
+        triggerFile: this.triggerFile,
+        updateDataDir: this.updateDataDir,
+        rawUpdateDataDirFromConfig: this.rawUpdateDataDirFromConfig,
+        legacyUpdatePathNormalized: this.legacyUpdatePathNormalized,
+        triggerFileExists: existsSync(this.triggerFile),
+      });
 
       return {
         triggered: true,
@@ -415,6 +430,27 @@ export class VersionService implements OnModuleInit {
         ...parsed,
         currentVersion: parsed.currentVersion ?? currentVersion,
       };
+
+      if (merged.status === 'failed' || merged.status === 'rolled-back') {
+        const terminalKey = `${merged.status}|${merged.updatedAt ?? ''}|${merged.error ?? ''}|${merged.message ?? ''}`;
+        if (terminalKey !== this.lastMirroredTerminalUpdateKey) {
+          this.lastMirroredTerminalUpdateKey = terminalKey;
+          const level = merged.status === 'failed' ? 'ERROR' : 'WARN';
+          const msg =
+            merged.status === 'failed'
+              ? 'עדכון גרסה נכשל (סטטוס מהמארח)'
+              : 'עדכון גרסה — rollback';
+          this.appLogs.add(level, 'version', msg, {
+            hostStatus: merged.status,
+            targetVersion: merged.targetVersion,
+            currentVersion: merged.currentVersion,
+            progress: merged.progress,
+            error: merged.error,
+            message: merged.message,
+            updatedAt: merged.updatedAt,
+          });
+        }
+      }
 
       if (
         ['in-progress', 'failed', 'rolled-back'].includes(merged.status) &&

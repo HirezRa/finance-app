@@ -151,7 +151,12 @@ export interface SyncFailureMeta {
   errorStage: string;
   isRetryable: boolean;
   errorCode?: string;
+  /** Short human-facing message (stable / UI); distinct from errorFull when stack exists */
   errorMessage: string;
+  /** Full scraper/runtime message (no duplicate of errorMessage when identical) */
+  errorFull?: string;
+  /** Optional upstream hint (e.g. scraper stage / cause chain) */
+  errorCause?: string;
   errorFingerprint: string;
   /** 5–15 lines */
   stackHead?: string;

@@ -26,6 +26,7 @@ export class LogsController {
       category: query.category,
       q: query.q,
       limit: query.limit,
+      preset: query.preset,
     });
     return { logs };
   }
@@ -40,6 +41,7 @@ export class LogsController {
       from: query.from,
       to: query.to,
       limit: query.limit,
+      preset: query.preset,
     });
   }
 

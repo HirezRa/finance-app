@@ -863,6 +863,26 @@ export class ScraperService {
               ? resultMeta.timeout
               : undefined;
 
+        const rawStack =
+          typeof resultMeta.stack === 'string' ? resultMeta.stack : undefined;
+        const stackHeadFromScraper = rawStack
+          ? rawStack.split('\n').slice(0, 15).join('\n')
+          : undefined;
+        const errorCause =
+          typeof resultMeta.errorCause === 'string'
+            ? resultMeta.errorCause
+            : typeof resultMeta.stageLabel === 'string'
+              ? resultMeta.stageLabel
+              : undefined;
+
+        const consoleArr = resultMeta.browserConsoleErrors;
+        const netArr = resultMeta.failedNetworkRequests;
+        const selAltArr = resultMeta.selectorAlternatives;
+        const scraperDiagnosticsEmpty =
+          (!Array.isArray(consoleArr) || consoleArr.length === 0) &&
+          (!Array.isArray(netArr) || netArr.length === 0) &&
+          (!Array.isArray(selAltArr) || selAltArr.length === 0);
+
         this.appLogs.logScraperIssue(
           displayName,
           classified,
@@ -901,9 +921,13 @@ export class ScraperService {
             isRetryable: true,
             errorCode: String(result.errorType ?? ''),
             errorMessage: shortMsg,
+            errorFull: errMsg,
+            errorCause,
             errorFingerprint,
+            stackHead: stackHeadFromScraper,
           },
           {
+            runtime: this.appLogs.getSyncRuntimeInfo(),
             pageUrl: this.appLogs.maskUrl(
               typeof resultMeta.url === 'string'
                 ? (resultMeta.url as string)
@@ -928,6 +952,12 @@ export class ScraperService {
             failedNetworkRequests: Array.isArray(resultMeta.failedNetworkRequests)
               ? (resultMeta.failedNetworkRequests as unknown[]).slice(0, 30)
               : [],
+            ...(scraperDiagnosticsEmpty
+              ? {
+                  scraperDiagnosticsHint:
+                    'אין נתוני Puppeteer מהסקרייפר (console/network/selectors). ניתן להריץ עם DEBUG=israeli-bank-scrapers:* או לשדרג את israeli-bank-scrapers לאיסוף אבחון.',
+                }
+              : {}),
           },
         );
 
@@ -953,6 +983,7 @@ export class ScraperService {
             isRetryable: true,
             errorCode: String(result.errorType ?? ''),
             errorMessage: shortMsg,
+            errorFull: errMsg,
             errorFingerprint: this.appLogs.buildErrorFingerprint({
               errorKind,
               errorStage: 'provider_scrape_failed',
@@ -961,6 +992,7 @@ export class ScraperService {
               message: errMsg,
               selectorPrimary,
             }),
+            stackHead: stackHeadFromScraper,
           },
         );
 
@@ -1000,6 +1032,7 @@ export class ScraperService {
             isRetryable: true,
             errorCode: String(result.errorType ?? ''),
             errorMessage: shortMsg,
+            errorFull: errMsg,
             errorFingerprint: this.appLogs.buildErrorFingerprint({
               errorKind,
               errorStage: 'sync_terminal_scrape',
@@ -1008,6 +1041,7 @@ export class ScraperService {
               message: errMsg,
               selectorPrimary,
             }),
+            stackHead: stackHeadFromScraper,
           },
         );
         markSyncFailureLogged(terminalErr);
@@ -1184,6 +1218,7 @@ export class ScraperService {
               isRetryable: true,
               errorCode: prismaCode,
               errorMessage: shortenSyncErrorMessage(message),
+              errorFull: message,
               errorFingerprint,
               stackHead,
               ...(process.env.NODE_ENV === 'development' &&
@@ -1217,6 +1252,7 @@ export class ScraperService {
               isRetryable: true,
               errorCode: prismaCode,
               errorMessage: shortenSyncErrorMessage(message),
+              errorFull: message,
               errorFingerprint: this.appLogs.buildErrorFingerprint({
                 errorKind,
                 errorStage: 'account_fail',
@@ -1407,6 +1443,7 @@ export class ScraperService {
           isRetryable: true,
           errorCode: prismaCode,
           errorMessage: shortMsg,
+          errorFull: message,
           errorFingerprint: this.appLogs.buildErrorFingerprint({
             errorKind,
             errorStage: 'provider_uncaught',
@@ -1453,6 +1490,7 @@ export class ScraperService {
           isRetryable: true,
           errorCode: prismaCode,
           errorMessage: shortMsg,
+          errorFull: message,
           errorFingerprint,
           stackHead,
           ...(process.env.NODE_ENV === 'development' ? { fullStack: stack } : {}),
