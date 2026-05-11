@@ -2,6 +2,13 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.43] - 2026-05-12
+
+### תיקון סנכרון (Yahav / dedup)
+
+- **יהב (overlay)**: אסמכתא ב־`referenceNumber` לייצוב רכיב ה־hash של `scraperHash` (במקום הסתמכות על `identifier` מ־`parseInt` בלבד).
+- **`ScraperService`**: חישוב hash ומזהה לשמירה — `referenceNumber ?? identifier`; לוג `DEBUG` `duplicate_skipped_existing_scraper_hash` כשדילוג על עסקה קיימת לפי אותו hash (מצב completed).
+
 ## [2.0.42] - 2026-05-11
 
 ### לוגים ואבחון (סנכרון / עדכון גרסה)
