@@ -9,6 +9,9 @@ SYSTEMD_DIR="/etc/systemd/system"
 
 echo "Installing Finance App Updater..."
 
+mkdir -p "$APP_DIR/update-data"
+chmod 777 "$APP_DIR/update-data" 2>/dev/null || true
+
 chmod +x "$SCRIPTS_DIR/safe-update.sh"
 cp "$SCRIPTS_DIR/systemd/finance-app-updater.path" "$SYSTEMD_DIR/"
 cp "$SCRIPTS_DIR/systemd/finance-app-updater.service" "$SYSTEMD_DIR/"

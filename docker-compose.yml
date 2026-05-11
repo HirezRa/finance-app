@@ -68,9 +68,9 @@ services:
       LARGE_EXPENSE_THRESHOLD: ${LARGE_EXPENSE_THRESHOLD:-500}
       DAILY_SYNC_CRON: ${DAILY_SYNC_CRON:-0 6 * * *}
       SELF_UPDATE_ENABLED: ${SELF_UPDATE_ENABLED:-false}
-      APP_DIR: ${APP_DIR:-/opt/finance-app}
-      # Must match the bind mount below so `.update-requested` appears on the host under the repo (same path systemd Path watches: /opt/finance-app/update-data/).
-      UPDATE_DATA_DIR: ${UPDATE_DATA_DIR:-/opt/finance-app/update-data}
+      # Fixed paths — do not use ${APP_DIR}/${UPDATE_DATA_DIR} from host .env (older .env files often set UPDATE_DATA_DIR=/app/update-data, which breaks systemd triggers on the host).
+      APP_DIR: /opt/finance-app
+      UPDATE_DATA_DIR: /opt/finance-app/update-data
       # Optional: structured sync logs (see LOGGING_GUIDE.md)
       SCRAPER_GIT_SHA: ${SCRAPER_GIT_SHA:-}
       CHROMIUM_VERSION: ${CHROMIUM_VERSION:-}
