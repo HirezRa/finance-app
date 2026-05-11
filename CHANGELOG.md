@@ -2,6 +2,12 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.44] - 2026-05-12
+
+### תלויות (סקרייפר)
+
+- **israeli-bank-scrapers** → תג Git [hirez-v1.0.18](https://github.com/HirezRa/israeli-bank-scrapers/releases/tag/hirez-v1.0.18) (`github:HirezRa/israeli-bank-scrapers#hirez-v1.0.18`, קומיט `b904bd6`). ב־`package.json` של הפורק עדיין מופיע semver פנימי `1.0.17` — מזהה השחרור הוא התג `hirez-v1.0.18`.
+
 ## [2.0.43] - 2026-05-12
 
 ### תיקון סנכרון (Yahav / dedup)
