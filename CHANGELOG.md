@@ -2,6 +2,12 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.41] - 2026-05-10
+
+### תיקון עדכון עצמי (runtime)
+
+- **`VersionService`**: אם בקונטיינר הגיעו ערכים ישנים `UPDATE_DATA_DIR=/app/update-data` יחד עם `APP_DIR=/opt/finance-app`, הנתיב מתוקן אוטומטית ל־`/opt/finance-app/update-data` (לוג אזהרה). כך הטריגר מגיע ל־host גם כש־Portainer / stack / compose לא עודכנו.
+
 ## [2.0.40] - 2026-05-10
 
 ### תיקון עדכון עצמי (שרת)

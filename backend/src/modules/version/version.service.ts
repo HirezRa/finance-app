@@ -101,9 +101,19 @@ export class VersionService implements OnModuleInit {
     private readonly appLogs: LogsService,
   ) {
     this.appDir = this.config.get<string>('APP_DIR', '/opt/finance-app').trim();
-    this.updateDataDir = this.config
+    const rawUpdateDataDir = this.config
       .get<string>('UPDATE_DATA_DIR', join(this.appDir, 'update-data'))
       .trim();
+    // Stale Docker/Portainer env: /app/update-data is not bind-mounted to the host while APP_DIR
+    // points at the repo on /opt/finance-app — systemd never sees `.update-requested`.
+    if (rawUpdateDataDir === '/app/update-data' && this.appDir === '/opt/finance-app') {
+      this.updateDataDir = join(this.appDir, 'update-data');
+      this.logger.warn(
+        `UPDATE_DATA_DIR was /app/update-data (legacy); using ${this.updateDataDir}. Update container env / compose on the server.`,
+      );
+    } else {
+      this.updateDataDir = rawUpdateDataDir;
+    }
     this.triggerFile = join(this.updateDataDir, '.update-requested');
     this.statusFile = join(this.updateDataDir, '.update-status.json');
     this.historyFile = join(this.updateDataDir, '.update-history.json');
