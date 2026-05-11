@@ -81,8 +81,12 @@ export class TransactionsExportService {
     });
 
     if (useCycle && month != null && year != null) {
-      transactions = transactions.filter((t) =>
-        isInBudgetCycle(anchorDate(t), year, month, cycleStartDay),
+      /** Include if bank `date` or `effectiveDate` falls in this budget month (anchor alone hid May bank salaries shifted to June effective). */
+      const inCycle = (d: Date) => isInBudgetCycle(d, year, month, cycleStartDay);
+      transactions = transactions.filter(
+        (t) =>
+          inCycle(t.date) ||
+          (t.effectiveDate != null && inCycle(t.effectiveDate)),
       );
     }
 
