@@ -2,6 +2,16 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.42] - 2026-05-11
+
+### לוגים ואבחון (סנכרון / עדכון גרסה)
+
+- **גרסת סקרייפר ודפדפן**: מילוי `scraperGitSha` (env / `.git` / `package-lock`) ו־`browserVersion` (env / `chromium --version`).
+- **שגיאות סנכרון**: `errorFull` / `errorCause` / `stackHead` עקביים; רמז כשאין אבחון Puppeteer מהחבילה; redaction למחרוזות חיבור ב־meta.
+- **ייצוא**: `GET /logs/export?preset=diagnostic` — פחות רעש (sync/scraper/version/update + WARN/ERROR); כפתור בהגדרות.
+- **עדכון גרסה**: רישום טריגר מפורט; שיקוף כישלון/rollback מ־`.update-status.json` ללוג האפליקציה.
+- **תיעוד**: [`docs/SELF_UPDATE_MANUAL.md`](docs/SELF_UPDATE_MANUAL.md), עדכון [`LOGGING_GUIDE.md`](LOGGING_GUIDE.md).
+
 ## [2.0.41] - 2026-05-10
 
 ### תיקון עדכון עצמי (runtime)

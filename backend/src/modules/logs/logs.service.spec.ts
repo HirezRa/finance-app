@@ -39,6 +39,19 @@ describe('LogsService — sync trace invariants', () => {
     expect(logs.every((e) => e.meta?.['syncRunId'] === 'bbb')).toBe(true);
   });
 
+  it('exportTrace preset=diagnostic keeps sync WARN|ERROR only', () => {
+    svc.add('DEBUG', 'api', 'x', {});
+    svc.add('INFO', 'sync', 'sync_start', { syncRunId: 'z' });
+    svc.add('WARN', 'sync', 'sync_end', { syncRunId: 'z', status: 'partial' });
+    svc.add('ERROR', 'scraper', 'yahav: timeout', {});
+    const { logs, totalMatched } = svc.exportTrace({ preset: 'diagnostic' });
+    expect(totalMatched).toBe(2);
+    expect(logs.every((e) => e.level === 'WARN' || e.level === 'ERROR')).toBe(
+      true,
+    );
+    expect(logs.every((e) => ['sync', 'scraper', 'version', 'update'].includes(e.category))).toBe(true);
+  });
+
   it('buildErrorFingerprint differs when selectorPrimary differs', () => {
     const a = svc.buildErrorFingerprint({
       errorKind: 'ui_selector_timeout',

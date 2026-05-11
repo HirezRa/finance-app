@@ -11,6 +11,8 @@ import {
 import type { LogCategory, LogLevel } from '../logs.types';
 
 const LEVELS: LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
+const LIST_PRESETS = ['diagnostic'] as const;
+
 const CATEGORIES: LogCategory[] = [
   'sync',
   'account',
@@ -47,4 +49,8 @@ export class ListLogsQueryDto {
   @Min(1)
   @Max(1000)
   limit?: number;
+
+  @IsOptional()
+  @IsIn([...LIST_PRESETS])
+  preset?: (typeof LIST_PRESETS)[number];
 }
