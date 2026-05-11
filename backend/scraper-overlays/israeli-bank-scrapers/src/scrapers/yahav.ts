@@ -10,9 +10,10 @@ import {
 } from '../helpers/elements-interactions';
 import { waitForNavigation } from '../helpers/navigation';
 import { getRawTransaction } from '../helpers/transactions';
-import { TransactionStatuses, TransactionTypes, type Transaction, type TransactionsAccount } from '../transactions';
+import { TransactionTypes, type Transaction, type TransactionsAccount } from '../transactions';
 import { BaseScraperWithBrowser, LoginResults, type PossibleLoginResults } from './base-scraper-with-browser';
 import { type ScraperOptions } from './interface';
+import { parseYahavTransactionRowCells, type YahavScrapedRow } from './yahav-parse';
 
 const LOGIN_URL = 'https://login.yahav.co.il/login/';
 const BASE_URL = 'https://digital.yahav.co.il/BaNCSDigitalUI/app/index.html#/';
@@ -29,14 +30,19 @@ const PASSWD_ELEM = '#password';
 const NATIONALID_ELEM = '#pinno';
 const SUBMIT_LOGIN_SELECTOR = '.btn';
 
-interface ScrapedTransaction {
-  credit: string;
-  debit: string;
-  date: string;
-  reference?: string;
-  description: string;
-  memo: string;
-  status: TransactionStatuses;
+function yahavDebugLog(message: string, extra?: Record<string, unknown>) {
+  if (process.env.YAHAV_DEBUG_DOM !== '1' && process.env.YAHAV_DEBUG_DOM !== 'true') {
+    return;
+  }
+  const suffix = extra ? ` ${JSON.stringify(extra)}` : '';
+  // eslint-disable-next-line no-console
+  console.warn(`[YAHAV_DEBUG_DOM] ${message}${suffix}`);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms);
+  });
 }
 
 async function runYahavStage<T>(stage: string, fn: () => Promise<T>): Promise<T> {
@@ -87,29 +93,23 @@ function getAmountData(amountStr: string) {
   return parseFloat(amountStrCopy);
 }
 
-function getTxnAmount(txn: ScrapedTransaction) {
+function getTxnAmount(txn: YahavScrapedRow) {
   const credit = getAmountData(txn.credit);
   const debit = getAmountData(txn.debit);
   return (Number.isNaN(credit) ? 0 : credit) - (Number.isNaN(debit) ? 0 : debit);
 }
 
-type TransactionsTr = { id: string; innerDivs: string[] };
-
-function convertTransactions(txns: ScrapedTransaction[], options?: ScraperOptions): Transaction[] {
+function convertTransactions(txns: YahavScrapedRow[], options?: ScraperOptions): Transaction[] {
   const out: Transaction[] = [];
   for (const txn of txns) {
     const m = moment(txn.date, DATE_FORMAT, true);
     if (!m.isValid()) {
-      if (process.env.YAHAV_DEBUG_DOM === '1') {
-        // eslint-disable-next-line no-console
-        console.error(`[Yahav DEBUG] skipping row: invalid date ${JSON.stringify(txn.date)}`);
-      }
       continue;
     }
     const convertedDate = m.toISOString();
     const convertedAmount = getTxnAmount(txn);
     const ref = (txn.reference ?? '').trim();
-    /** `referenceNumber` נכנס ל-hash לפני `identifier` (scraper.service) — מחרוזת מלאה נמנעת מאיבוד אסמכתא (למשל parseInt על "25-…"). */
+    /** Finance App: `referenceNumber` preferred in scraperHash (see ScraperService.generateTransactionHash). */
     const result = {
       type: TransactionTypes.Normal,
       referenceNumber: ref || undefined,
@@ -132,148 +132,96 @@ function convertTransactions(txns: ScrapedTransaction[], options?: ScraperOption
   return out;
 }
 
-/** Yahav row cells sometimes repeat DD/MM/YYYY in nested divs — skip duplicates before mapping columns. */
-const CELL_DATE_RE = /^\s*\d{1,2}\/\d{1,2}\/\d{4}\s*$/;
+type YahavRowEval = { id: string; cellTexts: string[] };
 
-function digitDensity(s: string): number {
-  const t = s.trim();
-  if (!t) return 0;
-  const digits = (t.match(/\d/g) || []).length;
-  return digits / t.length;
-}
-
-/** Amount cells: digits with optional thousands commas and decimal part (Yahav statement table). */
-function isLikelyAmountCell(s: string): boolean {
-  const t = s.trim().replace(/\u200f|\u200e/g, '');
-  if (!t || t === '—' || t === '-' || t === '–') return false;
-  return /^-?[\d,]+(\.\d{1,2})?$/.test(t.replace(/\s/g, ''));
-}
-
-/**
- * Last two amount-like cells are debit then credit (legacy Yahav order).
- * Middle cells: reference vs description — prefer numeric-looking for אסמכתא.
- */
-function mapMiddleToRefDesc(middle: string[]): { reference: string; description: string } {
-  const regex = /\D+/gm;
-  const cleaned = middle.map((s) => s.trim()).filter(Boolean);
-  if (cleaned.length === 0) {
-    return { reference: '', description: '' };
-  }
-  if (cleaned.length === 1) {
-    const only = cleaned[0];
-    if (digitDensity(only) >= 0.55 && only.replace(/\D/g, '').length >= 4) {
-      return { reference: only.replace(regex, ''), description: '' };
-    }
-    return { reference: '', description: only };
-  }
-  let bestIdx = 0;
-  let bestScore = -1;
-  for (let i = 0; i < cleaned.length; i++) {
-    const sc = digitDensity(cleaned[i]);
-    if (sc > bestScore) {
-      bestScore = sc;
-      bestIdx = i;
+async function scrollYahavTransactionListFully(page: Page) {
+  const rowSelector = '.list-item-holder .entire-content-ctr';
+  let lastCount = -1;
+  let stableRounds = 0;
+  for (let i = 0; i < 45; i += 1) {
+    const count = await page.$$eval(rowSelector, els => els.length);
+    await page.evaluate(rs => {
+      const rows = document.querySelectorAll(rs);
+      const last = rows[rows.length - 1];
+      if (last instanceof HTMLElement) {
+        last.scrollIntoView({ block: 'end' });
+      }
+      document.querySelectorAll('.list-item-holder').forEach(holder => {
+        if (holder instanceof HTMLElement) {
+          holder.scrollTop = holder.scrollHeight;
+        }
+      });
+    }, rowSelector);
+    await delay(120);
+    if (count === lastCount) {
+      stableRounds += 1;
+      if (stableRounds >= 3) {
+        break;
+      }
+    } else {
+      stableRounds = 0;
+      lastCount = count;
     }
   }
-  const reference = cleaned[bestIdx].replace(regex, '');
-  const description = cleaned.filter((_, i) => i !== bestIdx).join(' ').trim();
-  return { reference, description };
-}
-
-function extractDebitCreditAndMiddle(cells: string[]): { middle: string[]; debit: string; credit: string } | null {
-  if (cells.length < 2) return null;
-  let end = cells.length - 1;
-  while (end >= 0 && !isLikelyAmountCell(cells[end])) end--;
-  if (end < 1) return null;
-  let prev = end - 1;
-  while (prev >= 0 && !isLikelyAmountCell(cells[prev])) prev--;
-  if (prev < 0) return null;
-  return {
-    middle: cells.slice(0, prev),
-    debit: cells[prev],
-    credit: cells[end],
-  };
-}
-
-function handleTransactionRow(txns: ScrapedTransaction[], txnRow: TransactionsTr) {
-  const raw = txnRow.innerDivs.map((s) => s.trim()).filter((s) => s.length > 0);
-
-  let i = 0;
-  while (i < raw.length && !CELL_DATE_RE.test(raw[i])) i++;
-  if (i >= raw.length) {
-    if (process.env.YAHAV_DEBUG_DOM === '1') {
-      // eslint-disable-next-line no-console
-      console.error(`[Yahav DEBUG] row ${txnRow.id || '?'}: no DD/MM/YYYY cell among ${raw.length} fragments`);
-    }
-    return;
-  }
-  const date = raw[i].trim();
-  i += 1;
-  while (i < raw.length && CELL_DATE_RE.test(raw[i])) i += 1;
-
-  const rest = raw.slice(i);
-  const tail = extractDebitCreditAndMiddle(rest);
-  if (!tail) {
-    if (process.env.YAHAV_DEBUG_DOM === '1') {
-      // eslint-disable-next-line no-console
-      console.error(
-        `[Yahav DEBUG] row ${txnRow.id || '?'}: could not find debit/credit amounts in ${JSON.stringify(rest)}`,
-      );
-    }
-    return;
-  }
-
-  const { reference, description } = mapMiddleToRefDesc(tail.middle);
-
-  const tx: ScrapedTransaction = {
-    date,
-    reference,
-    memo: '',
-    description,
-    debit: tail.debit,
-    credit: tail.credit,
-    status: TransactionStatuses.Completed,
-  };
-
-  txns.push(tx);
 }
 
 async function getAccountTransactions(page: Page, options?: ScraperOptions): Promise<Transaction[]> {
-  // Wait for transactions.
   await waitUntilElementFound(page, '.under-line-txn-table-header', true);
 
-  const txns: ScrapedTransaction[] = [];
-  const transactionsDivs = await pageEvalAll<TransactionsTr[]>(
-    page,
-    '.list-item-holder .entire-content-ctr',
-    [],
-    divs => {
-      return (divs as HTMLElement[]).map(div => ({
-        id: div.getAttribute('id') || '',
-        innerDivs: Array.from(div.getElementsByTagName('div')).map(el => (el as HTMLElement).innerText),
-      }));
-    },
-  );
+  yahavDebugLog('page snapshot', { url: page.url() });
 
-  if (process.env.YAHAV_DEBUG_DOM === '1') {
-    const statementHref = await page.evaluate(() => window.location.href).catch(() => '');
-    // eslint-disable-next-line no-console
-    console.error(
-      `[Yahav DEBUG] transaction rows from DOM: ${transactionsDivs.length} container(s), href=${statementHref}`,
-    );
+  await scrollYahavTransactionListFully(page);
+
+  const rowSelectors = ['.list-item-holder .entire-content-ctr', '.entire-content-ctr'];
+  let transactionsDivs: YahavRowEval[] = [];
+
+  for (const sel of rowSelectors) {
+    const count = await page.$$eval(sel, els => els.length);
+    yahavDebugLog('row selector probe', { selector: sel, count });
+    transactionsDivs = await pageEvalAll<YahavRowEval[]>(page, sel, [], divs => {
+      return (divs as HTMLElement[]).map(div => {
+        const fromChildren = Array.from(div.children)
+          .map(ch => (ch instanceof HTMLElement ? ch.innerText : '').replace(/\s+/g, ' ').trim())
+          .filter(Boolean);
+        let cellTexts = fromChildren;
+        if (cellTexts.length < 4) {
+          const directDivs = Array.from(div.querySelectorAll(':scope > div')).map(d =>
+            (d as HTMLElement).innerText.replace(/\s+/g, ' ').trim(),
+          );
+          const uniq = directDivs.filter(Boolean);
+          if (uniq.length > cellTexts.length) {
+            cellTexts = uniq;
+          }
+        }
+        return {
+          id: div.getAttribute('id') || '',
+          cellTexts,
+        };
+      });
+    });
+    if (transactionsDivs.length > 0) {
+      break;
+    }
   }
 
+  const txns: YahavScrapedRow[] = [];
+  const seen = new Set<string>();
   for (const txnRow of transactionsDivs) {
-    handleTransactionRow(txns, txnRow);
+    const parsed = parseYahavTransactionRowCells(txnRow.cellTexts);
+    if (!parsed) {
+      continue;
+    }
+    const key = `${parsed.date}|${parsed.reference ?? ''}|${parsed.description}|${parsed.debit}|${parsed.credit}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    txns.push(parsed);
   }
 
-  const converted = convertTransactions(txns, options);
-  if (process.env.YAHAV_DEBUG_DOM === '1') {
-    // eslint-disable-next-line no-console
-    console.error(`[Yahav DEBUG] parsed scrap rows=${txns.length}, valid transactions=${converted.length}`);
-  }
+  yahavDebugLog('parsed transactions', { count: txns.length });
 
-  return converted;
+  return convertTransactions(txns, options);
 }
 
 function getPageActionTimeoutMs(page: Page): number {
@@ -388,20 +336,39 @@ async function openYahavFromDatePicker(page: Page): Promise<'calendar' | 'input'
   );
 }
 
-async function setYahavFromDateInput(page: Page, dateValue: string): Promise<boolean> {
-  const selectors = [
-    'div.date-options-cell input',
-    '.statement-options input[type="date"]',
-    '.statement-options input',
-  ];
+async function clickYahavStatementSearchIfPresent(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const scope =
+      document.querySelector('.statement-options') || document.querySelector('[class*="statement"]') || document.body;
+    const buttons = Array.from(scope.querySelectorAll('button'));
+    const match = buttons.find(b => {
+      const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
+      return /חפש|חיפוש|הצג|עדכון/i.test(t);
+    });
+    if (match instanceof HTMLElement) {
+      match.click();
+    }
+  });
+  await delay(200);
+}
 
-  for (const selector of selectors) {
-    const changed = await page.evaluate(
-      (s: string, value: string) => {
-        const input = document.querySelector(s);
-        if (!(input instanceof HTMLInputElement)) {
-          return false;
+/** Sets "from" on the first date cell input and "to" on the second when present (avoids hitting "to" only). */
+async function setYahavDateRangeInputs(page: Page, fromFormatted: string, toFormatted: string): Promise<boolean> {
+  return page.evaluate(
+    (fromVal, toVal) => {
+      const root = document.querySelector('.statement-options') || document.body;
+      const cells = Array.from(root.querySelectorAll('div.date-options-cell'));
+      const inputs: HTMLInputElement[] = [];
+      for (const cell of cells) {
+        const inp = cell.querySelector('input');
+        if (inp instanceof HTMLInputElement) {
+          inputs.push(inp);
         }
+      }
+      if (inputs.length === 0) {
+        return false;
+      }
+      const apply = (input: HTMLInputElement, value: string) => {
         input.scrollIntoView({ block: 'center', inline: 'nearest' });
         input.focus();
         input.value = '';
@@ -409,18 +376,16 @@ async function setYahavFromDateInput(page: Page, dateValue: string): Promise<boo
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
         input.dispatchEvent(new Event('blur', { bubbles: true }));
-        return true;
-      },
-      selector,
-      dateValue,
-    );
-
-    if (changed) {
+      };
+      apply(inputs[0], fromVal);
+      if (inputs.length >= 2) {
+        apply(inputs[1], toVal);
+      }
       return true;
-    }
-  }
-
-  return false;
+    },
+    fromFormatted,
+    toFormatted,
+  );
 }
 
 // Manipulate the calendar drop down to choose the txs start date.
@@ -432,11 +397,16 @@ async function searchByDates(page: Page, startDate: Moment) {
 
   const pickerMode = await runYahavStage('open from-date picker', () => openYahavFromDatePicker(page));
   if (pickerMode === 'input') {
-    const formattedDate = startDate.format(DATE_FORMAT);
-    const setInput = await runYahavStage('set from-date input', () => setYahavFromDateInput(page, formattedDate));
+    const formattedFrom = startDate.format(DATE_FORMAT);
+    const formattedTo = moment().format(DATE_FORMAT);
+    const setInput = await runYahavStage('set date range inputs', () =>
+      setYahavDateRangeInputs(page, formattedFrom, formattedTo),
+    );
     if (!setInput) {
-      throw new Error('Yahav: fallback input mode selected but failed to set from-date input.');
+      throw new Error('Yahav: fallback input mode selected but failed to set from/to date inputs.');
     }
+    await runYahavStage('post-input search click', () => clickYahavStatementSearchIfPresent(page));
+    await waitYahavLoadingSpinnerGoneIfPresent(page);
     return;
   }
 
@@ -452,7 +422,7 @@ async function searchByDates(page: Page, startDate: Moment) {
   await runYahavStage('open year options', () => clickButton(page, monthFromPick));
   await runYahavStage('wait year grid', () => waitUntilElementFound(page, '.pmu-years > div:nth-child(1)', true));
 
-  // Select year from a 12 year grid.
+  let yearMatched = false;
   for (let i = 1; i < 13; i += 1) {
     const selector = `.pmu-years > div:nth-child(${i})`;
     const year = await page.$eval(selector, y => {
@@ -460,8 +430,12 @@ async function searchByDates(page: Page, startDate: Moment) {
     });
     if (startDateYear === year) {
       await runYahavStage(`select year ${startDateYear}`, () => clickButton(page, selector));
+      yearMatched = true;
       break;
     }
+  }
+  if (!yearMatched) {
+    throw new Error(`Yahav: calendar year ${startDateYear} not found in year grid.`);
   }
 
   // Select Month.
@@ -472,21 +446,38 @@ async function searchByDates(page: Page, startDate: Moment) {
   const monthSelector = `.pmu-months > div:nth-child(${startDateMonth})`;
   await runYahavStage(`select month ${startDateMonth}`, () => clickButton(page, monthSelector));
 
-  // Select Day.
-  // The calendar grid shows 7 days and 6 weeks = 42 days.
-  // In theory, the first day of the month will be in the first row.
-  // Let's check everything just in case...
-  for (let i = 1; i < 42; i += 1) {
+  let dayChosen = false;
+  for (let i = 1; i < 43; i += 1) {
     const selector = `.pmu-days > div:nth-child(${i})`;
-    const day = await page.$eval(selector, d => {
-      return (d as HTMLElement).innerText;
-    });
-
-    if (startDateDay === day) {
-      await runYahavStage(`select day ${startDateDay}`, () => clickButton(page, selector));
+    const clicked = await page.evaluate(
+      (sel: string, day: string) => {
+        const el = document.querySelector(sel);
+        if (!(el instanceof HTMLElement)) {
+          return false;
+        }
+        if (el.classList.contains('pmu-disabled')) {
+          return false;
+        }
+        if ((el.innerText || '').trim() !== day) {
+          return false;
+        }
+        el.click();
+        return true;
+      },
+      selector,
+      startDateDay,
+    );
+    if (clicked) {
+      dayChosen = true;
       break;
     }
   }
+  if (!dayChosen) {
+    throw new Error(`Yahav: calendar day ${startDateDay} not found in a non-disabled .pmu-days cell.`);
+  }
+
+  await runYahavStage('post-calendar search click', () => clickYahavStatementSearchIfPresent(page));
+  await waitYahavLoadingSpinnerGoneIfPresent(page);
 }
 
 async function fetchAccountData(
