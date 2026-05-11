@@ -112,6 +112,14 @@ export class VersionService implements OnModuleInit {
 
   onModuleInit(): void {
     this.ensureUpdateDataDir();
+    const selfUpdate = String(
+      this.config.get('SELF_UPDATE_ENABLED', 'false'),
+    ).toLowerCase();
+    if (selfUpdate === 'true' || selfUpdate === '1') {
+      this.logger.log(
+        `Self-update paths: APP_DIR=${this.appDir} UPDATE_DATA_DIR=${this.updateDataDir} trigger=${this.triggerFile}`,
+      );
+    }
   }
 
   private ensureUpdateDataDir(): void {
