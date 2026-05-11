@@ -256,7 +256,7 @@ export class ScraperService {
           : 0;
     const amountStr = Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
 
-    const idRaw = txn.identifier ?? txn.referenceNumber;
+    const idRaw = txn.referenceNumber ?? txn.identifier;
     const bankId =
       idRaw === null || idRaw === undefined || idRaw === '' ? '' : String(idRaw);
 
@@ -1611,7 +1611,7 @@ export class ScraperService {
               ? Number(txn.amount)
               : 0;
 
-        const idRaw = txn.identifier ?? txn.referenceNumber;
+        const idRaw = txn.referenceNumber ?? txn.identifier;
         const identifier =
           idRaw === null || idRaw === undefined || idRaw === '' ? '' : String(idRaw);
         const memo = txn.memo !== undefined && txn.memo !== null ? String(txn.memo) : '';
@@ -1704,6 +1704,13 @@ export class ScraperService {
             this.logger.log(`Updated pending -> completed (same hash): ${description}`);
           } else {
             skipped++;
+            this.appLogs.add('DEBUG', 'sync', 'duplicate_skipped_existing_scraper_hash', {
+              accountId,
+              descriptionPreview: description.slice(0, 80),
+              existingTransactionId: existingByHash.id,
+              incomingStatus: status,
+              existingStatus: existingByHash.status,
+            });
           }
           continue;
         }
