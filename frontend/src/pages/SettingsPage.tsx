@@ -318,6 +318,34 @@ function LogsSettings() {
     toast.success('הקובץ הורד');
   };
 
+  const exportDiagnosticLogs = async () => {
+    try {
+      const res = await logsApi.exportBundle({
+        preset: 'diagnostic',
+        limit: 1000,
+      });
+      const blob = new Blob(
+        [
+          JSON.stringify(
+            { logs: res.data.logs, totalMatched: res.data.totalMatched },
+            null,
+            2,
+          ),
+        ],
+        { type: 'application/json;charset=utf-8' },
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `finance-app-logs-diagnostic-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`הורד אבחון — ${res.data.totalMatched} רשומות תואמות`);
+    } catch {
+      toast.error('שגיאה בייצוא אבחון');
+    }
+  };
+
   const errMsg =
     error &&
     typeof error === 'object' &&
@@ -415,6 +443,15 @@ function LogsSettings() {
             >
               <Download className="ms-2 h-4 w-4" />
               ייצוא JSON
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => void exportDiagnosticLogs()}
+            >
+              <Download className="ms-2 h-4 w-4" />
+              ייצוא אבחון (sync/scraper/version)
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>

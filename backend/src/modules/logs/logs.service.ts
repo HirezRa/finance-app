@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
+import { execFileSync } from 'child_process';
 import {
   existsSync,
   mkdirSync,
@@ -9,6 +10,7 @@ import {
   unlinkSync,
 } from 'fs';
 import { join } from 'path';
+import { shortenSyncErrorMessage } from '../../common/utils/sync-error-message';
 import { APP_VERSION } from '../../version';
 import type {
   AppLogEntry,
@@ -47,6 +49,9 @@ export class LogsService implements OnModuleInit {
   private readonly logger = new Logger(LogsService.name);
   private entries: AppLogEntry[] = [];
   private readonly filePath: string;
+  /** null = not computed yet */
+  private scraperGitShaMemo: string | undefined | null = null;
+  private browserVersionMemo: string | undefined | null = null;
 
   constructor() {
     const dir = join(process.cwd(), 'logs');
@@ -100,15 +105,22 @@ export class LogsService implements OnModuleInit {
   }
 
   getSyncRuntimeInfo(): SyncRuntimeInfo {
+    const scraperGitSha =
+      (process.env.SCRAPER_GIT_SHA?.trim() || this.resolveScraperGitShaFromDisk()) ??
+      undefined;
+    const browserVersion =
+      process.env.CHROMIUM_VERSION?.trim() ||
+      this.resolveBrowserVersionProbe() ||
+      undefined;
     return {
       appVersion: APP_VERSION,
       scraperPackageVersion: this.getScraperPackageVersion(),
       scraperPackageSource: 'package.json:dependencies.israeli-bank-scrapers',
-      scraperGitSha: process.env.SCRAPER_GIT_SHA,
+      scraperGitSha,
       nodeVersion: process.version,
       nodeEnv: process.env.NODE_ENV ?? 'development',
       browserEngine: 'chromium',
-      browserVersion: process.env.CHROMIUM_VERSION,
+      browserVersion,
       osPlatform: `${process.platform}/${process.arch}`,
       containerImageDigest: process.env.CONTAINER_IMAGE_DIGEST,
     };
@@ -117,15 +129,125 @@ export class LogsService implements OnModuleInit {
   parseDatabaseUrlForLog(url: string | undefined): {
     dbHost?: string;
     dbPort?: number;
+    database?: string;
   } {
     if (!url?.trim()) return {};
     try {
       const u = new URL(url);
       const port = u.port ? parseInt(u.port, 10) : undefined;
-      return { dbHost: u.hostname, dbPort: port };
+      const database = u.pathname?.replace(/^\//, '') || undefined;
+      return { dbHost: u.hostname, dbPort: port, database };
     } catch {
       return {};
     }
+  }
+
+  /** Best-effort SHA for israeli-bank-scrapers (env > .git > package-lock resolved ref). */
+  private resolveScraperGitShaFromDisk(): string | undefined {
+    if (this.scraperGitShaMemo !== null) {
+      return this.scraperGitShaMemo ?? undefined;
+    }
+    const nm = join(process.cwd(), 'node_modules', 'israeli-bank-scrapers');
+    try {
+      const headPath = join(nm, '.git', 'HEAD');
+      if (existsSync(headPath)) {
+        const head = readFileSync(headPath, 'utf-8').trim();
+        if (head.startsWith('ref:')) {
+          const refFile = join(nm, '.git', head.slice(5).trim());
+          if (existsSync(refFile)) {
+            this.scraperGitShaMemo = readFileSync(refFile, 'utf-8').trim();
+            return this.scraperGitShaMemo;
+          }
+        } else if (/^[a-f0-9]{7,40}$/i.test(head)) {
+          this.scraperGitShaMemo = head;
+          return this.scraperGitShaMemo;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      const lockPath = join(process.cwd(), 'package-lock.json');
+      if (!existsSync(lockPath)) {
+        this.scraperGitShaMemo = undefined;
+        return undefined;
+      }
+      const lock = JSON.parse(readFileSync(lockPath, 'utf-8')) as {
+        packages?: Record<string, { resolved?: string }>;
+      };
+      const resolved =
+        lock.packages?.['node_modules/israeli-bank-scrapers']?.resolved ?? '';
+      const m = resolved.match(/#([a-f0-9]{7,40})\b/i);
+      if (m) {
+        this.scraperGitShaMemo = m[1];
+        return this.scraperGitShaMemo;
+      }
+    } catch {
+      /* ignore */
+    }
+    this.scraperGitShaMemo = undefined;
+    return undefined;
+  }
+
+  /** Prefer CHROMIUM_VERSION env; else probe puppeteer Chromium binary once. */
+  private resolveBrowserVersionProbe(): string | undefined {
+    if (this.browserVersionMemo !== null) {
+      return this.browserVersionMemo ?? undefined;
+    }
+    const exe =
+      process.env.PUPPETEER_EXECUTABLE_PATH?.trim() ||
+      process.env.CHROME_BIN?.trim() ||
+      'chromium';
+    try {
+      const out = execFileSync(exe, ['--version'], {
+        encoding: 'utf-8',
+        timeout: 5000,
+        maxBuffer: 256 * 1024,
+      });
+      const line = out.split('\n')[0]?.trim();
+      if (line) {
+        this.browserVersionMemo = line;
+        return line;
+      }
+    } catch {
+      /* ignore */
+    }
+    this.browserVersionMemo = undefined;
+    return undefined;
+  }
+
+  private looksLikeJdbcConnectionString(s: string): boolean {
+    const t = s.trim();
+    return /^(postgres(ql)?|mysql|mariadb|mongodb(\+srv)?|redis):\/\//i.test(t);
+  }
+
+  /** Mask user/password in JDBC-style URLs for safe logging. */
+  redactJdbcConnectionString(raw: string): string {
+    try {
+      const u = new URL(raw.trim());
+      const hostWithPort = u.host;
+      return `${u.protocol}//***:***@${hostWithPort}${u.pathname}${u.search}${u.hash}`;
+    } catch {
+      return '[REDACTED_CONNECTION_STRING]';
+    }
+  }
+
+  private normalizeSyncFailureForLog(failure: SyncFailureMeta): SyncFailureMeta {
+    const stackPart = failure.stackHead?.trim();
+    let errorFull = failure.errorFull?.trim();
+    if (!errorFull && stackPart) {
+      errorFull = `${failure.errorMessage}\n${stackPart}`;
+    }
+    if (errorFull === failure.errorMessage && !stackPart) {
+      errorFull = undefined;
+    }
+    return { ...failure, errorFull: errorFull || undefined };
+  }
+
+  private matchesDiagnosticExport(entry: AppLogEntry): boolean {
+    const cats: LogCategory[] = ['sync', 'scraper', 'version', 'update'];
+    if (!cats.includes(entry.category)) return false;
+    return entry.level === 'WARN' || entry.level === 'ERROR';
   }
 
   classifyErrorKindFromStrings(errorType: string, errorMessage: string): ErrorKind {
@@ -326,16 +448,17 @@ export class LogsService implements OnModuleInit {
     failure: SyncFailureMeta,
     extraMeta?: Record<string, unknown>,
   ): void {
+    const failureNorm = this.normalizeSyncFailureForLog(failure);
     const lifecycleWithSchema: SyncLifecycleEventMeta = {
       ...lifecycle,
       schemaVersion: LOG_SCHEMA_VERSION,
     };
     this.assertCriticalSyncFields(trace, lifecycleWithSchema);
-    this.assertErrorEventFields(trace, failure, eventMessage);
+    this.assertErrorEventFields(trace, failureNorm, eventMessage);
     const merged = this.capMetaSize({
       ...trace,
       ...lifecycleWithSchema,
-      ...failure,
+      ...failureNorm,
       ...extraMeta,
       runtime:
         eventMessage === 'sync_fail'
@@ -398,7 +521,8 @@ export class LogsService implements OnModuleInit {
         errorStage: 'worker_unhandled',
         isRetryable: true,
         errorCode: prismaCode,
-        errorMessage: short,
+        errorMessage: shortenSyncErrorMessage(message),
+        errorFull: message,
         errorFingerprint: this.buildErrorFingerprint({
           errorKind,
           errorStage: 'worker_unhandled',
@@ -500,6 +624,10 @@ export class LogsService implements OnModuleInit {
         out[key] = '[REDACTED]';
         continue;
       }
+      if (typeof raw === 'string' && this.looksLikeJdbcConnectionString(raw)) {
+        out[key] = this.redactJdbcConnectionString(raw);
+        continue;
+      }
       if (typeof raw === 'string' && lower.includes('account') && key !== 'accountRefHash') {
         out[key] = this.maskIdentifier(raw);
         continue;
@@ -558,13 +686,18 @@ export class LogsService implements OnModuleInit {
     category?: LogCategory;
     q?: string;
     limit?: number;
+    preset?: 'diagnostic';
   }): AppLogEntry[] {
     let list = [...this.entries].reverse();
-    if (filters.level) {
-      list = list.filter((e) => e.level === filters.level);
-    }
-    if (filters.category) {
-      list = list.filter((e) => e.category === filters.category);
+    if (filters.preset === 'diagnostic') {
+      list = list.filter((e) => this.matchesDiagnosticExport(e));
+    } else {
+      if (filters.level) {
+        list = list.filter((e) => e.level === filters.level);
+      }
+      if (filters.category) {
+        list = list.filter((e) => e.category === filters.category);
+      }
     }
     if (filters.q?.trim()) {
       const q = filters.q.trim().toLowerCase();
@@ -585,6 +718,7 @@ export class LogsService implements OnModuleInit {
     from?: string;
     to?: string;
     limit?: number;
+    preset?: 'diagnostic';
   }): { logs: AppLogEntry[]; totalMatched: number } {
     let list = [...this.entries];
     if (filters.syncRunId?.trim()) {
@@ -602,6 +736,9 @@ export class LogsService implements OnModuleInit {
     if (filters.to?.trim()) {
       const t1 = new Date(filters.to).getTime();
       list = list.filter((e) => new Date(e.ts).getTime() <= t1);
+    }
+    if (filters.preset === 'diagnostic') {
+      list = list.filter((e) => this.matchesDiagnosticExport(e));
     }
     const totalMatched = list.length;
     const lim = Math.min(filters.limit ?? MAX_LOGS, MAX_LOGS);

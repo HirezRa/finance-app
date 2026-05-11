@@ -91,8 +91,29 @@ Required on ERROR sync events:
 
 ## Export API
 
-`GET /api/v1/logs/export?syncRunId=&providerId=&from=&to=&limit=`  
+`GET /api/v1/logs/export?syncRunId=&providerId=&from=&to=&limit=&preset=`  
 Returns `{ logs, totalMatched }` — all in-buffer events matching filters (same `syncRunId` for a full trace).
+
+- **`preset=diagnostic`** — מצמצם רעש: רק `category` ∈ `sync` | `scraper` | `version` | `update` ו־`level` ∈ `WARN` | `ERROR` (בתוספת `totalMatched` לפני חיתוך `limit`).
+
+## Error fields (`step_fail` / `sync_fail`)
+
+- **`errorMessage`** — קצר, יציב (הצגה בממשק / fingerprint input).
+- **`errorFull`** — הודעה מלאה; אם יש stack — שורת הודעה + `stackHead` (לא כפילות מיותרת של אותו טקסט).
+- **`errorCause`** — אופציונלי, ממקור הסקרייפר אם קיים.
+- **`stackHead`** — 5–15 שורות, חובה כשיש `Error` מקורי; בכשל scraper בלי stack — ממולא מ־`result.stack` אם נשלח מהחבילה.
+
+## Self-update (מחוץ ל-API לוג)
+
+כשל ב־`safe-update.sh` נרשם ב־**מארח**: `logs/update.log`, `update-data/build.log`, `.update-status.json`. ראו [`docs/SELF_UPDATE_MANUAL.md`](docs/SELF_UPDATE_MANUAL.md).
+
+## Upstream: `DEBUG=israeli-bank-scrapers:*`
+
+ניתן להריץ את ה-backend עם משתנה סביבה `DEBUG=israeli-bank-scrapers:*` (ולא `ALLOW_SENSITIVE_DEBUG` בפרודקשן בלי הערכה) כדי שיומן `debug` של החבילה יופיע ב-stdout/stderr — שימושי כש-`browserConsoleErrors` / `failedNetworkRequests` ריקים ביומן Finance. שינויים בבוררי DOM / שלבים — במאגר `israeli-bank-scrapers` (עם עטיפת Finance).
+
+## Redaction
+
+מחרוזות חיבור (`postgresql://…`, `mysql://…`, וכו') נקשרות אוטומטית ב־`LogsService` לפני שמירה. לדאטאבייס רק `db.dbHost` / `db.dbPort` — לא מחרוזת גולמית.
 
 ---
 
@@ -131,6 +152,7 @@ Returns `{ logs, totalMatched }` — all in-buffer events matching filters (same
 - Full trace: `GET /logs/export?syncRunId=<uuid>`
 - Failures: `GET /logs?category=sync&level=ERROR`
 - By provider: `GET /logs/export?providerId=leumi&from=2026-05-01T00:00:00.000Z`
+- Diagnostic bundle (less noise): `GET /logs/export?preset=diagnostic&limit=1000` or `GET /logs?preset=diagnostic&limit=200`
 
 ## Tests
 

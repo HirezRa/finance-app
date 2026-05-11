@@ -4,6 +4,12 @@
 
 **מקור אמת מומלץ:** קובץ `CHANGELOG.md` בשורש הריפו (מסונכרן עם תגי GitHub `v*`). קובץ זה ב־`docs/` משוכפל לנוחות; אם יש סתירה — עדיפות לשורש.
 
+## [2.0.42] - 2026-05-11
+
+### לוגים ואבחון
+
+- מילוי `scraperGitSha` / `browserVersion`; `errorFull` ו-redaction; ייצוא `preset=diagnostic`; שיקוף כישלון עדכון גרסה ללוג; `docs/SELF_UPDATE_MANUAL.md`.
+
 ## [2.0.41] - 2026-05-10
 
 ### תיקון עדכון עצמי (runtime)
