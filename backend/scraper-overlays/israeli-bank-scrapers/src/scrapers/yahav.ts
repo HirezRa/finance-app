@@ -108,9 +108,11 @@ function convertTransactions(txns: ScrapedTransaction[], options?: ScraperOption
     }
     const convertedDate = m.toISOString();
     const convertedAmount = getTxnAmount(txn);
-    const result: Transaction = {
+    const ref = (txn.reference ?? '').trim();
+    /** `referenceNumber` נכנס ל-hash לפני `identifier` (scraper.service) — מחרוזת מלאה נמנעת מאיבוד אסמכתא (למשל parseInt על "25-…"). */
+    const result = {
       type: TransactionTypes.Normal,
-      identifier: txn.reference ? parseInt(txn.reference, 10) : undefined,
+      referenceNumber: ref || undefined,
       date: convertedDate,
       processedDate: convertedDate,
       originalAmount: convertedAmount,
@@ -119,7 +121,7 @@ function convertTransactions(txns: ScrapedTransaction[], options?: ScraperOption
       status: txn.status,
       description: txn.description,
       memo: txn.memo,
-    };
+    } as Transaction;
 
     if (options?.includeRawTransaction) {
       result.rawTransaction = getRawTransaction(txn);
