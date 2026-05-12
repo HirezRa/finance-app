@@ -2,22 +2,10 @@ import {
   getIsraelYearMonth,
   getUtcWideRangeForIsraelMonth,
   daysInMonth,
+  getIsraelYmd,
 } from './israel-calendar';
 
-/** Israel civil Y-M-D for a stored UTC instant (Asia/Jerusalem). */
-export function getIsraelYmd(d: Date): { year: number; month: number; day: number } {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Jerusalem',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-  }).formatToParts(d);
-  return {
-    year: Number(parts.find((p) => p.type === 'year')?.value),
-    month: Number(parts.find((p) => p.type === 'month')?.value),
-    day: Number(parts.find((p) => p.type === 'day')?.value),
-  };
-}
+export { getIsraelYmd };
 
 export type BudgetCycleDay = { y: number; m: number; d: number };
 

@@ -17,6 +17,12 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { computeSalaryEffectiveDateForBankDate } from '../../common/utils/salary-effective-date';
 import {
+  isStrictIsoDateOnly,
+  parseIsoYmdParts,
+  startOfIsraelCivilDayInUtc,
+  endOfIsraelCivilDayInUtc,
+} from '../../common/utils/israel-calendar';
+import {
   withDefaultTransactionCategory,
   uncategorizedTransactionFilter,
 } from '../../common/utils/transaction-category-default';
@@ -163,8 +169,22 @@ export class TransactionsService {
 
     if (startDate || endDate) {
       where.date = {};
-      if (startDate) where.date.gte = new Date(startDate);
-      if (endDate) where.date.lte = new Date(endDate);
+      if (startDate) {
+        if (isStrictIsoDateOnly(startDate)) {
+          const p = parseIsoYmdParts(startDate);
+          where.date.gte = startOfIsraelCivilDayInUtc(p.year, p.month, p.day);
+        } else {
+          where.date.gte = new Date(startDate);
+        }
+      }
+      if (endDate) {
+        if (isStrictIsoDateOnly(endDate)) {
+          const p = parseIsoYmdParts(endDate);
+          where.date.lte = endOfIsraelCivilDayInUtc(p.year, p.month, p.day);
+        } else {
+          where.date.lte = new Date(endDate);
+        }
+      }
     }
 
     if (search) {
