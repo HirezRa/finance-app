@@ -25,7 +25,8 @@
     "fix:credit-charges": "ts-node prisma/fix-credit-charges.ts",
     "fix:transaction-types": "ts-node prisma/fix-transaction-types.ts",
     "fix:budget-sort-order": "ts-node prisma/fix-budget-sort-order.ts",
-    "fix:split-bills": "ts-node prisma/fix-split-bills-category.ts"
+    "fix:split-bills": "ts-node prisma/fix-split-bills-category.ts",
+    "fix:early-income-effective-date": "ts-node prisma/clear-early-month-income-effective-date.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^9.3.1",
