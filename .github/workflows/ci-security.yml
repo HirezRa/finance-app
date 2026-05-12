@@ -16,6 +16,33 @@ jobs:
       - name: Verify VERSION matches package.json and lockfiles
         run: node scripts/verify-version-align.cjs
 
+  lint-typecheck:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - workspace: backend
+            lockfile: backend/package-lock.json
+          - workspace: frontend
+            lockfile: frontend/package-lock.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: ${{ matrix.lockfile }}
+
+      - name: Typecheck (${{ matrix.workspace }})
+        working-directory: ${{ matrix.workspace }}
+        run: |
+          npm ci
+          npm run lint
+
   build:
     runs-on: ubuntu-latest
     steps:
