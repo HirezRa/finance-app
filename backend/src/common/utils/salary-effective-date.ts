@@ -31,6 +31,14 @@ export function computeSalaryEffectiveDateForBankDate(
 
   const { start, end } = clampSalaryRange(salaryStartDay, salaryEndDay);
   const dom = getIsraelDayOfMonth(bankDate);
+  /**
+   * משכורת בסוף חודש (למשל 25–31) מיוחסת לחודש הבא — זה מקרה הליבה.
+   * הפקדות ב־1–14 בחודש לא מזיזות ל־effectiveDate גם אם טווח המשתמש כולל אותן (למשל 1–31 בטעות),
+   * כדי שלא ייעלמו מסיכום/מחזור "מאי" בדשבורד כשהן נכנסו בפועל בתחילת מאי.
+   */
+  if (dom < 15) {
+    return null;
+  }
   if (dom < start || dom > end) {
     return null;
   }

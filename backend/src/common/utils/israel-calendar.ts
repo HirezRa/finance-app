@@ -27,6 +27,83 @@ export function getIsraelDayOfMonth(d: Date): number {
   );
 }
 
+/** Israel civil Y-M-D for a UTC instant (Asia/Jerusalem). */
+export function getIsraelYmd(d: Date): { year: number; month: number; day: number } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(d);
+  return {
+    year: Number(parts.find((p) => p.type === 'year')?.value),
+    month: Number(parts.find((p) => p.type === 'month')?.value),
+    day: Number(parts.find((p) => p.type === 'day')?.value),
+  };
+}
+
+function israelCivilDateBefore(
+  d: Date,
+  year: number,
+  month: number,
+  day: number,
+): boolean {
+  const { year: y, month: m, day: dom } = getIsraelYmd(d);
+  return y < year || (y === year && m < month) || (y === year && m === month && dom < day);
+}
+
+/**
+ * First UTC instant that falls on Israel civil calendar day (year, month, day).
+ */
+export function startOfIsraelCivilDayInUtc(year: number, month: number, day: number): Date {
+  let lo = Date.UTC(year, month - 1, day - 3, 0, 0, 0, 0);
+  let hi = Date.UTC(year, month - 1, day + 3, 0, 0, 0, 0);
+  while (lo < hi - 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (israelCivilDateBefore(new Date(mid), year, month, day)) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return new Date(hi);
+}
+
+/**
+ * Last UTC instant still on Israel civil day (year, month, day).
+ */
+export function endOfIsraelCivilDayInUtc(year: number, month: number, day: number): Date {
+  let ny = year;
+  let nm = month;
+  let nd = day + 1;
+  const dim = daysInMonth(year, month);
+  if (nd > dim) {
+    nd = 1;
+    nm += 1;
+    if (nm > 12) {
+      nm = 1;
+      ny += 1;
+    }
+  }
+  const nextStart = startOfIsraelCivilDayInUtc(ny, nm, nd);
+  return new Date(nextStart.getTime() - 1);
+}
+
+const ISO_YMD = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Parse strict `YYYY-MM-DD` (no time / zone). */
+export function parseIsoYmdParts(s: string): { year: number; month: number; day: number } {
+  const m = ISO_YMD.exec(s.trim());
+  if (!m) {
+    throw new Error(`Expected YYYY-MM-DD, got: ${s}`);
+  }
+  return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) };
+}
+
+export function isStrictIsoDateOnly(s: string): boolean {
+  return ISO_YMD.test(s.trim());
+}
+
 /** Gregorian month length (Israel uses Gregorian). month 1–12 */
 export function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
