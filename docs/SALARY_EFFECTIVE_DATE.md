@@ -16,10 +16,57 @@
 
 ## תיקון נתונים קיימים (אופציונלי)
 
+מומלץ **גיבוי DB** לפני `--execute` או לפני ה־`UPDATE`.
+
 אם היו רשומות עם `effectiveDate` בחודש הבא למרות שהפקדה הייתה ב־1–14 בחודש הישראלי, אפשר:
 
 1. לשמור שוב את טווח המשכורת בהגדרות (כדי להפעיל את הלוגיקה המעודכנת), או  
-2. להריץ תסריט SQL/תחזוקה שמאפס `effectiveDate` ל־`NULL` לעסקאות רלוונטיות (מומלץ גיבוי לפני).
+2. להריץ את סקריפט Prisma (מומלץ — אותה לוגיקת `getIsraelYmd` כמו בקוד):
+
+   מתוך `backend/`:
+
+   ```bash
+   # תצוגה בלבד (ברירת מחדל)
+   npx ts-node prisma/clear-early-month-income-effective-date.ts
+
+   # מאי 2026 בלוח ישראלי, ימים 1–14, כל המשתמשים — ביצוע
+   BANK_YEAR=2026 BANK_MONTH=5 npx ts-node prisma/clear-early-month-income-effective-date.ts --execute
+
+   # משתמש בודד
+   BANK_YEAR=2026 BANK_MONTH=5 USER_ID='<uuid>' npx ts-node prisma/clear-early-month-income-effective-date.ts --execute
+   ```
+
+   ב־Windows (PowerShell) אפשר: `$env:BANK_YEAR=2026; $env:BANK_MONTH=5; npx ts-node prisma/clear-early-month-income-effective-date.ts --execute`
+
+3. **SQL ישיר (PostgreSQL)** — מקביל ללוגיקה למעלה (הכנסה, תאריך בנק במאי 2026 ב־`Asia/Jerusalem`, יום 1–14, `effectiveDate` לא ריק):
+
+   ```sql
+   -- תצוגה מקדימה
+   SELECT t.id,
+          t.date,
+          t."effectiveDate",
+          (t.date AT TIME ZONE 'Asia/Jerusalem')::date AS bank_date_il
+   FROM "Transaction" t
+   INNER JOIN "Category" c ON c.id = t."categoryId"
+   WHERE t."effectiveDate" IS NOT NULL
+     AND c."isIncome" = true
+     AND EXTRACT(YEAR  FROM (t.date AT TIME ZONE 'Asia/Jerusalem'))::int = 2026
+     AND EXTRACT(MONTH FROM (t.date AT TIME ZONE 'Asia/Jerusalem'))::int = 5
+     AND EXTRACT(DAY   FROM (t.date AT TIME ZONE 'Asia/Jerusalem'))::int < 15;
+
+   -- עדכון (הרץ רק אחרי בדיקת ה-SELECT)
+   UPDATE "Transaction" t
+   SET "effectiveDate" = NULL
+   FROM "Category" c
+   WHERE c.id = t."categoryId"
+     AND t."effectiveDate" IS NOT NULL
+     AND c."isIncome" = true
+     AND EXTRACT(YEAR  FROM (t.date AT TIME ZONE 'Asia/Jerusalem'))::int = 2026
+     AND EXTRACT(MONTH FROM (t.date AT TIME ZONE 'Asia/Jerusalem'))::int = 5
+     AND EXTRACT(DAY   FROM (t.date AT TIME ZONE 'Asia/Jerusalem'))::int < 15;
+   ```
+
+   להגבלה למשתמש אחד הוסף `INNER JOIN "Account" a ON a.id = t."accountId" AND a."userId" = '<uuid>'` גם ב־SELECT וגם ב־UPDATE.
 
 ## סינון לפי `startDate` / `endDate` (API עסקאות)
 
