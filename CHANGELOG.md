@@ -2,6 +2,13 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.46] - 2026-05-12
+
+### תלויות (סקרייפר)
+
+- **israeli-bank-scrapers** / **@hirez10/israeli-bank-scrapers** → תג Git [hirez-v1.0.19](https://github.com/HirezRa/israeli-bank-scrapers/releases/tag/hirez-v1.0.19).
+- **Overlay יהב** (`scraper-overlays/.../yahav.ts`) מסונכרן עם `yahav.ts` מ־upstream v1.0.19 (כולל שינויים upstream; `referenceNumber` כבר בפורק).
+
 ## [2.0.45] - 2026-05-12
 
 ### תיקון Yahav (משכורות / רשימה וירטואלית)
