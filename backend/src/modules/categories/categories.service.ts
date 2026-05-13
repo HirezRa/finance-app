@@ -13,13 +13,7 @@ import {
   isInBudgetCycle,
   getBudgetCycleLabelForIsraelDate,
 } from '../../common/utils/budget-cycle';
-
-function cashFlowAnchorDate(t: {
-  date: Date;
-  effectiveDate: Date | null;
-}): Date {
-  return t.effectiveDate ?? t.date;
-}
+import { cashFlowAnchorDateForTxn } from '../../common/utils/salary-effective-date';
 
 @Injectable()
 export class CategoriesService {
@@ -652,7 +646,7 @@ export class CategoriesService {
 
       const transactions = transactionsRaw.filter((t) =>
         isInBudgetCycle(
-          cashFlowAnchorDate(t),
+          cashFlowAnchorDateForTxn(t),
           targetYear,
           targetMonth,
           cycleStartDay,

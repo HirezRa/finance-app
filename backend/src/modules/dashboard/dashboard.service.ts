@@ -10,13 +10,7 @@ import {
   shiftBudgetCycleLabel,
 } from '../../common/utils/budget-cycle';
 import { withDefaultTransactionCategory } from '../../common/utils/transaction-category-default';
-
-function cashFlowAnchorDate(t: {
-  date: Date;
-  effectiveDate: Date | null;
-}): Date {
-  return t.effectiveDate ?? t.date;
-}
+import { cashFlowAnchorDateForTxn } from '../../common/utils/salary-effective-date';
 
 @Injectable()
 export class DashboardService {
@@ -115,10 +109,14 @@ export class DashboardService {
           { effectiveDate: { gte: rangeStart, lte: rangeEnd } },
         ],
       },
-      select: { date: true, effectiveDate: true },
+      select: {
+        date: true,
+        effectiveDate: true,
+        category: { select: { isIncome: true } },
+      },
     });
     const countThisCycle = inMonthRows.filter((r) =>
-      isInBudgetCycle(cashFlowAnchorDate(r), y, m, cycleStartDay),
+      isInBudgetCycle(cashFlowAnchorDateForTxn(r), y, m, cycleStartDay),
     ).length;
 
     if (countThisCycle > 0) {
@@ -230,7 +228,7 @@ export class DashboardService {
     });
 
     const transactions = transactionsRaw.filter((t) =>
-      isInBudgetCycle(cashFlowAnchorDate(t), targetYear, targetMonth, prefs.cycleStartDay),
+      isInBudgetCycle(cashFlowAnchorDateForTxn(t), targetYear, targetMonth, prefs.cycleStartDay),
     );
 
     this.logger.log(
@@ -377,11 +375,12 @@ export class DashboardService {
           { effectiveDate: { gte: rangeStart, lte: rangeEnd } },
         ],
       },
+      include: { category: { select: { isIncome: true } } },
       orderBy: { date: 'asc' },
     });
 
     const transactions = transactionsRaw.filter((t) =>
-      isInBudgetCycle(cashFlowAnchorDate(t), targetYear, targetMonth, prefs.cycleStartDay),
+      isInBudgetCycle(cashFlowAnchorDateForTxn(t), targetYear, targetMonth, prefs.cycleStartDay),
     );
 
     const buckets = buildBudgetCycleWeekBuckets(
@@ -395,7 +394,7 @@ export class DashboardService {
       startDate: b.startDate,
       endDate: b.endDate,
       total: transactions
-        .filter((t) => israelYmdInDayList(cashFlowAnchorDate(t), b.days))
+        .filter((t) => israelYmdInDayList(cashFlowAnchorDateForTxn(t), b.days))
         .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0),
     }));
   }
@@ -442,7 +441,7 @@ export class DashboardService {
     });
 
     const transactions = transactionsRaw.filter((t) =>
-      isInBudgetCycle(cashFlowAnchorDate(t), targetYear, targetMonth, prefs.cycleStartDay),
+      isInBudgetCycle(cashFlowAnchorDateForTxn(t), targetYear, targetMonth, prefs.cycleStartDay),
     );
 
     const uncategorized = await this.prisma.category.findFirst({
@@ -551,7 +550,7 @@ export class DashboardService {
     for (let i = n - 1; i >= 0; i--) {
       const { month, year } = shiftBudgetCycleLabel(cur.month, cur.year, -i);
       const filtered = raw.filter((t) =>
-        isInBudgetCycle(cashFlowAnchorDate(t), year, month, cycleStartDay),
+        isInBudgetCycle(cashFlowAnchorDateForTxn(t), year, month, cycleStartDay),
       );
 
       const income = { total: 0 };

@@ -4,6 +4,10 @@
 
 **מקור אמת מומלץ:** קובץ `CHANGELOG.md` בשורש הריפו (מסונכרן עם תגי GitHub `v*`). קובץ זה ב־`docs/` משוכפל לנוחות; אם יש סתירה — עדיפות לשורש.
 
+## [2.0.51] - 2026-05-13
+
+- עוגן תזרים להכנסה ימים 1–14 בלוח ישראלי: תמיד `date` מול `effectiveDate` legacy (`cashFlowAnchorDateForTxn`).
+
 ## [2.0.50] - 2026-05-13
 
 - Dockerfile builder: `PUPPETEER_SKIP_DOWNLOAD` לפני `npm ci` (כשל Puppeteer בזמן `docker compose build`).
