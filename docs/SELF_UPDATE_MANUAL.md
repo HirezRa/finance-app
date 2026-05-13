@@ -30,12 +30,16 @@ docker compose up -d
 
 ## אחרי כישלון עדכון אוטומטי
 
+**אבחון מהיר:** אם ב־`.update-status.json` מופיע `rolled-back` עם `error` שמכיל **«בנייה נכשלה»** — בדרך כלל נכשל `docker compose build` (זיכרון, רשת ל־npm, או שגיאת TypeScript/Nest), ולא הורדת קוד מ־Git.
+
 ```bash
 sudo journalctl -u finance-app-updater.service -b --no-pager -n 120
 tail -n 200 /opt/finance-app/logs/update.log
 tail -n 200 /opt/finance-app/update-data/build.log
 cat /opt/finance-app/update-data/.update-status.json
 ```
+
+**עדכון ידני מאורח לינוקס (דרך מנהל וירטואלי):** אותן פקודות כמו ב־«פקודות מלאות» למעלה — אחרי התחברות SSH לאורח שבו רץ Docker. דוגמה לסקריפט מהמחשב המקומי דרך SSH לשרת הביניים: `scripts/rebuild_backend_guest.sh` (משתני סביבה — ראו `docs/DEPLOYMENT.md`). פקודות מדויקות לספק וירטואליזציה ספציפי מתועדות ב־[`LOGGING_GUIDE.md`](../LOGGING_GUIDE.md) (סעיף עדכון מאורח).
 
 ## אבחון נתיב טריגר (קונטיינר)
 

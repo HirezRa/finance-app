@@ -302,7 +302,7 @@ main(){
 
   write_status "in-progress" "בונה קונטיינרים..." 55
   if ! build_containers; then
-    rollback "בנייה נכשלה"
+    rollback "בנייה נכשלה — פרטים: ${APP_DIR}/update-data/build.log ו־${APP_DIR}/logs/update.log"
     append_history "rolled-back" "Build failed" "$previous_version" "$previous_version" "$start_ts"
     cleanup
     exit 1
