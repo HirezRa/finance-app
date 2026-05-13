@@ -118,7 +118,7 @@ Returns `{ logs, totalMatched }` — all in-buffer events matching filters (same
 ```bash
 pct exec 100 -- bash -lc 'cd /opt/finance-app && git fetch origin main && git checkout main --force && git pull origin main'
 pct exec 100 -- bash -lc 'cd /opt/finance-app && docker compose exec -T backend npx prisma migrate deploy'
-pct exec 100 -- bash -lc 'cd /opt/finance-app && docker compose build --no-cache backend frontend'
+pct exec 100 -- bash -lc 'cd /opt/finance-app && docker compose build --no-cache backend frontend nginx'
 pct exec 100 -- bash -lc 'cd /opt/finance-app && docker compose up -d'
 pct exec 100 -- bash -lc 'curl -sf --max-time 15 http://localhost/api/v1/health && echo OK'
 ```
@@ -126,7 +126,7 @@ pct exec 100 -- bash -lc 'curl -sf --max-time 15 http://localhost/api/v1/health 
 שורה אחת (בנייה עשויה לארוך דקות):
 
 ```bash
-pct exec 100 -- bash -lc 'cd /opt/finance-app && git fetch origin main && git checkout main --force && git pull origin main && docker compose exec -T backend npx prisma migrate deploy && docker compose build --no-cache backend frontend && docker compose up -d && sleep 10 && curl -sf --max-time 15 http://localhost/api/v1/health'
+pct exec 100 -- bash -lc 'cd /opt/finance-app && git fetch origin main && git checkout main --force && git pull origin main && docker compose exec -T backend npx prisma migrate deploy && docker compose build --no-cache backend frontend nginx && docker compose up -d && sleep 10 && curl -sf --max-time 15 http://localhost/api/v1/health'
 ```
 
 **הערה:** קובץ זה אינו תחת `docs/` בגלל מדיניות `verify-public-docs-safety` (מונע טביעות אצבע של ספק/רשת פנימית בתיעוד ציבורי). סעיף זה מיועד לספריית המפתחים / runbook פנימי.

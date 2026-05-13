@@ -50,7 +50,7 @@ function Invoke-SshChecked {
   }
 }
 
-$guest = "cd $projectOnGuest && git fetch origin main && git checkout main --force && git pull origin main && (docker compose exec -T backend npx prisma migrate deploy || true) && docker compose build --no-cache backend frontend && docker compose down --remove-orphans && docker compose up -d && sleep 10 && curl -sf --max-time 30 --connect-timeout 5 http://localhost/api/v1/health"
+$guest = "cd $projectOnGuest && git fetch origin main && git checkout main --force && git pull origin main && (docker compose exec -T backend npx prisma migrate deploy || true) && docker compose build --no-cache backend frontend nginx && docker compose down --remove-orphans && docker compose up -d && sleep 10 && curl -sf --max-time 30 --connect-timeout 5 http://localhost/api/v1/health"
 
 if (-not $viaPct) {
   $remote = "timeout 3600 bash -c `"$guest`""

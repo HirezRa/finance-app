@@ -37,7 +37,7 @@ git fetch origin main
 git checkout main --force
 git pull origin main
 docker compose exec -T backend npx prisma migrate deploy
-docker compose build --no-cache backend frontend
+docker compose build --no-cache backend frontend nginx
 docker compose up -d
 ```
 
