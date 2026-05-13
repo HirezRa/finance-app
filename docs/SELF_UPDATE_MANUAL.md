@@ -4,15 +4,30 @@
 
 ## פקודות מהירות
 
-מתיקיית המאגר (ברירת מחדל `/opt/finance-app`):
+מתיקיית המאגר (ברירת מחדל `/opt/finance-app`). **חשוב:** אם אחרי `git checkout` של תג או rollback אתם ב־**detached HEAD**, `git pull` לבד ייכשל — תמיד חזרו ל־`main` לפני ה־pull:
 
 ```bash
 cd /opt/finance-app
+git fetch origin main
+git checkout main --force
 git pull origin main
 docker compose up -d --build
 ```
 
 לאחר מכן בדקו תקינות (למשל דרך nginx — אותו נתיב health כמו ב־`HEALTH_CHECK_URL` ב־`scripts/safe-update.sh`). **הערה:** בקונטיינר ה־backend, `prisma migrate deploy` רץ **לפני** ש־Node פותח את פורט 3000; בדקות ראשונות או DB איטי, בקשות ל־API עלולות להיראות «תקועות» עד סיום המיגרציה (ראו `docker compose logs backend`).
+
+## אם `git pull` אומר "You are not currently on a branch"
+
+המאגר ב־**detached HEAD** (למשל אחרי `git checkout v2.0.xx` או rollback). להריץ:
+
+```bash
+cd /opt/finance-app
+git fetch origin main
+git checkout main --force
+git pull origin main
+```
+
+ואז המשיכו לבנייה / `docker compose` לפי הסעיפים למעלה.
 
 ## פקודות מלאות (שקול ל-safe-update)
 

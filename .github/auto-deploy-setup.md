@@ -62,7 +62,7 @@ Optional: `-AutoDeployOnPush` for `FINANCE_AUTO_DEPLOY=true`. Omit for manual-on
 
 ## What the script does
 
-Same as local `deploy_remote_guest.sh`: `git pull`, `prisma migrate deploy`, rebuild backend + frontend images, `docker compose up -d`, health check.
+Same as local `deploy_remote_guest.sh`: `git fetch` + `checkout main` + `git pull`, `prisma migrate deploy`, rebuild backend + frontend images, `docker compose up -d`, health check.
 
 ## Private networks
 
