@@ -94,8 +94,8 @@ fi
 log_line INFO "שלב 2: build הושלם"
 
 write_status 1 restarting "מפעיל מחדש שירותים..." 85
-log_line INFO "שלב 3/4: docker compose up -d"
-if ! docker compose up -d >>"$LOG_FILE" 2>&1; then
+log_line INFO "שלב 3/4: docker compose up -d (ללא פלט זה יכול לקחת דקות — תקין)"
+if ! docker compose --progress plain up -d >>"$LOG_FILE" 2>&1; then
   write_status 0 failed "שגיאת docker up" 0 "docker compose up failed"
   log_line ERROR "docker compose up נכשל"
   exit 1

@@ -311,7 +311,8 @@ main(){
 
   write_status "in-progress" "מפעיל קונטיינרים מחדש..." 80
   log_info "=== שלב: הפעלת קונטיינרים ==="
-  if ! (cd "$APP_DIR" && docker compose up -d 2>&1 | tee -a "$LOG_FILE"); then
+  log_info "docker compose up -d (ייתכן 1–5 דקות ללא שורות חדשות — זה תקין; ראה גם docker compose ps)"
+  if ! (cd "$APP_DIR" && docker compose --progress plain up -d 2>&1 | tee -a "$LOG_FILE"); then
     log_error "הפעלת קונטיינרים נכשלה"
     rollback "הפעלה מחדש נכשלה"
     append_history "rolled-back" "Restart failed" "$previous_version" "$previous_version" "$start_ts"

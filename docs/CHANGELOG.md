@@ -4,6 +4,10 @@
 
 **מקור אמת מומלץ:** קובץ `CHANGELOG.md` בשורש הריפו (מסונכרן עם תגי GitHub `v*`). קובץ זה ב־`docs/` משוכפל לנוחות; אם יש סתירה — עדיפות לשורש.
 
+## [2.0.54] - 2026-05-13
+
+- עדכון ידני + rebuild מרחוק: תיקון detached HEAD; לוגים/`--progress plain` בשלב `compose up` ב-safe-update.
+
 ## [2.0.53] - 2026-05-13
 
 - SSH: `FINANCE_SSH_STRICT_HOST_KEY_CHECKING` (ברירת מחדל `accept-new`); סקריפטי deploy/rebuild/ollama/split-bills; פריסת אורח מאוחדת.
