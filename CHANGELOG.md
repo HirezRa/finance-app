@@ -2,6 +2,14 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.54] - 2026-05-13
+
+### תיקון (עדכון שרת / detached HEAD)
+
+- **ממשק גרסאות (`VersionChecker`):** פקודת העתקה ידנית כוללת `git fetch` + `git checkout main --force` + `pull` + migrate + build + `up` — מתאים למצב **detached HEAD** (למשל אחרי checkout לתג).
+- **`safe-update.sh` / `self-update.sh`:** לוג לפני `docker compose up`, ו־`docker compose --progress plain up -d` כדי שלא ייראה «תקוע» ב־80% בלי פלט.
+- **תיעוד:** `SELF_UPDATE_MANUAL.md`, `DEPLOYMENT.md`, `auto-deploy-setup.md`; **`rebuild_backend_guest.sh` / `rebuild_backend_remote.ps1`:** אותו סנכרון Git לפני build.
+
 ## [2.0.53] - 2026-05-13
 
 ### תפעול / אבטחה (SSH פריסה)

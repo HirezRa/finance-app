@@ -46,7 +46,9 @@ docker compose exec backend npx prisma db seed
 
 ## עדכון גרסה
 ```bash
-git pull
+git fetch origin main
+git checkout main --force
+git pull origin main
 docker compose build --no-cache backend frontend
 docker compose up -d
 ```
@@ -71,7 +73,9 @@ docker compose up -d
 
 ```bash
 cd /path/to/your/checkout
-git pull
+git fetch origin main
+git checkout main --force
+git pull origin main
 docker compose build --no-cache backend frontend
 docker compose down --remove-orphans
 docker compose up -d
@@ -117,6 +121,7 @@ $env:FINANCE_PROJECT_ON_GUEST = "/opt/finance-app"
 - **פריסה אוטומטית מ-GitHub Actions** (אופציונלי): הגדרת Secrets/Variables ו-workflow `deploy-remote.yml` — הוראות מלאות בקובץ `.github/auto-deploy-setup.md`. אחרי `gh auth login`, אפשר להעלות הכל מקומית: `scripts/push-github-deploy-settings.ps1`.
 - **`guest-exec`: command not found** כשמריצים `deploy_remote_guest.ps1`: לרוב מתחברים לשרת האפליקציה (Docker) במקום לשרת הניהול שמריץ את פקודת ה־guest. להפנות SSH לנקודת הניהול הנכונה, או להגדיר **`FINANCE_DEPLOY_VIA_PCT=false`** ו־SSH ישירות למכונה שמריצה Docker (ראו `.github/auto-deploy-setup.md`).
 - **`fatal: not a git repository`** בשלב `git pull`: על השרת חייב להיות **clone** של הריפו בנתיב הפרויקט (ברירת מחדל `/opt/finance-app`, עם תיקיית `.git`). אם הקוד במקום אחר — הגדר `$env:FINANCE_PROJECT_ON_GUEST` (PowerShell) או `FINANCE_PROJECT_ON_GUEST` לפני ההרצה. אחרת: `git clone https://github.com/HirezRa/finance-app.git /opt/finance-app` על האורח (או נתיב מתאים).
+- **`You are not currently on a branch`** ב־`git pull`: המאגר ב־**detached HEAD** (למשל אחרי checkout לתג). להריץ `git fetch origin main && git checkout main --force && git pull origin main` (ראו `docs/SELF_UPDATE_MANUAL.md`).
 
 ## פקודות שימושיות
 ```bash

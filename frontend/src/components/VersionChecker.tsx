@@ -95,8 +95,9 @@ function formatQueryError(err: unknown): string {
   return 'שגיאה לא ידועה בבדיקת עדכונים.';
 }
 
+/** Always leaves repo on `main` (fixes detached HEAD after tag checkout / rollback). */
 const MANUAL_UPDATE_ONE_LINER =
-  'cd /opt/finance-app && git pull origin main && docker compose build --no-cache backend frontend && docker compose up -d';
+  'cd /opt/finance-app && git fetch origin main && git checkout main --force && git pull origin main && (docker compose exec -T backend npx prisma migrate deploy || true) && docker compose build --no-cache backend frontend && docker compose up -d';
 
 export function VersionChecker() {
   const isAuthenticated = useAuthStore(
@@ -436,13 +437,14 @@ export function VersionChecker() {
           </div>
 
           <div className="rounded-lg bg-muted p-3">
-            <p className="mb-2 text-xs text-muted-foreground">או ידנית על השרת:</p>
+            <p className="mb-2 text-xs text-muted-foreground">
+              או ידנית על השרת (כולל מעבר ל־main — נדרש אם היית ב־detached HEAD):
+            </p>
             <code
-              className="block rounded border border-border bg-background p-2 font-mono text-xs"
+              className="block whitespace-pre-wrap break-all rounded border border-border bg-background p-2 font-mono text-xs"
               dir="ltr"
             >
-              cd /opt/finance-app &amp;&amp; git pull &amp;&amp; docker compose build &amp;&amp;
-              docker compose up -d
+              {MANUAL_UPDATE_ONE_LINER}
             </code>
           </div>
         </div>
