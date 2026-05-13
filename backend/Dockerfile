@@ -7,6 +7,11 @@ RUN npm install -g npm@11.3.0
 
 RUN apk add --no-cache python3 make g++ openssl libc6-compat git
 
+# Puppeteer is a transitive dep (bank scrapers). Do not download Chrome during `npm ci` — the
+# runtime image uses Alpine `chromium` + PUPPETEER_EXECUTABLE_PATH (see stage-1 ENV below).
+ENV PUPPETEER_SKIP_DOWNLOAD=1
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
 # HirezRa fork: npm pack ללא lib/ → postinstall (ensure + patch-package) עושה clone + build:js
 COPY backend/package.json backend/package-lock.json ./
 COPY backend/scripts ./scripts
@@ -42,6 +47,7 @@ RUN apk add --no-cache \
 
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_SKIP_DOWNLOAD=1
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
