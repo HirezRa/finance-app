@@ -2,6 +2,12 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.52] - 2026-05-13
+
+### תפעול (משכורת / נתונים)
+
+- **ריפוי DB אוטומטי:** `SalaryEffectiveDateHealService` — cron יומי (03:30 UTC) מנקה `effectiveDate` מעסקאות הכנסה שיום הבנק בישראל הוא **1–14** (אותה לוגיקה כמו `computeSalaryEffectiveDateForBankDate`). ניתן לכבות: `DISABLE_SALARY_EFFECTIVE_DATE_HEAL=true`; גבול סריקה לריצה: `SALARY_EFFECTIVE_DATE_HEAL_MAX_SCAN` (ברירת מחדל 12000).
+
 ## [2.0.51] - 2026-05-13
 
 ### תיקון (משכורת מאי / דשבורד)
