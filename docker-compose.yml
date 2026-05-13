@@ -79,6 +79,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # CMD runs `prisma migrate deploy` before Node listens — until then port 3000 is closed (nginx/API look "stuck").
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "require(\"http\").get(\"http://localhost:\"+(process.env.PORT||3000)+\"/api/v1/health\",(r)=>{r.resume();process.exit(r.statusCode===200?0:1);}).on(\"error\",()=>process.exit(1))"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
     security_opt:
       - seccomp:unconfined
     group_add:
@@ -113,8 +124,10 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
     networks:
       - finance-network
 

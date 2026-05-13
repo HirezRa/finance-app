@@ -13,6 +13,7 @@
 ### תפעול / לוגים (עדכון אוטומטי)
 
 - `safe-update.sh`: rollback אחרי כישלון build עם נתיבי לוג; שיקוף ללוג האפליקציה עם `diagnosticPaths` + `buildLogTail`; מדריך עדכון מאורח ב־`SELF_UPDATE_MANUAL.md` + פירוט ב־`LOGGING_GUIDE.md`.
+- Docker Compose: healthcheck ל־backend, nginx ממתין ל־backend healthy.
 
 ## [2.0.46] - 2026-05-12
 
