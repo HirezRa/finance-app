@@ -2,6 +2,12 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.49] - 2026-05-13
+
+### תיקון (Docker / Fastify)
+
+- **הסרת override ל־`@fastify/middie@^9.x`:** גרסה 9 דורשת Fastify 5; אחרי נעילה ל־Fastify 4.28.1 השרת נפל עם `FST_ERR_PLUGIN_VERSION_MISMATCH` (middie מול fastify). חזרה לגרסת middie שמגיעה עם `@nestjs/platform-fastify` v10 (**8.3.x**).
+
 ## [2.0.48] - 2026-05-13
 
 ### תיקון קריטי (Docker / Fastify)
