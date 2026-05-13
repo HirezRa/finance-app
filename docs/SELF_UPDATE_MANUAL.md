@@ -12,7 +12,7 @@ git pull origin main
 docker compose up -d --build
 ```
 
-לאחר מכן בדקו תקינות (למשל דרך nginx — אותו נתיב health כמו ב־`HEALTH_CHECK_URL` ב־`scripts/safe-update.sh`).
+לאחר מכן בדקו תקינות (למשל דרך nginx — אותו נתיב health כמו ב־`HEALTH_CHECK_URL` ב־`scripts/safe-update.sh`). **הערה:** בקונטיינר ה־backend, `prisma migrate deploy` רץ **לפני** ש־Node פותח את פורט 3000; בדקות ראשונות או DB איטי, בקשות ל־API עלולות להיראות «תקועות» עד סיום המיגרציה (ראו `docker compose logs backend`).
 
 ## פקודות מלאות (שקול ל-safe-update)
 

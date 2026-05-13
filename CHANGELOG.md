@@ -16,6 +16,7 @@
 - **`scripts/safe-update.sh`:** בכישלון בנייה, הודעת ה־rollback כוללת נתיבים ל־`update-data/build.log` ו־`logs/update.log`.
 - **`VersionService`:** בשיקוף סטטוס סופי `failed` / `rolled-back` מהמארח ללוג האפליקציה — נוספו `diagnosticPaths` ו־`buildLogTail` (זנב לוג הבנייה) כדי לאבחן בלי SSH לשרת.
 - **תיעוד:** `docs/SELF_UPDATE_MANUAL.md` (עדכון מאורח), פקודות `pct` ב־`LOGGING_GUIDE.md`, הרחבת אבחון שם.
+- **Docker Compose:** healthcheck ל־`backend` (כולל `start_period` למיגרציה לפני האזנה לפורט), nginx תלוי ב־`backend` במצב healthy.
 
 ## [2.0.46] - 2026-05-12
 
