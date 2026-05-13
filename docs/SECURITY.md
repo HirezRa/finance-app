@@ -39,7 +39,7 @@
 
 ### Nginx
 
-- `limit_req` ל-`/api/` ול-login (ראו `nginx/nginx.conf`).
+- `limit_req` ל-`/api/` ול-login (ראו `nginx/nginx.conf.template`).
 
 ## תפעול
 

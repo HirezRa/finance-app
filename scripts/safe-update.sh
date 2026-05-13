@@ -238,6 +238,17 @@ build_containers() {
     return 1
   fi
   log_info "Frontend נבנה בהצלחה"
+  check_cancelled
+
+  write_status "in-progress" "בונה nginx..." 72
+
+  log_info "בונה nginx..."
+  if ! docker compose build --no-cache --progress=plain nginx 2>&1 | tee -a "$BUILD_LOG_FILE" "$LOG_FILE"; then
+    log_error "בניית nginx נכשלה"
+    log_error "בדוק את הלוג: $BUILD_LOG_FILE"
+    return 1
+  fi
+  log_info "nginx נבנה בהצלחה"
 
   log_info "=== בנייה הושלמה בהצלחה ==="
   return 0
