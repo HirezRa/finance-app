@@ -5,12 +5,13 @@ $vmid = if ($env:FINANCE_OLLAMA_GUEST_VMID) { $env:FINANCE_OLLAMA_GUEST_VMID } e
 
 $model = if ($args.Count -gt 0 -and $args[0]) { $args[0] } else { "qwen2.5:7b" }
 
+$sshStrict = if ($env:FINANCE_SSH_STRICT_HOST_KEY_CHECKING) { $env:FINANCE_SSH_STRICT_HOST_KEY_CHECKING } else { "accept-new" }
 $sshOptions = @(
   "-F", "/dev/null",
   "-o", "ConnectTimeout=15",
   "-o", "ServerAliveInterval=5",
   "-o", "ServerAliveCountMax=2",
-  "-o", "StrictHostKeyChecking=no"
+  "-o", "StrictHostKeyChecking=$sshStrict"
 )
 
 function Invoke-SshChecked {

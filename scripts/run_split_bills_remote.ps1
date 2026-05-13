@@ -5,12 +5,13 @@ if (-not $env:FINANCE_GUEST_VMID) { throw "Set FINANCE_GUEST_VMID" }
 
 $projectOnGuest = if ($env:FINANCE_PROJECT_ON_GUEST) { $env:FINANCE_PROJECT_ON_GUEST } else { "/opt/finance-app" }
 
+$sshStrict = if ($env:FINANCE_SSH_STRICT_HOST_KEY_CHECKING) { $env:FINANCE_SSH_STRICT_HOST_KEY_CHECKING } else { "accept-new" }
 $sshOptions = @(
   "-F", "/dev/null",
   "-o", "ConnectTimeout=15",
   "-o", "ServerAliveInterval=5",
   "-o", "ServerAliveCountMax=2",
-  "-o", "StrictHostKeyChecking=no"
+  "-o", "StrictHostKeyChecking=$sshStrict"
 )
 
 function Invoke-SshChecked {

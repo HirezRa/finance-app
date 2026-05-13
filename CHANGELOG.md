@@ -2,6 +2,13 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.53] - 2026-05-13
+
+### תפעול / אבטחה (SSH פריסה)
+
+- **`FINANCE_SSH_STRICT_HOST_KEY_CHECKING`:** ברירת מחדל **`accept-new`** במקום `StrictHostKeyChecking=no` ב־`deploy_remote_guest.sh/.ps1`, `rebuild_backend_*`, `pull_ollama_*`, `run_split_bills_*` — מאוזן עם `ssh-keyscan` ב־GitHub Actions. תיעוד ב־`docs/DEPLOYMENT.md` ו־`.github/auto-deploy-setup.md`.
+- **`deploy_remote_guest`:** זרימת פריסה אחת על המארח (git checkout/pull, migrate best-effort, build backend+frontend, up, בדיקת health מקומית).
+
 ## [2.0.52] - 2026-05-13
 
 ### תפעול (משכורת / נתונים)
