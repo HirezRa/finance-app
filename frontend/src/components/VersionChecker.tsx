@@ -97,7 +97,7 @@ function formatQueryError(err: unknown): string {
 
 /** Always leaves repo on `main` (fixes detached HEAD after tag checkout / rollback). */
 const MANUAL_UPDATE_ONE_LINER =
-  'cd /opt/finance-app && git fetch origin main && git checkout main --force && git pull origin main && (docker compose exec -T backend npx prisma migrate deploy || true) && docker compose build --no-cache backend frontend && docker compose up -d';
+  'cd /opt/finance-app && git fetch origin main && git checkout main --force && git pull origin main && (docker compose exec -T backend npx prisma migrate deploy || true) && docker compose build --no-cache backend frontend nginx && docker compose up -d';
 
 export function VersionChecker() {
   const isAuthenticated = useAuthStore(

@@ -85,8 +85,8 @@ VER_AFTER="$(cat "$APP_DIR/VERSION" 2>/dev/null || echo '?')"
 log_line INFO "שלב 1b: reset הושלם | גרסה אחרי סנכרון קוד: $VER_AFTER"
 
 write_status 1 building "בונה קונטיינרים (עשוי להימשך מספר דקות)..." 40
-log_line INFO "שלב 2/4: docker compose build --no-cache backend frontend"
-if ! docker compose build --no-cache backend frontend >>"$LOG_FILE" 2>&1; then
+log_line INFO "שלב 2/4: docker compose build --no-cache backend frontend nginx"
+if ! docker compose build --no-cache backend frontend nginx >>"$LOG_FILE" 2>&1; then
   write_status 0 failed "שגיאת docker build" 0 "docker compose build failed"
   log_line ERROR "docker compose build נכשל"
   exit 1

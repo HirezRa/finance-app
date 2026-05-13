@@ -4,6 +4,10 @@
 
 **מקור אמת מומלץ:** קובץ `CHANGELOG.md` בשורש הריפו (מסונכרן עם תגי GitHub `v*`). קובץ זה ב־`docs/` משוכפל לנוחות; אם יש סתירה — עדיפות לשורש.
 
+## [2.0.55] - 2026-05-13
+
+- nginx: אימג׳ מותאם (`nginx/Dockerfile`) — `resolver` נוצר בזמן הרצה; תבנית `nginx.conf.template`; פחות 502 אחרי recreate.
+
 ## [2.0.54] - 2026-05-13
 
 - עדכון ידני + rebuild מרחוק: תיקון detached HEAD; לוגים/`--progress plain` בשלב `compose up` ב-safe-update.

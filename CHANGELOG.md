@@ -2,6 +2,15 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.55] - 2026-05-13
+
+### תיקון (Docker / nginx 502)
+
+- **`nginx/` (reverse proxy):** תבנית `nginx.conf.template` + `docker-entrypoint.sh` בונים בזמן הרצה `resolver` מול DNS המוטבע של Docker, ו־`proxy_pass` עם משתנה ל־`backend`/`frontend` — מפחית 502 מכתובות upstream ישנות אחרי `docker compose up` שמחדש רק backend/frontend. אימג׳: `nginx/Dockerfile`.
+- **`docker-compose.yml`:** healthcheck ל־`frontend`; nginx ממתין ל־`service_healthy` של frontend; שירות `nginx` נבנה מאימג׳ מקומי (`nginx/Dockerfile`) במקום `nginx:alpine` + mount קובץ קונפיג.
+- **סקריפטי פריסה / עדכון:** `docker compose build` כולל גם את שירות `nginx` (`deploy_remote_guest`, `safe-update`, `self-update`, מדריכים).
+- **`docs/TROUBLESHOOTING.md`:** סעיף 502 + `docker compose restart nginx`.
+
 ## [2.0.54] - 2026-05-13
 
 ### תיקון (עדכון שרת / detached HEAD)

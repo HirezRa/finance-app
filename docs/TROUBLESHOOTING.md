@@ -92,6 +92,26 @@ sed -i 's/\r$//' script.sh
 echo "vm.overcommit_memory=1" >> /etc/sysctl.conf && sysctl -p
 ```
 
+## 502 Bad Gateway מול nginx אחרי `docker compose up`
+
+**תסמינים:** הדפדפן מציג `502 Bad Gateway` מ־nginx, לעיתים זמן קצר אחרי build או משיכת קוד, גם כש־`docker compose ps` מראה שירותים ב־Up.
+
+**סיבות נפוצות:**
+
+1. **כתובת IP ישנה אחרי יצירה מחדש של קונטיינרים** — קונטיינר ה־nginx לא נוצר מחדש ועדיין מצביע ל־IP ישן של `frontend` או `backend` ברשת הפנימית של Docker.
+2. **הפרונטנד עדיין בעלייה** — nginx כבר מקבל בקשות לפני שה־frontend באמת עונה.
+
+**פתרון מיידי (על המארח, מתיקיית הפרויקט):**
+
+```bash
+docker compose ps
+docker compose logs --tail=80 nginx
+docker compose logs --tail=80 frontend
+docker compose restart nginx
+```
+
+**בגרסאות קוד עדכניות:** שכבת nginx נבנית מאימג׳ מקומי (`nginx/Dockerfile`) עם `resolver` דינמי ו־`proxy_pass` עם משתנה (ראו `nginx/nginx.conf.template`), וב־`docker-compose.yml` יש healthcheck ל־`frontend` ו־`depends_on` של nginx על `frontend` בריא — כדי להפחית 502 אחרי deploy.
+
 ## מטמון דפדפן (Frontend)
 
 אחרי פריסה: רענון קשיח (Ctrl+F5), ניקוי cache, או חלון גלישה בסתר — אם הממשק לא מציג שדות/כפתורים חדשים למרות אימג׳ frontend מעודכן.

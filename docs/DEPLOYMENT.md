@@ -49,7 +49,7 @@ docker compose exec backend npx prisma db seed
 git fetch origin main
 git checkout main --force
 git pull origin main
-docker compose build --no-cache backend frontend
+docker compose build --no-cache backend frontend nginx
 docker compose up -d
 ```
 
@@ -76,7 +76,7 @@ cd /path/to/your/checkout
 git fetch origin main
 git checkout main --force
 git pull origin main
-docker compose build --no-cache backend frontend
+docker compose build --no-cache backend frontend nginx
 docker compose down --remove-orphans
 docker compose up -d
 ```
