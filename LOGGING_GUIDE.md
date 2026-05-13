@@ -131,6 +131,13 @@ pct exec 100 -- bash -lc 'cd /opt/finance-app && git pull origin main && docker 
 
 **הערה:** קובץ זה אינו תחת `docs/` בגלל מדיניות `verify-public-docs-safety` (מונע טביעות אצבע של ספק/רשת פנימית בתיעוד ציבורי). סעיף זה מיועד לספריית המפתחים / runbook פנימי.
 
+### Docker: ה־backend «לא מגיב» או DB «ריק»
+
+- **DB ריק (אין משתמשים/עסקאות)** אינו גורם לכשל: `prisma migrate deploy` בונה סכימה; האפליקציה עולה גם בלי seed.
+- **לפני ש־Node מאזין לפורט 3000** הרץ ה־`CMD` ב־`backend/Dockerfile` מריץ **`prisma migrate deploy`**. בזמן הזה **אין תשובה על `/api/*`** — זה נורמלי; בנייה ראשונה או מיגרציה ארוכה יכולים להימשך דקות.
+- **אבחון:** `docker compose logs backend --tail 80` — אם נתקע אחרי `migrate`, בדוק `DATABASE_URL` (בתוך הקונטיינר השם הוא בדרך כלל `db`, לא `localhost`).
+- **סטטוס:** `docker compose ps` — אחרי שינוי ב־`docker-compose.yml` יש **healthcheck** ל־backend; nginx ממתין ל־`service_healthy` לפני שמנסה לפרוקסי ל־API (פחות 502 בזמן עלייה).
+
 ## Upstream: `DEBUG=israeli-bank-scrapers:*`
 
 ניתן להריץ את ה-backend עם משתנה סביבה `DEBUG=israeli-bank-scrapers:*` (ולא `ALLOW_SENSITIVE_DEBUG` בפרודקשן בלי הערכה) כדי שיומן `debug` של החבילה יופיע ב-stdout/stderr — שימושי כש-`browserConsoleErrors` / `failedNetworkRequests` ריקים ביומן Finance. שינויים בבוררי DOM / שלבים — במאגר `israeli-bank-scrapers` (עם עטיפת Finance).
