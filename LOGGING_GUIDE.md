@@ -139,6 +139,7 @@ pct exec 100 -- bash -lc 'cd /opt/finance-app && git pull origin main && docker 
 - **סטטוס:** `docker compose ps` — אחרי שינוי ב־`docker-compose.yml` יש **healthcheck** ל־backend; nginx ממתין ל־`service_healthy` לפני שמנסה לפרוקסי ל־API (פחות 502 בזמן עלייה).
 - **גרסת Fastify:** אל תכפו `fastify@5` עם `npm overrides` כש־`@nestjs/platform-fastify` בגרסה 10 — תקבלו `FST_ERR_PLUGIN_VERSION_MISMATCH` מ־`@fastify/helmet`. נעילה ל־**Fastify 4.28.x** (כמו ב־`backend/package.json` בגרסה 2.0.48+).
 - **`@fastify/middie`:** אל תכפו גרסה **9.x** (audit) מעל Nest 10 — middie 9 דורש Fastify 5; Nest 10 מושך **middie 8.3.x** יחד עם Fastify 4.
+- **בניית Docker (`npm ci`):** אם Puppeteer נכשל בהורדת Chrome בשלב build, ודאו שב־`backend/Dockerfile` בשלב builder מוגדר `PUPPETEER_SKIP_DOWNLOAD` לפני `npm ci` (הריצה ב־runtime משתמשת ב־`chromium` מהמערכת).
 
 ## Upstream: `DEBUG=israeli-bank-scrapers:*`
 

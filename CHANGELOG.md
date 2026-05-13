@@ -2,6 +2,12 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.50] - 2026-05-13
+
+### תיקון (Docker build)
+
+- **`backend/Dockerfile` (שלב builder):** `ENV PUPPETEER_SKIP_DOWNLOAD=1` (+ `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`) לפני `npm ci` — מונע כשל postinstall של Puppeteer (הורדת Chrome ל־`/root/.cache/puppeteer/...`) כשאין צורך בדפדפן בשלב build; ב־runtime משתמשים ב־Alpine `chromium` כמו קודם.
+
 ## [2.0.49] - 2026-05-13
 
 ### תיקון (Docker / Fastify)
