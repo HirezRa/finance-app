@@ -137,6 +137,7 @@ pct exec 100 -- bash -lc 'cd /opt/finance-app && git pull origin main && docker 
 - **לפני ש־Node מאזין לפורט 3000** הרץ ה־`CMD` ב־`backend/Dockerfile` מריץ **`prisma migrate deploy`**. בזמן הזה **אין תשובה על `/api/*`** — זה נורמלי; בנייה ראשונה או מיגרציה ארוכה יכולים להימשך דקות.
 - **אבחון:** `docker compose logs backend --tail 80` — אם נתקע אחרי `migrate`, בדוק `DATABASE_URL` (בתוך הקונטיינר השם הוא בדרך כלל `db`, לא `localhost`).
 - **סטטוס:** `docker compose ps` — אחרי שינוי ב־`docker-compose.yml` יש **healthcheck** ל־backend; nginx ממתין ל־`service_healthy` לפני שמנסה לפרוקסי ל־API (פחות 502 בזמן עלייה).
+- **גרסת Fastify:** אל תכפו `fastify@5` עם `npm overrides` כש־`@nestjs/platform-fastify` בגרסה 10 — תקבלו `FST_ERR_PLUGIN_VERSION_MISMATCH` מ־`@fastify/helmet`. נעילה ל־**Fastify 4.28.x** (כמו ב־`backend/package.json` בגרסה 2.0.48+).
 
 ## Upstream: `DEBUG=israeli-bank-scrapers:*`
 
