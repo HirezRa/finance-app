@@ -6,10 +6,7 @@ import {
   getUtcWideRangeForBudgetCycle,
   isInBudgetCycle,
 } from '../../common/utils/budget-cycle';
-
-function anchorDate(t: { date: Date; effectiveDate: Date | null }): Date {
-  return t.effectiveDate ?? t.date;
-}
+import { cashFlowAnchorDateForTxn } from '../../common/utils/salary-effective-date';
 
 @Injectable()
 export class TransactionsExportService {
@@ -117,7 +114,7 @@ export class TransactionsExportService {
     };
 
     for (const tx of transactions) {
-      const d = anchorDate(tx);
+      const d = cashFlowAnchorDateForTxn(tx);
       const row = sheet.addRow({
         date: d.toLocaleDateString('he-IL'),
         description: tx.description ?? '',

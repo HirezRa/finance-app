@@ -52,3 +52,19 @@ export function computeSalaryEffectiveDateForBankDate(
   }
   return startOfIsraelMonthDay(ny, nm, 1);
 }
+
+/**
+ * עוגן לחישוב מחזור תקציב/דשבורד.
+ * רשומות ישנות עלולות עדיין לשאת `effectiveDate` בחודש הבא להפקדה ב־1–14 בלוח ישראלי (באג ישן עם טווח משכורת רחב).
+ * עבור **הכנסה** בימים 1–14 משתמשים ב־`date` בלבד — תואם ל־{@link computeSalaryEffectiveDateForBankDate} שלא מחזיר effectiveDate לימים אלה.
+ */
+export function cashFlowAnchorDateForTxn(t: {
+  date: Date;
+  effectiveDate: Date | null;
+  category?: { isIncome?: boolean } | null;
+}): Date {
+  if (t.category?.isIncome === true && getIsraelDayOfMonth(t.date) < 15) {
+    return t.date;
+  }
+  return t.effectiveDate ?? t.date;
+}

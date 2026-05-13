@@ -13,13 +13,7 @@ import {
   getBudgetCycleLabelForIsraelDate,
   daysRemainingInBudgetCycle,
 } from '../../common/utils/budget-cycle';
-
-function cashFlowAnchorDate(t: {
-  date: Date;
-  effectiveDate: Date | null;
-}): Date {
-  return t.effectiveDate ?? t.date;
-}
+import { cashFlowAnchorDateForTxn } from '../../common/utils/salary-effective-date';
 
 type BudgetPaceSummary = {
   daysRemaining: number;
@@ -155,7 +149,7 @@ export class BudgetsService {
     });
 
     const inMonth = transactions.filter((t) =>
-      isInBudgetCycle(cashFlowAnchorDate(t), year, month, cycleStartDay),
+      isInBudgetCycle(cashFlowAnchorDateForTxn(t), year, month, cycleStartDay),
     );
     this.logger.log(
       `Found ${transactions.length} expense rows in wide range, ${inMonth.length} in budget cycle ${month}/${year} (startDay=${cycleStartDay})`,
@@ -395,10 +389,14 @@ export class BudgetsService {
               { effectiveDate: { gte: start, lte: end } },
             ],
           },
-          select: { date: true, effectiveDate: true },
+          select: {
+            date: true,
+            effectiveDate: true,
+            category: { select: { isIncome: true } },
+          },
         });
         const countInMonth = rows.filter((r) =>
-          isInBudgetCycle(cashFlowAnchorDate(r), targetYear, targetMonth, cycleStartDay),
+          isInBudgetCycle(cashFlowAnchorDateForTxn(r), targetYear, targetMonth, cycleStartDay),
         ).length;
 
         if (countInMonth === 0) {

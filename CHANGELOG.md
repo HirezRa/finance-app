@@ -2,6 +2,12 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.51] - 2026-05-13
+
+### תיקון (משכורת מאי / דשבורד)
+
+- **`cashFlowAnchorDateForTxn`:** להכנסה עם יום בנק בישראל **1–14**, עוגן תזרים/תקציב הוא **`date`** גם כשב־DB קיים `effectiveDate` ישן לחודש הבא — מתקן מצב שמשכורת מ־1 במאי לא הופיעה במאי בגלל נתוני legacy. יושם ב־`DashboardService`, `BudgetsService`, `CategoriesService`, `TransactionsExportService`.
+
 ## [2.0.50] - 2026-05-13
 
 ### תיקון (Docker build)
