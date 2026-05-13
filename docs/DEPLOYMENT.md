@@ -92,6 +92,7 @@ docker compose up -d
 - `FINANCE_GUEST_VMID` — מזהה שרת האפליקציה שבו רץ Docker והפרויקט.
 - `FINANCE_PROJECT_ON_GUEST` — נתיב הפרויקט על שרת האפליקציה (ברירת מחדל: `/opt/finance-app`).
 - `FINANCE_OLLAMA_GUEST_VMID` — אופציונלי; שרת נפרד ל-Ollama.
+- `FINANCE_SSH_STRICT_HOST_KEY_CHECKING` — אופציונלי; ברירת מחדל ב־`scripts/*` היא `accept-new` (בטוח יותר מ־`no`). במעבדה בלבד אפשר `no`.
 
 קבצים מומלצים לתיעוד ציבורי:
 

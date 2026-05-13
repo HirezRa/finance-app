@@ -6,12 +6,13 @@
 set -euo pipefail
 : "${FINANCE_HYPERVISOR_SSH:?Set FINANCE_HYPERVISOR_SSH}"
 VMID="${FINANCE_OLLAMA_GUEST_VMID:-${FINANCE_GUEST_VMID:?Set FINANCE_OLLAMA_GUEST_VMID or FINANCE_GUEST_VMID}}"
+SSH_STRICT="${FINANCE_SSH_STRICT_HOST_KEY_CHECKING:-accept-new}"
 SSH_OPTS=(
   -F /dev/null
   -o ConnectTimeout=15
   -o ServerAliveInterval=5
   -o ServerAliveCountMax=2
-  -o StrictHostKeyChecking=no
+  -o "StrictHostKeyChecking=${SSH_STRICT}"
 )
 MODEL="${1:-qwen2.5:7b}"
 GUEST="/usr/local/bin/ollama pull ${MODEL}"

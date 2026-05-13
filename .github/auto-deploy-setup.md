@@ -33,6 +33,12 @@ If you connect to a host intended for application workloads and the **guest-exec
 | `FINANCE_DEPLOY_PROJECT_PATH` | `/opt/finance-app` | No |
 | `FINANCE_AUTO_DEPLOY` | `true` | No — if `true`, every push to `main` runs deploy; otherwise only **workflow_dispatch** |
 
+Optional (local / Actions env, not stored as a GitHub variable by default):
+
+| Name | Example | Purpose |
+|------|---------|---------|
+| `FINANCE_SSH_STRICT_HOST_KEY_CHECKING` | `accept-new` (default in scripts) or `no` | SSH host-key policy. Use `no` only on trusted lab networks. GitHub Actions still runs `ssh-keyscan` before deploy so `accept-new` is usually enough. |
+
 ## How to run
 
 - **Manual:** GitHub → Actions → **Deploy remote stack** → **Run workflow**.
