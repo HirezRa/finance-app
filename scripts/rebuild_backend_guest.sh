@@ -8,12 +8,13 @@ set -euo pipefail
 : "${FINANCE_HYPERVISOR_SSH:?Set FINANCE_HYPERVISOR_SSH}"
 : "${FINANCE_GUEST_VMID:?Set FINANCE_GUEST_VMID}"
 PROJ="${FINANCE_PROJECT_ON_GUEST:-/opt/finance-app}"
+SSH_STRICT="${FINANCE_SSH_STRICT_HOST_KEY_CHECKING:-accept-new}"
 SSH_OPTS=(
   -F /dev/null
   -o ConnectTimeout=15
   -o ServerAliveInterval=5
   -o ServerAliveCountMax=2
-  -o StrictHostKeyChecking=no
+  -o "StrictHostKeyChecking=${SSH_STRICT}"
 )
 GUEST="cd ${PROJ} && git pull && docker compose build --no-cache backend && docker compose down --remove-orphans && docker compose up -d && sleep 8 && curl -s --max-time 10 --connect-timeout 5 http://localhost/api/v1/health"
 ssh "${SSH_OPTS[@]}" "${FINANCE_HYPERVISOR_SSH}" \
