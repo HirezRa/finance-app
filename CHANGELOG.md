@@ -11,6 +11,12 @@
 - **מבנה:** `getIsraelYmd` מרוכז ב־`israel-calendar.ts`; `budget-cycle` מייבא ממנו.
 - **תיעוד:** `docs/SALARY_EFFECTIVE_DATE.md`, בדיקות יחידה `salary-effective-date.spec.ts`.
 
+### תפעול / לוגים (עדכון אוטומטי)
+
+- **`scripts/safe-update.sh`:** בכישלון בנייה, הודעת ה־rollback כוללת נתיבים ל־`update-data/build.log` ו־`logs/update.log`.
+- **`VersionService`:** בשיקוף סטטוס סופי `failed` / `rolled-back` מהמארח ללוג האפליקציה — נוספו `diagnosticPaths` ו־`buildLogTail` (זנב לוג הבנייה) כדי לאבחן בלי SSH לשרת.
+- **תיעוד:** `docs/SELF_UPDATE_MANUAL.md` (עדכון מאורח), פקודות `pct` ב־`LOGGING_GUIDE.md`, הרחבת אבחון שם.
+
 ## [2.0.46] - 2026-05-12
 
 ### תלויות (סקרייפר)

@@ -165,6 +165,20 @@ export class VersionService implements OnModuleInit {
     }
   }
 
+  /** Last non-empty lines of host build log (docker compose build), for mirrored app logs. */
+  private readBuildLogTail(maxLines: number): string[] {
+    try {
+      if (!existsSync(this.buildLogFile)) {
+        return [];
+      }
+      const content = readFileSync(this.buildLogFile, 'utf-8');
+      const lines = content.split('\n').filter((line) => line.trim());
+      return lines.slice(-maxLines);
+    } catch {
+      return [];
+    }
+  }
+
   async getCurrentVersion(): Promise<{ version: string; buildDate?: string }> {
     try {
       const version = this.readVersionFromAppDir(this.appDir);
@@ -440,6 +454,8 @@ export class VersionService implements OnModuleInit {
             merged.status === 'failed'
               ? 'עדכון גרסה נכשל (סטטוס מהמארח)'
               : 'עדכון גרסה — rollback';
+          const buildLogTail = this.readBuildLogTail(25);
+          const updateLogPath = join(this.appDir, 'logs', 'update.log');
           this.appLogs.add(level, 'version', msg, {
             hostStatus: merged.status,
             targetVersion: merged.targetVersion,
@@ -448,6 +464,12 @@ export class VersionService implements OnModuleInit {
             error: merged.error,
             message: merged.message,
             updatedAt: merged.updatedAt,
+            diagnosticPaths: {
+              buildLog: this.buildLogFile,
+              updateLog: updateLogPath,
+              statusFile: this.statusFile,
+            },
+            ...(buildLogTail.length ? { buildLogTail } : {}),
           });
         }
       }

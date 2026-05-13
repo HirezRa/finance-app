@@ -107,6 +107,30 @@ Returns `{ logs, totalMatched }` — all in-buffer events matching filters (same
 
 כשל ב־`safe-update.sh` נרשם ב־**מארח**: `logs/update.log`, `update-data/build.log`, `.update-status.json`. ראו [`docs/SELF_UPDATE_MANUAL.md`](docs/SELF_UPDATE_MANUAL.md).
 
+**ייצוא לוג מהאפליקציה (`preset=diagnostic`):** אירועי `version` עם `עדכון גרסה — rollback` משקפים את קובץ הסטטוס מהמארח. אחרי שדרוג קוד (גרסה חדשה), השדות `meta.diagnosticPaths` (נתיבי `build.log`, `update.log`, `.update-status.json`) ו־`meta.buildLogTail` (שורות אחרונות מלוג הבנייה) מקלים לזהות כשל **Docker build** לעומת כשל רשת/Git.
+
+**דוגמה לפרשנות (לוג אמיתי):** `hostStatus: rolled-back`, `targetVersion: 2.0.47`, `error: בנייה נכשלה` — `git pull` ככל הנראה הצליח; יש לפתוח `update-data/build.log` על האורח ולחפש שגיאת `docker compose build` (למשל OOM, `npm ci`, שגיאת TypeScript).
+
+### עדכון מאורח Linux דרך Proxmox (`pct exec`)
+
+כאשר Docker והריפו רצים בתוך **CT** על Proxmox, אפשר להפעיל את אותו זרם כמו ב־`safe-update` מההיפרוויזור (החלף `100` במזהה ה־CT; התיקייה כמו `APP_DIR`):
+
+```bash
+pct exec 100 -- bash -lc 'cd /opt/finance-app && git fetch origin main && git checkout main --force && git pull origin main'
+pct exec 100 -- bash -lc 'cd /opt/finance-app && docker compose exec -T backend npx prisma migrate deploy'
+pct exec 100 -- bash -lc 'cd /opt/finance-app && docker compose build --no-cache backend frontend'
+pct exec 100 -- bash -lc 'cd /opt/finance-app && docker compose up -d'
+pct exec 100 -- bash -lc 'curl -sf --max-time 15 http://localhost/api/v1/health && echo OK'
+```
+
+שורה אחת (בנייה עשויה לארוך דקות):
+
+```bash
+pct exec 100 -- bash -lc 'cd /opt/finance-app && git pull origin main && docker compose exec -T backend npx prisma migrate deploy && docker compose build --no-cache backend frontend && docker compose up -d && sleep 10 && curl -sf --max-time 15 http://localhost/api/v1/health'
+```
+
+**הערה:** קובץ זה אינו תחת `docs/` בגלל מדיניות `verify-public-docs-safety` (מונע טביעות אצבע של ספק/רשת פנימית בתיעוד ציבורי). סעיף זה מיועד לספריית המפתחים / runbook פנימי.
+
 ## Upstream: `DEBUG=israeli-bank-scrapers:*`
 
 ניתן להריץ את ה-backend עם משתנה סביבה `DEBUG=israeli-bank-scrapers:*` (ולא `ALLOW_SENSITIVE_DEBUG` בפרודקשן בלי הערכה) כדי שיומן `debug` של החבילה יופיע ב-stdout/stderr — שימושי כש-`browserConsoleErrors` / `failedNetworkRequests` ריקים ביומן Finance. שינויים בבוררי DOM / שלבים — במאגר `israeli-bank-scrapers` (עם עטיפת Finance).
