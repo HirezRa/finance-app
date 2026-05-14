@@ -3,6 +3,7 @@
  * reads `DATABASE_URL`. Used by prisma/*.ts scripts run on the host (not via Docker).
  *
  * Tries (first match wins per key; does not override already-set env):
+ * - `prisma/.env` (next to this file)
  * - `backend/.env`
  * - repo root `.env` (parent of `backend/`)
  */
@@ -43,5 +44,6 @@ const prismaDir = __dirname;
 const backendDir = path.join(prismaDir, '..');
 const repoRoot = path.join(backendDir, '..');
 
+loadFile(path.join(prismaDir, '.env'));
 loadFile(path.join(backendDir, '.env'));
 loadFile(path.join(repoRoot, '.env'));
