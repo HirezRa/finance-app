@@ -2,14 +2,23 @@
  * מדפיס לקונסולה את כל עסקאות המשכורת (או כל ההכנסות) מבסיס הנתונים:
  * תאריך בנק (לוח ישראלי), תאריך אפקטיבי (אם יש), סכום, קטגוריה, חשבון, תיאור.
  *
- * הרצה מתוך תיקיית `backend/` (אחרי `DATABASE_URL` ב־`.env`):
- *   npx ts-node prisma/list-salary-transactions.ts
+ * חובה להריץ מתוך תיקיית **`backend/`** (לא מתוך `prisma/`) — אחרת ts-node יחפש קובץ בשם שגוי.
  *
- * כל עסקאות הכנסה (לא רק קטגוריית משכורת):
- *   npx ts-node prisma/list-salary-transactions.ts --all-income
+ * מהשורש של הריפו (מומלץ):
+ *   ./scripts/list-salary-txns.sh
+ *   ./scripts/list-salary-txns.sh --all-income
+ *
+ * ידנית מתוך `backend/` (אחרי `DATABASE_URL` ב־`.env`):
+ *   npm run list:salary-txns
+ *   npm run list:salary-txns -- --all-income
+ *
+ * בתוך קונטיינר backend (אחרי build שמעדכן את `prisma/` בתוך האימג׳; WORKDIR=/app):
+ *   docker compose exec backend sh -lc 'cd /app && npx ts-node prisma/list-salary-transactions.ts --all-income'
+ *
+ * אם `npm run list:salary-txns` לא קיים — עדכן קוד: `git pull origin main` (והרץ `npm install` ב־backend אם אין node_modules).
  *
  * משתמש בודד (לפי `Account.userId`):
- *   USER_ID=<uuid> npx ts-node prisma/list-salary-transactions.ts
+ *   USER_ID=<uuid> npm run list:salary-txns
  */
 import { Prisma, PrismaClient } from '@prisma/client';
 

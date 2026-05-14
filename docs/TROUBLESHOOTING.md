@@ -125,6 +125,21 @@ docker compose logs --tail=50 frontend
 curl -sS --max-time 10 http://localhost/api/v1/health
 ```
 
+### רשימת משכורות / הכנסות מה־DB (סקריפט)
+
+מהשורש של הריפו על המארח (דורש `git pull` עד קומיט שמכיל את הקובץ, ו־`npm install` תחת `backend/` אם אין `node_modules`):
+
+```bash
+chmod +x scripts/list-salary-txns.sh   # פעם אחת
+./scripts/list-salary-txns.sh --all-income
+```
+
+אחרי build של backend, אפשר גם מתוך הקונטיינר (`WORKDIR` הוא `/app`):
+
+```bash
+docker compose exec backend sh -lc 'cd /app && npx ts-node prisma/list-salary-transactions.ts --all-income'
+```
+
 ---
 
 [CONFIGURATION.md](./CONFIGURATION.md) · [INSTALLATION.md](./INSTALLATION.md) · [DEPLOYMENT.md](./DEPLOYMENT.md) · [CREDIT_CARD_CHARGES.md](./CREDIT_CARD_CHARGES.md)
