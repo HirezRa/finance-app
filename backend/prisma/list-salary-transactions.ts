@@ -12,8 +12,9 @@
  *   npm run list:salary-txns
  *   npm run list:salary-txns -- --all-income
  *
- * בתוך Docker (מומלץ — `DATABASE_URL` כבר מוגדר בקונטיינר; הקוד מה־mount ב־`/opt/finance-app`):
- *   ./scripts/list-salary-via-docker.sh --all-income
+ * בתוך Docker (מומלץ — `DATABASE_URL` כבר בקונטיינר; הקוד מה־mount ב־`/opt/finance-app`):
+ *   node scripts/list-salary-via-docker.cjs --all-income
+ *   או: npm run list:salary-txns:docker -- --all-income   (מתוך תיקיית backend/)
  *   (לא להריץ `cd /app && npx ts-node` — הקבצים העדכניים תחת `/opt/finance-app/backend/prisma`, ו־`npx` עלול להיכשל ב־MODULE_NOT_FOUND.)
  *
  * אם חסר `DATABASE_URL`, הסקריפט מנסה לטעון אוטומטית מ־`prisma/.env`, `backend/.env` או מ־`.env` בשורש הריפו (ליד `docker-compose.yml`).

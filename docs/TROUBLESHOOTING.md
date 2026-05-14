@@ -130,11 +130,31 @@ curl -sS --max-time 10 http://localhost/api/v1/health
 **מומלץ בפריסת Docker** (הקוד על המארח ב־`/opt/finance-app`, משתני DB כבר בקונטיינר):
 
 ```bash
-chmod +x scripts/list-salary-via-docker.sh scripts/list-salary-txns.sh   # פעם אחת
+cd /opt/finance-app
+node scripts/list-salary-via-docker.cjs --all-income
+```
+
+או מתוך `backend/` (אחרי `git pull`):
+
+```bash
+cd /opt/finance-app/backend
+npm run list:salary-txns:docker -- --all-income
+```
+
+אופציונלי (דורש `chmod` + קובץ `.sh` אחרי `git pull`):
+
+```bash
+chmod +x scripts/list-salary-via-docker.sh scripts/list-salary-txns.sh
 ./scripts/list-salary-via-docker.sh --all-income
 ```
 
-אל תריצו `cd /app && npx ts-node …` — תחת `/app/prisma` יש רק מה שנארז באימג׳; הקבצים העדכניים נמצאים ב־`/opt/finance-app/backend/prisma` אחרי `git pull`, ו־`npx` עלול לייצר `MODULE_NOT_FOUND`.
+אם **אין** את הקבצים תחת `scripts/` (לא משכת עדיין קוד) — העתק שורה אחת:
+
+```bash
+cd /opt/finance-app && docker compose exec -T backend sh -c 'cd /opt/finance-app/backend && export NODE_PATH=/app/node_modules && exec /app/node_modules/.bin/ts-node prisma/list-salary-transactions.ts "$@"' sh --all-income
+```
+
+אל תריצו `cd /app && npx ts-node …` — תחת `/app/prisma` יש רק מה שנארז באימג׳; הקבצים העדכניים ב־`/opt/finance-app/backend/prisma`, ו־`npx` עלול לייצר `MODULE_NOT_FOUND`.
 
 **על המארח** (דורש `npm install` תחת `backend/`). `DATABASE_URL` נטען אוטומטית מ־`prisma/.env`, `backend/.env` או `.env` בשורש הריפו:
 
