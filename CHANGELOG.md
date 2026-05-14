@@ -2,6 +2,12 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.56] - 2026-05-14
+
+### תיקון (Docker — frontend unhealthy)
+
+- **healthcheck ל־`frontend`:** `wget --spider` לא נתמך ב־BusyBox של `nginx:alpine` — הוחלף ב־`wget -q -O /dev/null http://localhost/`. ב־`frontend/Dockerfile` נוסף `apk add wget` לוודא כלי עקבי אחרי build.
+
 ## [2.0.55] - 2026-05-13
 
 ### תיקון (Docker / nginx 502)

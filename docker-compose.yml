@@ -111,7 +111,8 @@ services:
     container_name: finance-frontend
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
+      # BusyBox wget has no --spider; -O /dev/null is portable. GNU wget is installed above for consistency.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
