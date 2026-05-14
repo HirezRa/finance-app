@@ -127,7 +127,8 @@ curl -sS --max-time 10 http://localhost/api/v1/health
 
 ### רשימת משכורות / הכנסות מה־DB (סקריפט)
 
-מהשורש של הריפו על המארח (דורש `git pull` עד קומיט שמכיל את הקובץ, ו־`npm install` תחת `backend/` אם אין `node_modules`):
+מהשורש של הריפו על המארח (דורש `git pull` עד קומיט שמכיל את הקובץ, ו־`npm install` תחת `backend/` אם אין `node_modules`).  
+`DATABASE_URL` נטען אוטומטית מ־`backend/.env` או `.env` בשורש הריפו אם לא הוגדר במעטפת:
 
 ```bash
 chmod +x scripts/list-salary-txns.sh   # פעם אחת

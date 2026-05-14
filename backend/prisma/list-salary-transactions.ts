@@ -15,14 +15,25 @@
  * בתוך קונטיינר backend (אחרי build שמעדכן את `prisma/` בתוך האימג׳; WORKDIR=/app):
  *   docker compose exec backend sh -lc 'cd /app && npx ts-node prisma/list-salary-transactions.ts --all-income'
  *
- * אם `npm run list:salary-txns` לא קיים — עדכן קוד: `git pull origin main` (והרץ `npm install` ב־backend אם אין node_modules).
+ * אם חסר `DATABASE_URL`, הסקריפט מנסה לטעון אוטומטית מ־`backend/.env` או מ־`.env` בשורש הריפו (ליד `docker-compose.yml`).
  *
  * משתמש בודד (לפי `Account.userId`):
  *   USER_ID=<uuid> npm run list:salary-txns
  */
+import './prisma-env-bootstrap';
 import { Prisma, PrismaClient } from '@prisma/client';
 
 import { getIsraelYmd } from '../src/common/utils/israel-calendar';
+
+if (!process.env.DATABASE_URL?.trim()) {
+  console.error(
+    [
+      'DATABASE_URL חסר גם אחרי ניסיון טעינה מ-backend/.env ומ-.env בשורש הריפו.',
+      'צור קובץ .env (למשל לפי .env.example) או ייצא את המשתנה כמו ב-docker-compose (לעיתים רק בקונטיינר).',
+    ].join('\n'),
+  );
+  process.exit(1);
+}
 
 const prisma = new PrismaClient();
 
