@@ -12,10 +12,11 @@
  *   npm run list:salary-txns
  *   npm run list:salary-txns -- --all-income
  *
- * בתוך קונטיינר backend (אחרי build שמעדכן את `prisma/` בתוך האימג׳; WORKDIR=/app):
- *   docker compose exec backend sh -lc 'cd /app && npx ts-node prisma/list-salary-transactions.ts --all-income'
+ * בתוך Docker (מומלץ — `DATABASE_URL` כבר מוגדר בקונטיינר; הקוד מה־mount ב־`/opt/finance-app`):
+ *   ./scripts/list-salary-via-docker.sh --all-income
+ *   (לא להריץ `cd /app && npx ts-node` — הקבצים העדכניים תחת `/opt/finance-app/backend/prisma`, ו־`npx` עלול להיכשל ב־MODULE_NOT_FOUND.)
  *
- * אם חסר `DATABASE_URL`, הסקריפט מנסה לטעון אוטומטית מ־`backend/.env` או מ־`.env` בשורש הריפו (ליד `docker-compose.yml`).
+ * אם חסר `DATABASE_URL`, הסקריפט מנסה לטעון אוטומטית מ־`prisma/.env`, `backend/.env` או מ־`.env` בשורש הריפו (ליד `docker-compose.yml`).
  *
  * משתמש בודד (לפי `Account.userId`):
  *   USER_ID=<uuid> npm run list:salary-txns
@@ -28,7 +29,7 @@ import { getIsraelYmd } from '../src/common/utils/israel-calendar';
 if (!process.env.DATABASE_URL?.trim()) {
   console.error(
     [
-      'DATABASE_URL חסר גם אחרי ניסיון טעינה מ-backend/.env ומ-.env בשורש הריפו.',
+      'DATABASE_URL חסר גם אחרי ניסיון טעינה מ-prisma/.env, backend/.env ו-.env בשורש הריפו.',
       'צור קובץ .env (למשל לפי .env.example) או ייצא את המשתנה כמו ב-docker-compose (לעיתים רק בקונטיינר).',
     ].join('\n'),
   );

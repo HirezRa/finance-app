@@ -127,18 +127,25 @@ curl -sS --max-time 10 http://localhost/api/v1/health
 
 ### רשימת משכורות / הכנסות מה־DB (סקריפט)
 
-מהשורש של הריפו על המארח (דורש `git pull` עד קומיט שמכיל את הקובץ, ו־`npm install` תחת `backend/` אם אין `node_modules`).  
-`DATABASE_URL` נטען אוטומטית מ־`backend/.env` או `.env` בשורש הריפו אם לא הוגדר במעטפת:
+**מומלץ בפריסת Docker** (הקוד על המארח ב־`/opt/finance-app`, משתני DB כבר בקונטיינר):
 
 ```bash
-chmod +x scripts/list-salary-txns.sh   # פעם אחת
+chmod +x scripts/list-salary-via-docker.sh scripts/list-salary-txns.sh   # פעם אחת
+./scripts/list-salary-via-docker.sh --all-income
+```
+
+אל תריצו `cd /app && npx ts-node …` — תחת `/app/prisma` יש רק מה שנארז באימג׳; הקבצים העדכניים נמצאים ב־`/opt/finance-app/backend/prisma` אחרי `git pull`, ו־`npx` עלול לייצר `MODULE_NOT_FOUND`.
+
+**על המארח** (דורש `npm install` תחת `backend/`). `DATABASE_URL` נטען אוטומטית מ־`prisma/.env`, `backend/.env` או `.env` בשורש הריפו:
+
+```bash
 ./scripts/list-salary-txns.sh --all-income
 ```
 
-אחרי build של backend, אפשר גם מתוך הקונטיינר (`WORKDIR` הוא `/app`):
+ידנית מתוך `backend/`:
 
 ```bash
-docker compose exec backend sh -lc 'cd /app && npx ts-node prisma/list-salary-transactions.ts --all-income'
+npm run list:salary-txns -- --all-income
 ```
 
 ---
