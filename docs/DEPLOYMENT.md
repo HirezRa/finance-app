@@ -45,6 +45,7 @@ docker compose exec backend npx prisma db seed
 פתח בדפדפן: `http://YOUR_SERVER_IP`
 
 ## עדכון גרסה
+
 ```bash
 git fetch origin main
 git checkout main --force
@@ -52,6 +53,20 @@ git pull origin main
 docker compose build --no-cache backend frontend nginx
 docker compose up -d
 ```
+
+### שגיאת Git: `Need to specify how to reconcile divergent branches`
+
+במחשב פיתוח אפשר `git config pull.rebase false` (או `git pull --rebase`).  
+**בשרת פריסה** (`/opt/finance-app`) לרוב אין קומיטים מקומיים — מיישרים ל־`origin/main`:
+
+```bash
+cd /opt/finance-app
+git fetch origin main
+git checkout main
+git reset --hard origin/main
+```
+
+ואז `docker compose build` / `up` לפי סעיף העדכון למטה.
 
 ### קובץ `VERSION` ועדכון אוטומטי (`safe-update.sh`)
 

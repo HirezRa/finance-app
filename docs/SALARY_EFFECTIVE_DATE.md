@@ -64,16 +64,38 @@ docker compose exec backend sh -lc 'cd /app && TARGET_YEAR=2026 TARGET_MONTH=5 n
 
 ### רנבוק על שרת מרוחק / SSH (החלף את כתובת המארח)
 
-מכונת הפיתוח לא מתחברת לרשת הביתית בשבילך; להריץ **על השרת** אחרי `git pull`:
+מכונת הפיתוח לא מתחברת לרשת הביתית בשבילך.
+
+**אם `git pull` נכשל** עם `Need to specify how to reconcile divergent branches` (או היסטוריה מפוצלת אחרי force-push), על **שרת פריסה** בלי קומיטים מקומיים חשובים:
 
 ```bash
-ssh <user>@<server-lan-or-hostname>
-cd /opt/finance-app && git pull
-# מכל תיקייה (גם ~):
+cd /opt/finance-app
+git fetch origin main
+git checkout main
+git reset --hard origin/main
+```
+
+או סקריפט אחד (אותה משמעות):
+
+```bash
+sh /opt/finance-app/scripts/sync-repo-to-origin.sh
+```
+
+לאחר מכן:
+
+```bash
 sh /opt/finance-app/scripts/finance-salary-checks.sh
 # אחרי גיבוי DB בלבד:
 # APPLY_FIXES=1 sh /opt/finance-app/scripts/finance-salary-checks.sh
 ```
+
+להגדרת ברירת מחדל ל־`git pull` בעתיד (מיזוג):
+
+```bash
+git config pull.rebase false
+```
+
+## ריפוי אוטומטי בשרת (גרסה 2.0.52+)
 
 - שירות: `SalaryEffectiveDateHealService` — **cron יומי** (`30 3 * * *`, כלומר 03:30 UTC) סורק עסקאות הכנסה עם `effectiveDate IS NOT NULL` ומאפס את השדה כש־**יום בחודש הישראלי לפי `date` < 15** (תואם לכלל המשכורת).
 - **כיבוי:** `DISABLE_SALARY_EFFECTIVE_DATE_HEAL=true` (או `1` / `yes`).
