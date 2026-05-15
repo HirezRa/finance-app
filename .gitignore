@@ -76,6 +76,7 @@ lerna-debug.log*
 
 # Local agent / worktree copies (avoid accidental commits of infra fingerprints)
 .claude/
+.cursor/
 *.swp
 *.swo
 *.sublime-*
