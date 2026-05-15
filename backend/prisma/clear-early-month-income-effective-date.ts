@@ -19,6 +19,10 @@
  *
  * Raw SQL (PostgreSQL) equivalent for May 2026, days 1–14 Israel, all users:
  *   See docs/SALARY_EFFECTIVE_DATE.md
+ *
+ * After upgrading to 2.0.58+, if May income still missing, also run (order matters):
+ *   1) This script (clears mistaken effectiveDate)
+ *   2) prisma/heal-transaction-date-from-scraper-raw.ts — fixes `date` from rawData when legacy UTC skew hid rows from May
  */
 import { PrismaClient } from '@prisma/client';
 
