@@ -44,11 +44,36 @@ docker compose exec backend sh -lc 'cd /app && BANK_YEAR=2026 BANK_MONTH=5 npm r
 
 **בדיקת אמת (האם יש עסקה מ־1 במאי ב־DB ולמה הדשבורד מסתיר):**
 
+במערכת עם **מאונט** של הריפו ל־`/opt/finance-app` (רואים ב־`docker-compose`: `FINANCE_HOST_APP_DIR`), הקוד העדכני נמצא שם — **לא** ב־`/app` שבאימג׳. לכן `npm run inspect:recent-txns` מתוך `/app` עלול להיכשל ב־`Missing script`. אפשרויות:
+
+```bash
+# מומלץ: סקריפט wrapper (מאונט + ts-node מהאימג׳)
+docker compose exec backend sh /opt/finance-app/scripts/inspect-recent-txns-docker.sh -- --limit=30
+
+# ישירות בלי npm (עדיין צריך מאונט + ts-node באימג׳):
+docker compose exec backend sh -lc 'cd /opt/finance-app/backend && NODE_PATH=/app/node_modules TARGET_YEAR=2026 TARGET_MONTH=5 node -r /app/node_modules/ts-node/register prisma/inspect-recent-transactions.ts --limit=30'
+```
+
+אחרי **`docker compose build backend && docker compose up -d backend`**, אפשר גם:
+
 ```bash
 docker compose exec backend sh -lc 'cd /app && TARGET_YEAR=2026 TARGET_MONTH=5 npm run inspect:recent-txns -- --limit=30'
 ```
 
-## ריפוי אוטומטי בשרת (גרסה 2.0.52+)
+**במארח ללא מאונט:** אין `package.json` ב־`/opt/finance-app` בשורש — רק מתוך `backend/` אחרי `git clone`, והרצה דורשת `DATABASE_URL` מקומי; נוח יותר תמיד להריץ מתוך הקונטיינר כמו למעלה.
+
+### רנבוק על שרת Proxmox / SSH (החלף את כתובת המארח)
+
+מכונת הפיתוח לא מתחברת לרשת הביתית בשבילך; להריץ **על השרת** אחרי `git pull`:
+
+```bash
+ssh <user>@<server-lan-or-hostname>
+cd /opt/finance-app && git pull
+# בדיקות + dry-run לריפוי (ללא שינוי DB)
+sh scripts/finance-salary-checks.sh
+# אחרי גיבוי DB בלבד:
+# APPLY_FIXES=1 sh scripts/finance-salary-checks.sh
+```
 
 - שירות: `SalaryEffectiveDateHealService` — **cron יומי** (`30 3 * * *`, כלומר 03:30 UTC) סורק עסקאות הכנסה עם `effectiveDate IS NOT NULL` ומאפס את השדה כש־**יום בחודש הישראלי לפי `date` < 15** (תואם לכלל המשכורת).
 - **כיבוי:** `DISABLE_SALARY_EFFECTIVE_DATE_HEAL=true` (או `1` / `yes`).
