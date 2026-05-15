@@ -2,6 +2,14 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.59] - 2026-05-16
+
+### תפעול (ריפוי נתונים — משכורות / תאריכי סנכרון)
+
+- **`normalizeScraperDateFromRaw`** ב־`scraper-date-normalize.ts` — לוגיקת תאריך ישראל משותפת ל־`ScraperService` ולסקריפטי DB.
+- **`prisma/heal-transaction-date-from-scraper-raw.ts`** — עדכון `date` / hash / `effectiveDate` (הכנסות) מ־`rawData` כשסנכרון לא תיקן רשומות לפני 2.0.58.
+- **`clear-early-month-income-effective-date` / `docs/SALARY_EFFECTIVE_DATE.md`:** סדר הרצה מומלץ עם סקריפט הריפוי החדש.
+
 ## [2.0.58] - 2026-05-07
 
 ### תיקון (סנכרון — תאריכי מאי / משכורות)

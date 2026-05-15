@@ -18,15 +18,11 @@ import { OllamaCategorizerService } from './ollama-categorizer.service';
 import { createHash } from 'crypto';
 import { computeSalaryEffectiveDateForBankDate } from '../../common/utils/salary-effective-date';
 import {
-  endOfIsraelCivilDayInUtc,
-  formatIsraelYmdIso,
   getIsraelDayOfMonth,
-  getIsraelYmd,
   getIsraelYearMonth,
   isStrictIsoDateOnly,
-  parseIsoYmdParts,
-  startOfIsraelCivilDayInUtc,
 } from '../../common/utils/israel-calendar';
+import { normalizeScraperDateFromRaw } from '../../common/utils/scraper-date-normalize';
 import { LogsService } from '../logs/logs.service';
 import { shortenSyncErrorMessage } from '../../common/utils/sync-error-message';
 import {
@@ -241,9 +237,7 @@ export class ScraperService {
   }
 
   /**
-   * תאריך עסקה מהסקרייפר: YYYY-MM-DD לפי לוח **ישראל**, גבול יום אזרחי ב־UTC לדה־דופ, ו־`date` לשמירה
-   * (תחילת יום אזרחי) — עקבי עם דשבורד / מחזור תקציב. `toISOString().slice(0,10)` היה יום UTC וגרם לסטיות אחרי
-   * סקרייפר שמחזיר timestamps מלאים.
+   * תאריך סקרייפר ללוח ישראל + תחילת יום אזרחי — ראו {@link normalizeScraperDateFromRaw}.
    */
   private resolveScraperDateSemantics(rawDate: string): {
     ymdIso: string;
@@ -251,66 +245,7 @@ export class ScraperService {
     dayEnd: Date;
     dateForRow: Date;
   } {
-    const trimmed = String(rawDate ?? '').trim();
-    if (!trimmed) {
-      return this.fallbackScraperDateSemantics('empty');
-    }
-    const parsed = new Date(trimmed);
-    if (!Number.isNaN(parsed.getTime())) {
-      const { year, month, day } = getIsraelYmd(parsed);
-      const ymdIso = formatIsraelYmdIso(parsed);
-      return {
-        ymdIso,
-        dayStart: startOfIsraelCivilDayInUtc(year, month, day),
-        dayEnd: endOfIsraelCivilDayInUtc(year, month, day),
-        dateForRow: startOfIsraelCivilDayInUtc(year, month, day),
-      };
-    }
-    const slice = trimmed.slice(0, 10);
-    if (isStrictIsoDateOnly(slice)) {
-      try {
-        const { year, month, day } = parseIsoYmdParts(slice);
-        return {
-          ymdIso: slice,
-          dayStart: startOfIsraelCivilDayInUtc(year, month, day),
-          dayEnd: endOfIsraelCivilDayInUtc(year, month, day),
-          dateForRow: startOfIsraelCivilDayInUtc(year, month, day),
-        };
-      } catch {
-        /* fall through */
-      }
-    }
-    return this.fallbackScraperDateSemantics(trimmed);
-  }
-
-  private fallbackScraperDateSemantics(hint: string): {
-    ymdIso: string;
-    dayStart: Date;
-    dayEnd: Date;
-    dateForRow: Date;
-  } {
-    const slice = hint.slice(0, 10);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(slice)) {
-      const dayStart = new Date(`${slice}T00:00:00.000Z`);
-      const dayEnd = new Date(`${slice}T23:59:59.999Z`);
-      if (!Number.isNaN(dayStart.getTime())) {
-        this.logger.warn(
-          `Scraper date "${hint}" — using UTC midnight bounds fallback for hash/dedup`,
-        );
-        return { ymdIso: slice, dayStart, dayEnd, dateForRow: dayStart };
-      }
-    }
-    const now = new Date();
-    const { year, month, day } = getIsraelYmd(now);
-    this.logger.warn(
-      `Unparseable scraper date "${hint}" — using today's Israel civil day for hash/dedup`,
-    );
-    return {
-      ymdIso: formatIsraelYmdIso(now),
-      dayStart: startOfIsraelCivilDayInUtc(year, month, day),
-      dayEnd: endOfIsraelCivilDayInUtc(year, month, day),
-      dateForRow: startOfIsraelCivilDayInUtc(year, month, day),
-    };
+    return normalizeScraperDateFromRaw(rawDate, (m) => this.logger.warn(m));
   }
 
   /** @param dateStrIsraelYmd מתוך {@link resolveScraperDateSemantics} (לוח ישראל). */
