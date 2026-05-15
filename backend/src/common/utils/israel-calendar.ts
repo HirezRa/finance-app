@@ -42,6 +42,13 @@ export function getIsraelYmd(d: Date): { year: number; month: number; day: numbe
   };
 }
 
+/** `YYYY-MM-DD` in Asia/Jerusalem for a stored UTC instant (סקרייפר / בנק). */
+export function formatIsraelYmdIso(d: Date): string {
+  const { year, month, day } = getIsraelYmd(d);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${year}-${pad(month)}-${pad(day)}`;
+}
+
 function israelCivilDateBefore(
   d: Date,
   year: number,

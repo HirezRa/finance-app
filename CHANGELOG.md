@@ -2,6 +2,13 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.58] - 2026-05-07
+
+### תיקון (סנכרון — תאריכי מאי / משכורות)
+
+- **`ScraperService`:** תאריך עסקה מחושב בלוח **אזרחי ישראל** (`formatIsraelYmdIso`, גבולות `startOfIsraelCivilDayInUtc` / `endOfIsraelCivilDayInUtc`) ל־`scraperHash`, דה־דופ רך (`duplicateSoft`), שמירת `date`, והתאמת pending — במקום `toISOString().split('T')[0]` וחלון UTC שגרמו לסטיות אחרי סקרייפר שמחזיר timestamps מלאים (כולל לעסקאות חודש מאי).
+- **תיעוד:** `docs/SALARY_EFFECTIVE_DATE.md` — סעיף סנכרון סקרייפר; בדיקות `israel-calendar-format.spec.ts`.
+
 ## [2.0.57] - 2026-05-14
 
 ### תלויות (סקרייפר)
