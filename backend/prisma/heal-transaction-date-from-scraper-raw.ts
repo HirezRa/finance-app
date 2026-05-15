@@ -8,6 +8,8 @@
  * Usage (מ־backend/, ברירת מחדל dry-run):
  *   npx ts-node prisma/heal-transaction-date-from-scraper-raw.ts
  *
+ * Docker: `cd /app` לפני ההרצה (אותו WORKDIR כמו השרת).
+ *
  * ביצוע:
  *   npx ts-node prisma/heal-transaction-date-from-scraper-raw.ts --execute
  *

@@ -2,6 +2,14 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.60] - 2026-05-16
+
+### תפעול (Docker — סקריפטי Prisma)
+
+- **אימג׳ הבאק־אנד:** העתקת `src/` ו־`tsconfig.json` לשלב הריצה — `ts-node` על `prisma/*.ts` מצליח לייבא `../src/common/utils/...` (תיקון `MODULE_NOT_FOUND` / הרצה מתוך קונטיינר).
+- **`npm run heal:transaction-dates-from-raw`** — shortcut לסקריפט הריפוי.
+- **תיעוד:** `docs/SALARY_EFFECTIVE_DATE.md` — `BANK_YEAR` חייב להתאים לשנה בפועל (למשל 2026); דוגמאות `docker compose exec` מ־`/app`.
+
 ## [2.0.59] - 2026-05-16
 
 ### תפעול (ריפוי נתונים — משכורות / תאריכי סנכרון)

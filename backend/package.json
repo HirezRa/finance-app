@@ -1,6 +1,6 @@
 {
   "name": "finance-app-backend",
-  "version": "2.0.59",
+  "version": "2.0.60",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -39,6 +39,7 @@
     "fix:budget-sort-order": "ts-node prisma/fix-budget-sort-order.ts",
     "fix:split-bills": "ts-node prisma/fix-split-bills-category.ts",
     "fix:early-income-effective-date": "ts-node prisma/clear-early-month-income-effective-date.ts",
+    "heal:transaction-dates-from-raw": "ts-node prisma/heal-transaction-date-from-scraper-raw.ts",
     "list:salary-txns": "ts-node prisma/list-salary-transactions.ts",
     "list:salary-txns:docker": "node ../scripts/list-salary-via-docker.cjs"
   },
