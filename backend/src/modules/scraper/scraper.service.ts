@@ -18,8 +18,14 @@ import { OllamaCategorizerService } from './ollama-categorizer.service';
 import { createHash } from 'crypto';
 import { computeSalaryEffectiveDateForBankDate } from '../../common/utils/salary-effective-date';
 import {
+  endOfIsraelCivilDayInUtc,
+  formatIsraelYmdIso,
   getIsraelDayOfMonth,
+  getIsraelYmd,
   getIsraelYearMonth,
+  isStrictIsoDateOnly,
+  parseIsoYmdParts,
+  startOfIsraelCivilDayInUtc,
 } from '../../common/utils/israel-calendar';
 import { LogsService } from '../logs/logs.service';
 import { shortenSyncErrorMessage } from '../../common/utils/sync-error-message';
@@ -234,19 +240,88 @@ export class ScraperService {
     };
   }
 
-  private generateTransactionHash(
+  /**
+   * תאריך עסקה מהסקרייפר: YYYY-MM-DD לפי לוח **ישראל**, גבול יום אזרחי ב־UTC לדה־דופ, ו־`date` לשמירה
+   * (תחילת יום אזרחי) — עקבי עם דשבורד / מחזור תקציב. `toISOString().slice(0,10)` היה יום UTC וגרם לסטיות אחרי
+   * סקרייפר שמחזיר timestamps מלאים.
+   */
+  private resolveScraperDateSemantics(rawDate: string): {
+    ymdIso: string;
+    dayStart: Date;
+    dayEnd: Date;
+    dateForRow: Date;
+  } {
+    const trimmed = String(rawDate ?? '').trim();
+    if (!trimmed) {
+      return this.fallbackScraperDateSemantics('empty');
+    }
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      const { year, month, day } = getIsraelYmd(parsed);
+      const ymdIso = formatIsraelYmdIso(parsed);
+      return {
+        ymdIso,
+        dayStart: startOfIsraelCivilDayInUtc(year, month, day),
+        dayEnd: endOfIsraelCivilDayInUtc(year, month, day),
+        dateForRow: startOfIsraelCivilDayInUtc(year, month, day),
+      };
+    }
+    const slice = trimmed.slice(0, 10);
+    if (isStrictIsoDateOnly(slice)) {
+      try {
+        const { year, month, day } = parseIsoYmdParts(slice);
+        return {
+          ymdIso: slice,
+          dayStart: startOfIsraelCivilDayInUtc(year, month, day),
+          dayEnd: endOfIsraelCivilDayInUtc(year, month, day),
+          dateForRow: startOfIsraelCivilDayInUtc(year, month, day),
+        };
+      } catch {
+        /* fall through */
+      }
+    }
+    return this.fallbackScraperDateSemantics(trimmed);
+  }
+
+  private fallbackScraperDateSemantics(hint: string): {
+    ymdIso: string;
+    dayStart: Date;
+    dayEnd: Date;
+    dateForRow: Date;
+  } {
+    const slice = hint.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(slice)) {
+      const dayStart = new Date(`${slice}T00:00:00.000Z`);
+      const dayEnd = new Date(`${slice}T23:59:59.999Z`);
+      if (!Number.isNaN(dayStart.getTime())) {
+        this.logger.warn(
+          `Scraper date "${hint}" — using UTC midnight bounds fallback for hash/dedup`,
+        );
+        return { ymdIso: slice, dayStart, dayEnd, dateForRow: dayStart };
+      }
+    }
+    const now = new Date();
+    const { year, month, day } = getIsraelYmd(now);
+    this.logger.warn(
+      `Unparseable scraper date "${hint}" — using today's Israel civil day for hash/dedup`,
+    );
+    return {
+      ymdIso: formatIsraelYmdIso(now),
+      dayStart: startOfIsraelCivilDayInUtc(year, month, day),
+      dayEnd: endOfIsraelCivilDayInUtc(year, month, day),
+      dateForRow: startOfIsraelCivilDayInUtc(year, month, day),
+    };
+  }
+
+  /** @param dateStrIsraelYmd מתוך {@link resolveScraperDateSemantics} (לוח ישראל). */
+  private buildTransactionHash(
     accountId: string,
     txn: Record<string, unknown>,
+    dateStrIsraelYmd: string,
   ): string {
     const normalizedDesc = this.normalizeTxnText(
       String(txn.description ?? txn.memo ?? ''),
     );
-
-    const rawDate = String(txn.date ?? '');
-    const parsedDate = new Date(rawDate);
-    const dateStr = Number.isNaN(parsedDate.getTime())
-      ? rawDate.slice(0, 10)
-      : parsedDate.toISOString().split('T')[0];
 
     const amount =
       txn.chargedAmount !== undefined && txn.chargedAmount !== null
@@ -260,7 +335,7 @@ export class ScraperService {
     const bankId =
       idRaw === null || idRaw === undefined || idRaw === '' ? '' : String(idRaw);
 
-    const hashInput = `${accountId}|${dateStr}|${amountStr}|${normalizedDesc}|${bankId}`;
+    const hashInput = `${accountId}|${dateStrIsraelYmd}|${amountStr}|${normalizedDesc}|${bankId}`;
     this.logger.debug(`Hash input: ${hashInput}`);
 
     return createHash('sha256').update(hashInput).digest('hex');
@@ -476,9 +551,21 @@ export class ScraperService {
           ? txn.amount
           : 0,
     );
-    const date = new Date(String(txn.date ?? ''));
+    const rawDateStr = String(txn.date ?? '').trim();
+    if (!rawDateStr) return null;
+    const parsedProbe = new Date(rawDateStr);
+    const head10 = rawDateStr.slice(0, 10);
+    if (Number.isNaN(parsedProbe.getTime()) && !isStrictIsoDateOnly(head10)) {
+      return null;
+    }
+    const sem = this.resolveScraperDateSemantics(rawDateStr);
     const description = String(txn.description || txn.memo || '').trim();
-    const matchHash = this.generatePendingMatchHash(accountId, date, amount, description);
+    const matchHash = this.generatePendingMatchHash(
+      accountId,
+      sem.dateForRow,
+      amount,
+      description,
+    );
 
     const pendingByHash = await this.prisma.transaction.findFirst({
       where: {
@@ -489,10 +576,9 @@ export class ScraperService {
     });
     if (pendingByHash) return pendingByHash.id;
 
-    const dateStart = new Date(date.getTime());
-    dateStart.setUTCDate(dateStart.getUTCDate() - 3);
-    const dateEnd = new Date(date.getTime());
-    dateEnd.setUTCDate(dateEnd.getUTCDate() + 3);
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+    const dateStart = new Date(sem.dayStart.getTime() - threeDaysMs);
+    const dateEnd = new Date(sem.dayEnd.getTime() + threeDaysMs);
 
     const amountMin = amount * 0.95;
     const amountMax = amount * 1.05;
@@ -1599,10 +1685,7 @@ export class ScraperService {
       try {
         const txn = raw as Record<string, unknown>;
         const rawDate = String(txn.date ?? '');
-        const parsedDate = new Date(rawDate);
-        const dateStr = Number.isNaN(parsedDate.getTime())
-          ? rawDate.slice(0, 10)
-          : parsedDate.toISOString().split('T')[0];
+        const sem = this.resolveScraperDateSemantics(rawDate);
 
         const amount =
           txn.chargedAmount !== undefined && txn.chargedAmount !== null
@@ -1625,7 +1708,7 @@ export class ScraperService {
         const status: TransactionStatus =
           statusStr === 'pending' ? TransactionStatus.PENDING : TransactionStatus.COMPLETED;
 
-        const scraperHash = this.generateTransactionHash(accountId, txn);
+        const scraperHash = this.buildTransactionHash(accountId, txn, sem.ymdIso);
 
         const existingByHash = await this.prisma.transaction.findUnique({
           where: { scraperHash },
@@ -1804,12 +1887,10 @@ export class ScraperService {
         }
 
         const amtDec = new Prisma.Decimal(Number.isFinite(amount) ? amount : 0);
-        const dayStart = new Date(`${dateStr}T00:00:00.000Z`);
-        const dayEnd = new Date(`${dateStr}T23:59:59.999Z`);
         const duplicateSoft = await this.prisma.transaction.findFirst({
           where: {
             accountId,
-            date: { gte: dayStart, lte: dayEnd },
+            date: { gte: sem.dayStart, lte: sem.dayEnd },
             amount: { gte: amtDec.minus(0.01), lte: amtDec.plus(0.01) },
             description,
             status: TransactionStatus.COMPLETED,
@@ -1852,7 +1933,7 @@ export class ScraperService {
           });
         }
 
-        const dateForRow = Number.isNaN(parsedDate.getTime()) ? new Date(rawDate) : parsedDate;
+        const dateForRow = sem.dateForRow;
         const effectiveDate = await this.calculateEffectiveDate(
           userId,
           dateForRow,

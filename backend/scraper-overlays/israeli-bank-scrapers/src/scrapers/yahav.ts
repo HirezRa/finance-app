@@ -109,7 +109,7 @@ function convertTransactions(txns: YahavScrapedRow[], options?: ScraperOptions):
     const convertedDate = m.toISOString();
     const convertedAmount = getTxnAmount(txn);
     const ref = (txn.reference ?? '').trim();
-    /** Finance App: `referenceNumber` preferred in scraperHash (see ScraperService.generateTransactionHash). */
+    /** Finance App: `referenceNumber` preferred in scraper hash (see ScraperService.buildTransactionHash). */
     const result: Transaction = {
       type: TransactionTypes.Normal,
       referenceNumber: ref || undefined,
