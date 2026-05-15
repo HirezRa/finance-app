@@ -172,7 +172,7 @@ pct exec 100 -- bash -lc 'cd /opt/finance-app && git fetch origin main && git ch
 ```
 
 ```json
-{"level":"ERROR","category":"sync","message":"sync_fail","meta":{"schemaVersion":2,"syncRunId":"…","stage":"sync_fail","errorKind":"ui_selector_timeout","errorStage":"fetch_transactions","runtime":{"appVersion":"2.0.47","scraperPackageVersion":"github:HirezRa/israeli-bank-scrapers#hirez-v1.0.19"}}}
+{"level":"ERROR","category":"sync","message":"sync_fail","meta":{"schemaVersion":2,"syncRunId":"…","stage":"sync_fail","errorKind":"ui_selector_timeout","errorStage":"fetch_transactions","runtime":{"appVersion":"2.0.47","scraperPackageVersion":"github:HirezRa/israeli-bank-scrapers#hirez-v1.0.20"}}}
 ```
 
 ### d) `db_unavailable`
