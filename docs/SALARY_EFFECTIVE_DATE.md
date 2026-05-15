@@ -69,10 +69,10 @@ docker compose exec backend sh -lc 'cd /app && TARGET_YEAR=2026 TARGET_MONTH=5 n
 ```bash
 ssh <user>@<server-lan-or-hostname>
 cd /opt/finance-app && git pull
-# בדיקות + dry-run לריפוי (ללא שינוי DB)
-sh scripts/finance-salary-checks.sh
+# מכל תיקייה (גם ~):
+sh /opt/finance-app/scripts/finance-salary-checks.sh
 # אחרי גיבוי DB בלבד:
-# APPLY_FIXES=1 sh scripts/finance-salary-checks.sh
+# APPLY_FIXES=1 sh /opt/finance-app/scripts/finance-salary-checks.sh
 ```
 
 - שירות: `SalaryEffectiveDateHealService` — **cron יומי** (`30 3 * * *`, כלומר 03:30 UTC) סורק עסקאות הכנסה עם `effectiveDate IS NOT NULL` ומאפס את השדה כש־**יום בחודש הישראלי לפי `date` < 15** (תואם לכלל המשכורת).
