@@ -9,6 +9,8 @@
  * Usage (from backend/, default dry-run — prints only):
  *   npx ts-node prisma/clear-early-month-income-effective-date.ts
  *
+ * Docker runtime image (`WORKDIR /app`): use `cd /app` first so imports resolve to `src/`.
+ *
  * Apply changes:
  *   npx ts-node prisma/clear-early-month-income-effective-date.ts --execute
  *

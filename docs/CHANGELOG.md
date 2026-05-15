@@ -4,6 +4,10 @@
 
 **מקור אמת מומלץ:** קובץ `CHANGELOG.md` בשורש הריפו (מסונכרן עם תגי GitHub `v*`). קובץ זה ב־`docs/` משוכפל לנוחות; אם יש סתירה — עדיפות לשורש.
 
+## [2.0.60] - 2026-05-16
+
+- Docker backend: `src` + `tsconfig` בריצה לסקריפטי תחזוקה; ראו `CHANGELOG.md`.
+
 ## [2.0.59] - 2026-05-16
 
 - סקריפט `heal-transaction-date-from-scraper-raw.ts` + מודול `scraper-date-normalize.ts`; ראו `CHANGELOG.md` בשורש.
