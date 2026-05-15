@@ -19,6 +19,15 @@
 
 תאריך עסקה מהבנק נשמר כ־**תחילת יום אזרחי בישראל** ב־UTC (`startOfIsraelCivilDayInUtc`), וממנו נגזרים גם `scraperHash` ודה־דופ רך — לא מחרוזת `toISOString().slice(0, 10)` (יום UTC), כדי שמשכורות (למשל 1 במאי) לא ייסננו או ייוחסו ליום שגוי מול הדשבורד והמחזור.
 
+### ריפוי DB אחרי שדרוג 2.0.58 (משכורות מאי לא מופיעות)
+
+סדר מומלץ (מתוך תיקיית `backend/`, גיבוי DB לפני `--execute`):
+
+1. **`prisma/clear-early-month-income-effective-date.ts --execute`** — מאפס `effectiveDate` להכנסות בימים 1–14 בלוח ישראלי בחודש הנבחר (`BANK_YEAR` / `BANK_MONTH`).
+2. **`prisma/heal-transaction-date-from-scraper-raw.ts --execute`** — מעדכן `date`, `scraperHash`, `pendingMatchHash` ו־`effectiveDate` (להכנסות) לפי `rawData.date` ונרמול תאריך ישראל, כשסנכרון לא עדכן רשומות ישנות.
+
+פרטים ומשתני סביבה: הכותרות בקובץ כל סקריפט.
+
 ## ריפוי אוטומטי בשרת (גרסה 2.0.52+)
 
 - שירות: `SalaryEffectiveDateHealService` — **cron יומי** (`30 3 * * *`, כלומר 03:30 UTC) סורק עסקאות הכנסה עם `effectiveDate IS NOT NULL` ומאפס את השדה כש־**יום בחודש הישראלי לפי `date` < 15** (תואם לכלל המשכורת).
