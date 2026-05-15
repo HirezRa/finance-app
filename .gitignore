@@ -74,6 +74,9 @@ lerna-debug.log*
 .idea/
 .vscode/
 
+# Local Python venv (optional tooling; not part of app)
+tools/proxmox-mcp-plus-venv/
+
 # Local agent / worktree copies (avoid accidental commits of infra fingerprints)
 .claude/
 .cursor/
