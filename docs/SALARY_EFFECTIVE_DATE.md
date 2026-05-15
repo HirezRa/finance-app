@@ -21,12 +21,26 @@
 
 ### ריפוי DB אחרי שדרוג 2.0.58 (משכורות מאי לא מופיעות)
 
-סדר מומלץ (מתוך תיקיית `backend/`, גיבוי DB לפני `--execute`):
+סדר מומלץ (גיבוי DB לפני `--execute`):
 
-1. **`prisma/clear-early-month-income-effective-date.ts --execute`** — מאפס `effectiveDate` להכנסות בימים 1–14 בלוח ישראלי בחודש הנבחר (`BANK_YEAR` / `BANK_MONTH`).
-2. **`prisma/heal-transaction-date-from-scraper-raw.ts --execute`** — מעדכן `date`, `scraperHash`, `pendingMatchHash` ו־`effectiveDate` (להכנסות) לפי `rawData.date` ונרמול תאריך ישראל, כשסנכרון לא עדכן רשומות ישנות.
+**חשוב:** `BANK_YEAR` / `BANK_MONTH` לפי **לוח ישראל של עסקאות בפועל ב־DB** (למשל אם ברשימת העסקאות תאריך 2026 — לא להשתמש ב־2024).
 
-פרטים ומשתני סביבה: הכותרות בקובץ כל סקריפט.
+**תמונת Docker (`WORKDIR /app`):** חייבים להריץ מתוך `/app` (כברירת המחולל של שירות הבאק־אנד), לא מתוך `prisma/` בלבד; בתמונה נשמרים גם `src/` ו־`tsconfig.json` כדי ש־`ts-node` ימצא את `../src/common/utils/...`.
+
+```bash
+# יציבות (ייבוא effectiveDate שגוי, ימים 1–14 בחודש)
+docker compose exec backend sh -lc 'cd /app && BANK_YEAR=2026 BANK_MONTH=5 npm run fix:early-income-effective-date -- --execute'
+
+# תאריך/hash מ־rawData (אחרי סקרייפר ישן)
+docker compose exec backend sh -lc 'cd /app && BANK_YEAR=2026 BANK_MONTH=5 npm run heal:transaction-dates-from-raw -- --execute'
+```
+
+מקומית (מתוך `backend/`):
+
+1. **`npm run fix:early-income-effective-date -- --execute`** עם `BANK_YEAR` / `BANK_MONTH`
+2. **`npm run heal:transaction-dates-from-raw -- --execute`** עם אותם משתנים
+
+פרטים נוספים: כותרות הקבצים `prisma/clear-early-month-income-effective-date.ts` ו־`prisma/heal-transaction-date-from-scraper-raw.ts`.
 
 ## ריפוי אוטומטי בשרת (גרסה 2.0.52+)
 
