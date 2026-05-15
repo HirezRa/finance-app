@@ -27,6 +27,8 @@
 | AI | Ollama / OpenRouter |
 | Container | Docker Compose |
 
+אופציונלי — **Proxmox MCP Plus** (ניטור PVE מתוך Cursor): [docs/PROXMOX_MCP.md](docs/PROXMOX_MCP.md).
+
 ## 🏦 מוסדות נתמכים
 
 רשימת מזהים ושמות תצוגה מעודכנים בקוד (`getSupportedInstitutions`) — ראו [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
