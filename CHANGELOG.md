@@ -2,6 +2,12 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.57] - 2026-05-14
+
+### תלויות (סקרייפר)
+
+- **israeli-bank-scrapers** / **@hirez10/israeli-bank-scrapers** → תג Git [hirez-v1.0.20](https://github.com/HirezRa/israeli-bank-scrapers/releases/tag/hirez-v1.0.20) (קומיט `1c9b998c230d7936c2a232aa7f2b8729a007fada`).
+
 ## [2.0.56] - 2026-05-14
 
 ### תיקון (Docker — frontend unhealthy)
