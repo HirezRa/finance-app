@@ -42,6 +42,12 @@ docker compose exec backend sh -lc 'cd /app && BANK_YEAR=2026 BANK_MONTH=5 npm r
 
 פרטים נוספים: כותרות הקבצים `prisma/clear-early-month-income-effective-date.ts` ו־`prisma/heal-transaction-date-from-scraper-raw.ts`.
 
+**בדיקת אמת (האם יש עסקה מ־1 במאי ב־DB ולמה הדשבורד מסתיר):**
+
+```bash
+docker compose exec backend sh -lc 'cd /app && TARGET_YEAR=2026 TARGET_MONTH=5 npm run inspect:recent-txns -- --limit=30'
+```
+
 ## ריפוי אוטומטי בשרת (גרסה 2.0.52+)
 
 - שירות: `SalaryEffectiveDateHealService` — **cron יומי** (`30 3 * * *`, כלומר 03:30 UTC) סורק עסקאות הכנסה עם `effectiveDate IS NOT NULL` ומאפס את השדה כש־**יום בחודש הישראלי לפי `date` < 15** (תואם לכלל המשכורת).
