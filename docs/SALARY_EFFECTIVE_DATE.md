@@ -62,7 +62,7 @@ docker compose exec backend sh -lc 'cd /app && TARGET_YEAR=2026 TARGET_MONTH=5 n
 
 **במארח ללא מאונט:** אין `package.json` ב־`/opt/finance-app` בשורש — רק מתוך `backend/` אחרי `git clone`, והרצה דורשת `DATABASE_URL` מקומי; נוח יותר תמיד להריץ מתוך הקונטיינר כמו למעלה.
 
-### רנבוק על שרת Proxmox / SSH (החלף את כתובת המארח)
+### רנבוק על שרת מרוחק / SSH (החלף את כתובת המארח)
 
 מכונת הפיתוח לא מתחברת לרשת הביתית בשבילך; להריץ **על השרת** אחרי `git pull`:
 
