@@ -60,6 +60,7 @@ data/
 # Logs (runtime only — not backend/src/modules/logs source)
 # ========================================
 /logs/
+Log/
 backend/logs/
 *.log
 npm-debug.log*
@@ -72,6 +73,9 @@ lerna-debug.log*
 # ========================================
 .idea/
 .vscode/
+
+# Local agent / worktree copies (avoid accidental commits of infra fingerprints)
+.claude/
 *.swp
 *.swo
 *.sublime-*
