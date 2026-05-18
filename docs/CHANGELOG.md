@@ -4,6 +4,39 @@
 
 **מקור אמת מומלץ:** קובץ `CHANGELOG.md` בשורש הריפו (מסונכרן עם תגי GitHub `v*`). קובץ זה ב־`docs/` משוכפל לנוחות; אם יש סתירה — עדיפות לשורש.
 
+## [2.0.68] - 2026-05-17
+
+- **Yahav overlay** — סנכרון 1:1 עם fork `hirez-v1.0.24` (`searchByDates`, `applyYahavDateFilterOnly`, `enforceYahavStatementLoaded`).
+- תלות `israeli-bank-scrapers` → `#hirez-v1.0.24` (lock: `ce1b773`).
+- `ScraperService.detectCoverageAnomaly` קורא `partial/warnings/diagnostics`; בדיקות ב־`scraper.service.spec.ts`.
+- ראו `CHANGELOG.md` בשורש ו־`docs/RELEASE_2.0.68.md`.
+
+## [2.0.67] - 2026-05-17
+
+- **Yahav overlay** — viewport 1366×900, `buildYahavCoverageDiagnostics`, `partial/warnings/diagnostics`, הסרת cap סמוי על טווח תאריכים.
+- `ScraperService` — לוג WARN לדיאגנוסטיקת סקרייפר; `verify-yahav-config-scrape.ts` — `SCRAPE_ASSERT_MAY1`.
+- ראו `CHANGELOG.md` בשורש.
+
+## [2.0.66] - 2026-05-17
+
+- עודכנה תלות Yahav scraper ל־`hirez-v1.0.23` + lockfile.
+- בוצע אימות שרת בטווחים `2026-05-09..2026-05-13` וגם `2026-04-25..2026-05-13`; בפועל חזרו רק 5 פעולות בטווח `2026-05-09..2026-05-13` וללא משכורות 01/05.
+
+## [2.0.65] - 2026-05-16
+
+- עודכנה תלות Yahav scraper ל־`hirez-v1.0.22` + lockfile.
+- בוצע אימות שרת בטווחים `2026-05-09..2026-05-13` וגם `2026-04-25..2026-05-13`; בפועל חזרו רק 5 פעולות בטווח `2026-05-09..2026-05-13` וללא משכורות 01/05.
+
+## [2.0.64] - 2026-05-16
+
+- עודכנה תלות Yahav scraper ל־`hirez-v1.0.21` + lockfile.
+- בוצע אימות שרת עם `SCRAPE_START_DATE=2026-04-25` (וגם `2026-05-09`) ונצפה טווח `2026-05-09..2026-05-13` בלבד, ללא משכורות 01/05.
+
+## [2.0.63] - 2026-05-16
+
+- פריסה מרחוק: מעבר ל־`FINANCE_DEPLOY_SSH` / `FINANCE_SSH_JUMP_HOST`; ניקוי תיעוד תפעולי; ראו `CHANGELOG.md` בשורש.
+- אבטחה: טיהור היסטוריית Git (סקריפטי פריסה ישנים עם טביעות תשתית, מסמכי עיצוב), שיפור `.gitleaks.toml`, `.gitleaksignore` ריק, `verify-gitleaks-clean.cjs`.
+
 ## [2.0.62] - 2026-05-16
 
 - הסרת תיעוד Proxmox MCP מהמאגר; ראו `CHANGELOG.md` בשורש.

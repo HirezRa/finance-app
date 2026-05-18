@@ -54,8 +54,6 @@ docker exec -e SCRAPE_START_DATE=2026-04-25 -e SCRAPE_END_DATE=2026-05-13 \
 
 - `backend/src/modules/scraper/scraper.service.spec.ts` — נעילת התנהגות `detectCoverageAnomaly` לכל 5 התרחישים (partial+נתונים דלים, חלון רחב/מעט שורות, כיסוי בריא, אפס נתונים + לא partial, אפס נתונים + partial).
 
-### לא בוצע commit/release — מחכה לאישור המשתמש לפי בקשתו.
-
 ## [2.0.66] - 2026-05-17
 
 ### Scraper (Yahav) — עדכון 1.0.23 ואימות חוזר
