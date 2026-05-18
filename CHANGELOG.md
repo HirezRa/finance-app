@@ -4,22 +4,31 @@
 
 ## [Unreleased]
 
-### Ops — עדכון גרסה מהממשק (`safe-update.sh`)
+## [2.0.69] - 2026-05-18
 
-- **תיקון:** `git pull` נכשל על שרת פריסה ב־detached HEAD / היסטוריה מפוצלת — עבר ל־`git checkout -B main origin/main && git reset --hard origin/main` (כמו `self-update.sh` / `sync-repo-to-origin.sh`).
-- לוג Git כושל נשמר ב־`update-data/build.log` לדיבוג.
+### Frontend — מסך עסקאות (RTL + עמודת סכום קבועה)
+
+- **Grid קבוע** לשורות ולכותרת טבלה: `avatar | פרטים | סכום | קטגוריה | פעולות` — סריקה אנכית של סכומים ללא תזוזה בגלל כותרת/תגיות.
+- כותרת עסקה בשורה נפרדת (`ellipsis-1`); תגיות ב־`txn-chips-lane` מבודדות; מטא־דאטה ב־`meta-line`.
+- Utilities: `.amount-cell` (LTR + `tabular-nums` + `unicode-bidi: isolate`), `.content-cell`, `.txn-chip`.
+- קובץ משותף: `frontend/src/components/transaction-list-layout.ts`.
+
+### Scraper (Yahav) — איסוף שורות טבלה קלאסית
+
+- כאשר רשימה וירטואלית מחזירה פריט יחיד, איסוף גם משורות טבלת עו״ש קלאסית (`yahav.ts` + `yahav-parse.ts` ב-overlay).
+- `ScraperService` — הרחבת `detectCoverageAnomaly` + בדיקות ב־`scraper.service.spec.ts`.
 
 ### Dashboard — הכנסות/משכורות בדוח חודשי
 
-- **תיקון:** הדשבורד מתעלם כעת מ־`isExcludedFromCashFlow` עבור רשומות הכנסה (סכום חיובי או `category.isIncome=true`) כדי שמשכורות לא ייעלמו מהסיכום אם סומנו בטעות כ״הוצא מתקציב״.
-- **שימור התנהגות קיימת:** הוצאות שסומנו `isExcludedFromCashFlow=true` ממשיכות להיות מוסתרות מתקציב/דשבורד.
-- פעולת `toggleExcludeFromCashFlow` לא תסמן יותר הכנסות כ־excluded (נכפה ל־`false` עבור income-like).
+- הדשבורד מתעלם מ־`isExcludedFromCashFlow` עבור רשומות הכנסה (סכום חיובי או `category.isIncome=true`).
+- הוצאות שסומנו excluded ממשיכות להיות מוסתרות; `toggleExcludeFromCashFlow` לא מסמן הכנסות כ־excluded.
 
-### Scraper Date Normalize — יום/חודש מול חודש/יום
+### Ops — עדכון גרסה מהממשק (`safe-update.sh`)
 
-- **תיקון קריטי:** `normalizeScraperDateFromRaw` נותן עדיפות לפורמט `DD/MM/YYYY` (למשל `01/05/2026`) לפני `new Date(...)`, כדי למנוע היפוך לחודש/יום (ינואר במקום מאי).
-- נוספה בדיקת יחידה: `scraper-date-normalize.spec.ts` עבור `01/05/2026` ⇒ `2026-05-01`.
-- `SyncLifecycleEventMeta` הורחב עם `coverageAnomaly` כדי למנוע כשל Build ב־TypeScript בזמן פריסה.
+- `git pull` על שרת detached HEAD — עבר ל־`git checkout -B main origin/main && git reset --hard origin/main`.
+- לוג Git כושל נשמר ב־`update-data/build.log`.
+
+ראו `docs/RELEASE_2.0.69.md`.
 
 ## [2.0.68] - 2026-05-17
 

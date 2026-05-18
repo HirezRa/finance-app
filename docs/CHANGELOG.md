@@ -4,6 +4,13 @@
 
 **מקור אמת מומלץ:** קובץ `CHANGELOG.md` בשורש הריפו (מסונכרן עם תגי GitHub `v*`). קובץ זה ב־`docs/` משוכפל לנוחות; אם יש סתירה — עדיפות לשורש.
 
+## [2.0.69] - 2026-05-18
+
+- **עסקאות (RTL)** — Grid קבוע לעמודת סכום, תגיות מבודדות, utilities ל־bidi/מספרים.
+- **Yahav** — איסוף שורות טבלה קלאסית כשהרשימה הוירטואלית דלה; `detectCoverageAnomaly` מורחב.
+- **דשבורד** — הכנסות לא נעלמות בגלל `isExcludedFromCashFlow`.
+- ראו `CHANGELOG.md` בשורש ו־`docs/RELEASE_2.0.69.md`.
+
 ## [2.0.68] - 2026-05-17
 
 - **Yahav overlay** — סנכרון 1:1 עם fork `hirez-v1.0.24` (`searchByDates`, `applyYahavDateFilterOnly`, `enforceYahavStatementLoaded`).

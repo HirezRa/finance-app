@@ -33,7 +33,7 @@ export function Amount({
   return (
     <span
       className={cn(
-        'inline-flex items-center font-medium tabular-nums',
+        'amount-cell inline-flex items-center font-medium tabular-nums',
         sizeClasses[size],
         isPositive && 'text-income',
         isNegative && 'text-expense',

@@ -172,6 +172,111 @@
   .badge-neutral {
     @apply rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground;
   }
+
+  /* Transactions list — fixed financial columns (RTL) */
+  .transaction-row-grid {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) 2.5rem;
+    grid-template-areas:
+      'avatar content actions'
+      'amount amount amount';
+    column-gap: 0.75rem;
+    row-gap: 0.5rem;
+    align-items: start;
+  }
+
+  .transaction-row-grid > .txn-col-avatar {
+    grid-area: avatar;
+  }
+
+  .transaction-row-grid > .txn-col-content {
+    grid-area: content;
+  }
+
+  .transaction-row-grid > .txn-col-amount {
+    grid-area: amount;
+    justify-self: start;
+  }
+
+  .transaction-row-grid > .txn-col-category {
+    display: none;
+  }
+
+  .transaction-row-grid > .txn-col-actions {
+    grid-area: actions;
+    align-self: start;
+  }
+
+  @media (min-width: 768px) {
+    .transaction-row-grid {
+      grid-template-columns: 40px minmax(0, 1fr) 7rem 9rem 2.5rem;
+      grid-template-areas: none;
+      align-items: center;
+      column-gap: 1rem;
+      row-gap: 0;
+    }
+
+    .transaction-row-grid > .txn-col-avatar {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .transaction-row-grid > .txn-col-content {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .transaction-row-grid > .txn-col-amount {
+      grid-column: 3;
+      grid-row: 1;
+      justify-self: stretch;
+    }
+
+    .transaction-row-grid > .txn-col-category {
+      display: block;
+      grid-column: 4;
+      grid-row: 1;
+    }
+
+    .transaction-row-grid > .txn-col-actions {
+      grid-column: 5;
+      grid-row: 1;
+    }
+  }
+
+  .content-cell {
+    min-width: 0;
+  }
+
+  .amount-cell {
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: start;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .ellipsis-1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .meta-line {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .txn-chips-lane {
+    @apply flex max-w-full flex-wrap items-center gap-1;
+  }
+
+  .txn-chip {
+    @apply inline-flex max-w-full shrink-0 items-center rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[11px] font-normal text-muted-foreground;
+  }
+
+  .transaction-list-header > .txn-col-category {
+    display: block;
+  }
 }
 
 html.transitioning,

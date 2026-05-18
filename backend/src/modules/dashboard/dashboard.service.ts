@@ -285,7 +285,7 @@ export class DashboardService {
       const amount = Number(txn.amount);
       const isIncomeCategory = txn.category?.isIncome === true;
 
-      if (amount > 0 || isIncomeCategory) {
+      if (isIncomeCategory && amount !== 0) {
         const incomeAmount = Math.abs(amount);
         income.total += incomeAmount;
         if (txn.category?.isFixed) {
@@ -583,7 +583,7 @@ export class DashboardService {
         const amount = Number(txn.amount);
         const isIncomeCategory = txn.category?.isIncome === true;
 
-        if (amount > 0 || isIncomeCategory) {
+        if (isIncomeCategory && amount !== 0) {
           income.total += Math.abs(amount);
         } else if (amount < 0 && !isIncomeCategory) {
           expenses.total += Math.abs(amount);

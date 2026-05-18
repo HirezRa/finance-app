@@ -105,6 +105,9 @@ type YahavStatementDomSnapshot = {
 
 type YahavCoverageDiagnostics = {
   requestedStartDate: string;
+  bankAvailableFrom: string | null;
+  bankHistoryTruncated: boolean;
+  requestedVsBankGapDays: number;
   minTxnDate: string | null;
   maxTxnDate: string | null;
   txnsCount: number;
@@ -116,6 +119,7 @@ export function buildYahavCoverageDiagnostics(
   accounts: TransactionsAccount[],
   requestedStartMoment: Moment,
   suspiciousGapDays: number,
+  bankAvailableFrom?: Moment | null,
 ): YahavCoverageDiagnostics {
   const txns = accounts.flatMap(acc => acc.txns || []);
   const dates = txns
@@ -124,13 +128,24 @@ export function buildYahavCoverageDiagnostics(
     .sort((a, b) => a.valueOf() - b.valueOf());
   const minTxn = dates[0];
   const maxTxn = dates[dates.length - 1];
-  const coverageGapDays = minTxn
-    ? Math.max(0, minTxn.startOf('day').diff(requestedStartMoment.clone().startOf('day'), 'days'))
-    : 0;
+
+  const requestedStart = requestedStartMoment.clone().startOf('day');
+  const bankFrom =
+    bankAvailableFrom && bankAvailableFrom.isValid() ? bankAvailableFrom.clone().startOf('day') : null;
+  const bankHistoryTruncated = !!bankFrom && requestedStart.isBefore(bankFrom, 'day');
+  const requestedVsBankGapDays =
+    bankFrom && bankHistoryTruncated ? Math.max(0, bankFrom.diff(requestedStart, 'days')) : 0;
+  const effectiveStart =
+    bankFrom && bankHistoryTruncated ? moment.max(requestedStart, bankFrom) : requestedStart;
+
+  const coverageGapDays = minTxn ? Math.max(0, minTxn.clone().startOf('day').diff(effectiveStart, 'days')) : 0;
   const suspiciousCoverage = txns.length > 0 && coverageGapDays >= suspiciousGapDays;
 
   return {
-    requestedStartDate: requestedStartMoment.format('YYYY-MM-DD'),
+    requestedStartDate: requestedStart.format('YYYY-MM-DD'),
+    bankAvailableFrom: bankFrom ? bankFrom.format('YYYY-MM-DD') : null,
+    bankHistoryTruncated,
+    requestedVsBankGapDays,
     minTxnDate: minTxn ? minTxn.format('YYYY-MM-DD') : null,
     maxTxnDate: maxTxn ? maxTxn.format('YYYY-MM-DD') : null,
     txnsCount: txns.length,
@@ -141,7 +156,24 @@ export function buildYahavCoverageDiagnostics(
 
 async function countYahavListRows(page: Page): Promise<number> {
   try {
-    return await page.$$eval('.list-item-holder .entire-content-ctr', els => els.length);
+    return await page.evaluate((sels: string[]) => {
+      const seen = new Set<string>();
+      let count = 0;
+      sels.forEach(sel => {
+        document.querySelectorAll(sel).forEach(el => {
+          const line = (el as HTMLElement).innerText.replace(/\s+/g, ' ').trim();
+          if (!line || line.length < 10) {
+            return;
+          }
+          if (seen.has(line)) {
+            return;
+          }
+          seen.add(line);
+          count += 1;
+        });
+      });
+      return count;
+    }, YAHAV_ROW_FALLBACK_SELS);
   } catch {
     return 0;
   }
@@ -159,7 +191,32 @@ async function readYahavStatementDomSnapshot(page: Page): Promise<YahavStatement
     return {
       url: window.location.href,
       onCurrentAccountPage: /\/main\/accounts\/current/i.test(window.location.href),
-      listRowCount: document.querySelectorAll('.list-item-holder .entire-content-ctr').length,
+      listRowCount: (() => {
+        const selectors = [
+          '.list-item-holder .entire-content-ctr',
+          '.entire-content-ctr',
+          '.under-line-txn-table tbody tr',
+          '.under-line-txn-table tr',
+          '.account-details table tbody tr',
+          'table tbody tr',
+        ];
+        const seen = new Set<string>();
+        let n = 0;
+        selectors.forEach(sel => {
+          document.querySelectorAll(sel).forEach(el => {
+            const line = (el as HTMLElement).innerText.replace(/\s+/g, ' ').trim();
+            if (!line || line.length < 10) {
+              return;
+            }
+            if (seen.has(line)) {
+              return;
+            }
+            seen.add(line);
+            n += 1;
+          });
+        });
+        return n;
+      })(),
       dateInputs: Array.from(document.querySelectorAll('div.date-options-cell input:not([type="hidden"])'))
         .filter((el): el is HTMLInputElement => el instanceof HTMLInputElement)
         .map(el => ({ value: el.value, placeholder: el.placeholder || '' })),
@@ -317,7 +374,7 @@ function getTxnAmount(txn: YahavScrapedRow) {
 function convertTransactions(txns: YahavScrapedRow[], options?: ScraperOptions): Transaction[] {
   const out: Transaction[] = [];
   for (const txn of txns) {
-    const m = moment(txn.date, DATE_FORMAT, true);
+    const m = moment.utc(txn.date, DATE_FORMAT, true);
     if (!m.isValid()) {
       continue;
     }
@@ -1683,8 +1740,8 @@ async function selectYahavStatementScopeAllIfPresent(page: Page): Promise<void> 
       for (const sel of selects) {
         const options = Array.from(sel.options);
         const target =
-          options.find(o => /מתחילת החודש|חודש נוכחי|current month/i.test(norm(o.text))) ||
           options.find(o => /כל|all|תנועות|עו"ש/i.test(norm(o.text))) ||
+          options.find(o => /מתחילת החודש|חודש נוכחי|current month/i.test(norm(o.text))) ||
           options.find(o => /3 חודשים אחרונים|last 3/i.test(norm(o.text)));
         if (target && sel.value !== target.value) {
           sel.value = target.value;
@@ -1715,10 +1772,48 @@ async function selectYahavStatementScopeAllIfPresent(page: Page): Promise<void> 
           return pattern.test(t);
         });
 
+      const monthIndex = (text: string): number => {
+        const t = norm(text);
+        const months: Array<[RegExp, number]> = [
+          [/ינואר/i, 1],
+          [/פברואר/i, 2],
+          [/מרץ/i, 3],
+          [/אפריל/i, 4],
+          [/מאי/i, 5],
+          [/יוני/i, 6],
+          [/יולי/i, 7],
+          [/אוגוסט/i, 8],
+          [/ספטמבר/i, 9],
+          [/אוקטובר/i, 10],
+          [/נובמבר/i, 11],
+          [/דצמבר/i, 12],
+        ];
+        for (const [rx, idx] of months) {
+          if (rx.test(t)) {
+            return idx;
+          }
+        }
+        return -1;
+      };
+      const yearFromText = (text: string): number => {
+        const m = norm(text).match(/\b(20\d{2})\b/);
+        return m ? Number(m[1]) : -1;
+      };
+      const oldestMonthOption = () => {
+        const monthOptions = optionNodes
+          .map(el => ({ el, t: norm(el.textContent || '') }))
+          .filter(x => x.t.length > 0 && x.t.length <= 120 && !/^בחר$/.test(x.t))
+          .map(x => ({ ...x, y: yearFromText(x.t), m: monthIndex(x.t) }))
+          .filter(x => x.y > 0 && x.m > 0)
+          .sort((a, b) => (a.y - b.y) || (a.m - b.m));
+        return monthOptions[0]?.el;
+      };
+
       const option =
-        pickOption(/מתחילת החודש|חודש נוכחי|current month/i) ||
         pickOption(/כל|all|תנועות|עו"ש/i) ||
-        pickOption(/3 חודשים אחרונים|last 3/i);
+        pickOption(/מתחילת החודש|חודש נוכחי|current month/i) ||
+        pickOption(/3 חודשים אחרונים|last 3/i) ||
+        oldestMonthOption();
 
       if (option) {
         const optionText = norm(option.textContent || '');
@@ -1963,13 +2058,20 @@ async function enforceYahavStatementLoaded(page: Page, startDate: Moment): Promi
       const hasEnoughRows = snap.listRowCount >= minRows;
       const hasRichDateFootprint = snap.dateTokenCount2026 >= Math.max(12, minRows);
       const coversRequestedFromDate = !oldest || !startDate.isBefore(oldest, 'day');
+      const limitedHistoryScope = !!oldest && startDate.isBefore(oldest, 'day');
+      const coverageSatisfied = coversRequestedFromDate || limitedHistoryScope;
       // In some Yahav overlays the visible scope label stays "בחר" even when full statement rows are loaded.
-      if (!(hasEnoughRows && coversRequestedFromDate && (hasRichDateFootprint || snap.hasSalaryWord))) {
+      if (!(hasEnoughRows && coverageSatisfied && (hasRichDateFootprint || snap.hasSalaryWord))) {
         return true;
       }
     }
     if (snap.listRowCount < minRows) {
       return true;
+    }
+    // Yahav host-app often exposes only recent month options (without "all transactions").
+    // In this mode we still proceed with the best loaded statement instead of hard-failing sync.
+    if (/^בחר$/.test(snap.scopeSelectedText) && oldest && startDate.isBefore(oldest, 'day')) {
+      return false;
     }
     if (oldest && startDate.isBefore(oldest, 'day')) {
       return true;
@@ -2254,18 +2356,31 @@ class YahavScraper extends BaseScraperWithBrowser<ScraperSpecificCredentials> {
 
     const monthsRaw = process.env.YAHAV_STATEMENT_MONTHS_BACK;
     const monthsBack =
-      monthsRaw && !Number.isNaN(parseInt(monthsRaw, 10)) ? Math.min(24, Math.max(1, parseInt(monthsRaw, 10))) : 4;
+      monthsRaw && !Number.isNaN(parseInt(monthsRaw, 10)) ? Math.min(24, Math.max(1, parseInt(monthsRaw, 10))) : 3;
     const defaultStartMoment = moment().subtract(monthsBack, 'months').add(1, 'day');
     const startDate = this.options.startDate || defaultStartMoment.toDate();
     const startMoment = moment.max(defaultStartMoment, moment(startDate));
 
     const accounts = await runYahavStage('fetch accounts', () => fetchAccounts(this.page, startMoment, this.options));
+    const snap = await readYahavStatementDomSnapshot(this.page);
+    const bankAvailableFrom = parseYahavUiDateToken(snap.oldestDateToken);
     const suspiciousGapDays =
       process.env.YAHAV_COVERAGE_GAP_DAYS && !Number.isNaN(parseInt(process.env.YAHAV_COVERAGE_GAP_DAYS, 10))
         ? Math.max(1, parseInt(process.env.YAHAV_COVERAGE_GAP_DAYS, 10))
         : 5;
-    const coverage = buildYahavCoverageDiagnostics(accounts, startMoment, suspiciousGapDays);
+    const coverage = buildYahavCoverageDiagnostics(
+      accounts,
+      startMoment,
+      suspiciousGapDays,
+      bankAvailableFrom,
+    );
     const warnings: string[] = [];
+    if (coverage.bankHistoryTruncated) {
+      warnings.push(
+        `Yahav bank history truncated: requestedStartDate=${coverage.requestedStartDate}, ` +
+          `bankAvailableFrom=${coverage.bankAvailableFrom ?? 'null'}, requestedVsBankGapDays=${coverage.requestedVsBankGapDays}.`,
+      );
+    }
     if (coverage.suspiciousCoverage) {
       const warning =
         `Yahav coverage anomaly: requestedStartDate=${coverage.requestedStartDate}, ` +
@@ -2285,6 +2400,9 @@ class YahavScraper extends BaseScraperWithBrowser<ScraperSpecificCredentials> {
       warnings: warnings.length > 0 ? warnings : undefined,
       diagnostics: {
         requestedStartDate: coverage.requestedStartDate,
+        bankAvailableFrom: coverage.bankAvailableFrom,
+        bankHistoryTruncated: coverage.bankHistoryTruncated,
+        requestedVsBankGapDays: coverage.requestedVsBankGapDays,
         minTxnDate: coverage.minTxnDate,
         maxTxnDate: coverage.maxTxnDate,
         txnsCount: coverage.txnsCount,

@@ -29,7 +29,7 @@ export function ForeignCurrencyBadge({
     <span
       title={tip}
       className={cn(
-        'inline-flex max-w-full items-center gap-1.5 rounded-sm border border-border bg-muted px-2 py-1 text-xs font-medium text-foreground',
+        'txn-chip inline-flex max-w-full items-center gap-1.5 px-1.5 py-0.5 text-[11px] font-normal',
         className,
       )}
     >

@@ -25,6 +25,14 @@ import { Amount } from '@/components/Amount';
 import { getAccountDisplayName } from '@/lib/accountDisplay';
 import { TransactionCategoryBadge } from '@/components/TransactionCategoryBadge';
 import { ForeignCurrencyBadge } from '@/components/ForeignCurrencyBadge';
+import {
+  TRANSACTION_LIST_GRID_CLASS,
+  TXN_COL_ACTIONS,
+  TXN_COL_AMOUNT,
+  TXN_COL_AVATAR,
+  TXN_COL_CATEGORY,
+  TXN_COL_CONTENT,
+} from '@/components/transaction-list-layout';
 
 export interface TransactionRowTransaction {
   id: string;
@@ -62,50 +70,17 @@ export interface TransactionRowTransaction {
 function getTransactionTypeLabel(type: string | undefined): {
   label: string;
   icon: string;
-  badgeClass: string;
 } {
   const t = type || 'NORMAL';
-  const types: Record<string, { label: string; icon: string; badgeClass: string }> = {
-    NORMAL: {
-      label: 'רגילה',
-      icon: '💳',
-      badgeClass: 'text-muted-foreground bg-muted',
-    },
-    INSTALLMENTS: {
-      label: 'תשלומים',
-      icon: '📅',
-      badgeClass: 'text-blue-600 bg-blue-500/15 dark:text-blue-400',
-    },
-    CREDIT: {
-      label: 'זיכוי',
-      icon: '💰',
-      badgeClass: 'text-green-600 bg-green-500/15 dark:text-green-400',
-    },
-    REFUND: {
-      label: 'החזר',
-      icon: '↩️',
-      badgeClass: 'text-green-600 bg-green-500/15 dark:text-green-400',
-    },
-    CASH: {
-      label: 'מזומן',
-      icon: '💵',
-      badgeClass: 'text-yellow-700 bg-yellow-500/15 dark:text-yellow-500',
-    },
-    TRANSFER: {
-      label: 'העברה',
-      icon: '🔄',
-      badgeClass: 'text-foreground bg-muted',
-    },
-    FEE: {
-      label: 'עמלה',
-      icon: '🏦',
-      badgeClass: 'text-red-600 bg-red-500/15 dark:text-red-400',
-    },
-    INTEREST: {
-      label: 'ריבית',
-      icon: '📈',
-      badgeClass: 'text-orange-600 bg-orange-500/15 dark:text-orange-400',
-    },
+  const types: Record<string, { label: string; icon: string }> = {
+    NORMAL: { label: 'רגילה', icon: '💳' },
+    INSTALLMENTS: { label: 'תשלומים', icon: '📅' },
+    CREDIT: { label: 'זיכוי', icon: '💰' },
+    REFUND: { label: 'החזר', icon: '↩️' },
+    CASH: { label: 'מזומן', icon: '💵' },
+    TRANSFER: { label: 'העברה', icon: '🔄' },
+    FEE: { label: 'עמלה', icon: '🏦' },
+    INTEREST: { label: 'ריבית', icon: '📈' },
   };
   return types[t] || types.NORMAL;
 }
@@ -150,6 +125,45 @@ interface TransactionRowProps {
   excludeActionDisabled?: boolean;
 }
 
+function CategoryEditor({
+  categoryOptions,
+  onPickCategory,
+  onCancelEditCategory,
+}: {
+  categoryOptions: TransactionRowCategoryOption[];
+  onPickCategory: (categoryId: string) => void;
+  onCancelEditCategory: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <select
+        className="max-w-full min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-sm"
+        defaultValue=""
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v) onPickCategory(v);
+        }}
+      >
+        <option value="">בחר קטגוריה</option>
+        {categoryOptions.map((cat) => (
+          <option key={cat.id} value={cat.id}>
+            {cat.icon} {cat.nameHe}
+          </option>
+        ))}
+      </select>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 shrink-0"
+        onClick={onCancelEditCategory}
+      >
+        <X className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
 export function TransactionRow({
   transaction,
   onChangeCategory,
@@ -174,7 +188,6 @@ export function TransactionRow({
     instTotal > 1 &&
     transaction.installmentNumber != null;
 
-  /** תאריך הבנק — תואם דף העו״ש; effectiveDate משמש לדשבורד/תקציב בלבד */
   const bankDate = new Date(transaction.date);
   let formattedDate: string;
   try {
@@ -207,20 +220,51 @@ export function TransactionRow({
     transaction.originalAmount != null ? Number(transaction.originalAmount) : null;
   const origCur = transaction.originalCurrency || 'ILS';
 
+  const hasChips =
+    (transaction.isAbroad &&
+      transaction.foreignCurrencyDisplay &&
+      transaction.originalCurrency) ||
+    showTypeBadge ||
+    isPending ||
+    hasInstallments ||
+    isExcluded;
+
+  const categoryCell =
+    isEditingCategory && categoryOptions && onPickCategory && onCancelEditCategory ? (
+      <CategoryEditor
+        categoryOptions={categoryOptions}
+        onPickCategory={onPickCategory}
+        onCancelEditCategory={onCancelEditCategory}
+      />
+    ) : (
+      <button
+        type="button"
+        onClick={() => onChangeCategory(transaction.id)}
+        className="w-full text-end transition-opacity hover:opacity-80"
+      >
+        <TransactionCategoryBadge transaction={transaction} className="max-w-full" />
+      </button>
+    );
+
   return (
     <div
       className={cn(
-        'group relative flex items-start gap-3 border-b border-border p-4 transition-colors sm:items-center sm:gap-4',
+        'transaction-row-grid group relative border-b border-border p-4 transition-colors',
         'hover:bg-muted/50',
         isSelected && 'bg-primary/5',
         isExcluded && 'opacity-60',
         isPending && 'border-e-2 border-pending bg-pending/10',
+        TRANSACTION_LIST_GRID_CLASS,
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Avatar */}
       <div
-        className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg sm:mt-0"
+        className={cn(
+          TXN_COL_AVATAR,
+          'flex h-10 w-10 items-center justify-center rounded-full text-lg',
+        )}
         style={{
           backgroundColor:
             categoryTint.startsWith('#') ? `${categoryTint}33` : 'hsl(var(--muted) / 0.2)',
@@ -230,66 +274,66 @@ export function TransactionRow({
         {transaction.category?.icon || '❓'}
       </div>
 
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="max-w-md truncate font-medium">{transaction.description}</p>
-          {transaction.isAbroad &&
-          transaction.foreignCurrencyDisplay &&
-          transaction.originalCurrency ? (
-            <ForeignCurrencyBadge
-              originalCurrency={transaction.originalCurrency}
-              foreignCurrencyDisplay={transaction.foreignCurrencyDisplay}
-              exchangeRate={
-                transaction.exchangeRate != null
-                  ? Number(transaction.exchangeRate)
-                  : null
-              }
-            />
-          ) : null}
-          {showTypeBadge ? (
-            <span
-              className={cn(
-                'rounded px-1.5 py-0.5 text-xs',
-                typeInfo.badgeClass,
-              )}
-            >
-              {typeInfo.icon} {typeInfo.label}
-            </span>
-          ) : null}
-          {isPending ? (
-            <span className="badge-pending inline-flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              בתהליך
-            </span>
-          ) : null}
-          {hasInstallments ? (
-            <Badge variant="outline" className="text-xs">
-              תשלום {transaction.installmentNumber}/{transaction.installmentTotal}
-            </Badge>
-          ) : null}
-          {isExcluded ? (
-            <Badge
-              variant="outline"
-              className="border-orange-500 text-xs text-orange-600 dark:text-orange-500"
-            >
-              לא בתקציב
-            </Badge>
-          ) : null}
-        </div>
+      {/* Content: title, chips, meta, note, mobile category */}
+      <div className={cn(TXN_COL_CONTENT, 'space-y-1')}>
+        <p className="ellipsis-1 text-base font-semibold leading-snug text-foreground">
+          {transaction.description}
+        </p>
 
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        {hasChips ? (
+          <div className="txn-chips-lane" aria-label="תגיות עסקה">
+            {transaction.isAbroad &&
+            transaction.foreignCurrencyDisplay &&
+            transaction.originalCurrency ? (
+              <ForeignCurrencyBadge
+                className="txn-chip max-w-[10rem] border-0 bg-transparent p-0"
+                originalCurrency={transaction.originalCurrency}
+                foreignCurrencyDisplay={transaction.foreignCurrencyDisplay}
+                exchangeRate={
+                  transaction.exchangeRate != null
+                    ? Number(transaction.exchangeRate)
+                    : null
+                }
+              />
+            ) : null}
+            {showTypeBadge ? (
+              <span className="txn-chip">
+                {typeInfo.icon} {typeInfo.label}
+              </span>
+            ) : null}
+            {isPending ? (
+              <span className="badge-pending inline-flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                בתהליך
+              </span>
+            ) : null}
+            {hasInstallments ? (
+              <Badge variant="outline" className="txn-chip border-dashed font-normal">
+                תשלום {transaction.installmentNumber}/{transaction.installmentTotal}
+              </Badge>
+            ) : null}
+            {isExcluded ? (
+              <Badge variant="outline" className="txn-chip border-dashed font-normal">
+                לא בתקציב
+              </Badge>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="meta-line flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span>{formattedDate}</span>
           {budgetAnchorHint ? (
-            <>
-              <span className="text-xs opacity-90" title="ייחוס לתקציב (למשל משכורת בסוף החודש)">
-                · בתקציב: {budgetAnchorHint}
-              </span>
-            </>
+            <span
+              className="opacity-90"
+              title="ייחוס לתקציב (למשל משכורת בסוף החודש)"
+            >
+              · בתקציב: {budgetAnchorHint}
+            </span>
           ) : null}
           {transaction.account ? (
             <>
-              <span>•</span>
-              <span className="flex items-center gap-1">
+              <span aria-hidden>•</span>
+              <span className="inline-flex items-center gap-1">
                 {isCreditInstitution(transaction.account.institutionName) ? (
                   <CreditCard className="h-3 w-3 shrink-0" />
                 ) : (
@@ -301,8 +345,8 @@ export function TransactionRow({
           ) : null}
           {transaction.account?.accountNumber ? (
             <>
-              <span>•</span>
-              <span className="font-mono text-xs">
+              <span aria-hidden>•</span>
+              <span className="font-mono tabular-nums" dir="ltr">
                 {String(transaction.account.accountNumber).slice(-4)}
               </span>
             </>
@@ -310,113 +354,41 @@ export function TransactionRow({
         </div>
 
         {transaction.note ? (
-          <div className="flex items-start gap-1 text-sm">
-            <MessageSquare className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
-            <p
-              className="max-w-lg truncate italic text-muted-foreground"
-              title={transaction.note}
-            >
+          <div className="meta-line flex items-start gap-1">
+            <MessageSquare className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+            <p className="ellipsis-1 italic" title={transaction.note}>
               {transaction.note}
             </p>
           </div>
         ) : null}
 
-        <div className="pt-1 sm:hidden">
-          {isEditingCategory && categoryOptions && onPickCategory && onCancelEditCategory ? (
-            <div className="flex flex-wrap items-center gap-1">
-              <select
-                className="max-w-full rounded border border-border bg-background px-2 py-1 text-sm"
-                defaultValue=""
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v) onPickCategory(v);
-                }}
-              >
-                <option value="">בחר קטגוריה</option>
-                {categoryOptions.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.nameHe}
-                  </option>
-                ))}
-              </select>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={onCancelEditCategory}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onChangeCategory(transaction.id)}
-              className="w-full text-start transition-opacity hover:opacity-80"
-            >
-              <TransactionCategoryBadge transaction={transaction} />
-            </button>
-          )}
-        </div>
+        <div className="pt-1 md:hidden">{categoryCell}</div>
       </div>
 
-      <div className="w-24 shrink-0 text-start sm:w-28" dir="ltr">
-        <Amount value={amount} size="lg" showSign={false} />
+      {/* Amount — fixed column, LTR isolated */}
+      <div className={TXN_COL_AMOUNT}>
+        <Amount value={amount} size="lg" showSign={false} className="block" />
         {!transaction.isAbroad &&
         orig != null &&
         !Number.isNaN(orig) &&
         origCur !== 'ILS' ? (
-          <p className="text-xs text-muted-foreground tabular-nums">
-            {origCur} {orig.toFixed(2)}
+          <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+            <span dir="ltr" className="inline-block">
+              {origCur} {orig.toFixed(2)}
+            </span>
           </p>
         ) : null}
       </div>
 
-      <div className="hidden w-36 shrink-0 sm:block">
-        {isEditingCategory && categoryOptions && onPickCategory && onCancelEditCategory ? (
-          <div className="flex items-center gap-1">
-            <select
-              className="max-w-full rounded border border-border bg-background px-2 py-1 text-sm"
-              defaultValue=""
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v) onPickCategory(v);
-              }}
-            >
-              <option value="">בחר קטגוריה</option>
-              {categoryOptions.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.icon} {cat.nameHe}
-                </option>
-              ))}
-            </select>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0"
-              onClick={onCancelEditCategory}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onChangeCategory(transaction.id)}
-            className="w-full text-end transition-opacity hover:opacity-80"
-          >
-            <TransactionCategoryBadge transaction={transaction} />
-          </button>
-        )}
-      </div>
+      {/* Category — desktop column */}
+      <div className={cn(TXN_COL_CATEGORY, 'hidden md:block')}>{categoryCell}</div>
 
-      {/* פעולות */}
+      {/* Actions */}
       <div
         className={cn(
-          'w-10 shrink-0 transition-opacity',
-          isHovered ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+          TXN_COL_ACTIONS,
+          'transition-opacity',
+          isHovered ? 'opacity-100' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100',
         )}
       >
         <DropdownMenu>

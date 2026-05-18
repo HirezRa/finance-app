@@ -60,7 +60,7 @@ export function TransactionCategoryBadge({
     <Badge
       variant="outline"
       className={cn(
-        'text-xs font-normal',
+        'max-w-full truncate text-xs font-normal',
         isUncategorized && 'border-dashed opacity-80',
         className,
       )}

@@ -34,6 +34,15 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { TransactionRow } from '@/components/TransactionRow';
 import {
+  TRANSACTION_LIST_HEADER_CLASS,
+  TXN_COL_ACTIONS,
+  TXN_COL_AMOUNT,
+  TXN_COL_AVATAR,
+  TXN_COL_CATEGORY,
+  TXN_COL_CONTENT,
+} from '@/components/transaction-list-layout';
+import { cn } from '@/lib/utils';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -561,23 +570,26 @@ export default function TransactionsPage() {
           ) : isPending ? (
             <div className="divide-y">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 p-4">
-                  <Skeleton className="h-10 w-10 rounded-full" />
-                  <div className="min-w-0 flex-1 space-y-2">
+                <div key={i} className="transaction-row-grid p-4">
+                  <Skeleton className={cn(TXN_COL_AVATAR, 'h-10 w-10 rounded-full')} />
+                  <div className={cn(TXN_COL_CONTENT, 'space-y-2')}>
                     <Skeleton className="h-4 w-48" />
                     <Skeleton className="h-3 w-32" />
                   </div>
-                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className={cn(TXN_COL_AMOUNT, 'h-5 w-20')} />
+                  <Skeleton className={cn(TXN_COL_CATEGORY, 'hidden h-6 w-28 md:block')} />
+                  <Skeleton className={cn(TXN_COL_ACTIONS, 'h-8 w-8 rounded-md')} />
                 </div>
               ))}
             </div>
           ) : (
             <div className="overflow-hidden rounded-2xl border border-white/20 bg-white/50 shadow-[0_8px_32px_rgb(15_23_42_/0.1)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.07]">
-              <div className="hidden items-center gap-4 border-b bg-muted/30 p-4 text-sm font-medium text-muted-foreground md:flex">
-                <div className="w-24 shrink-0">סכום</div>
-                <div className="flex-1">פרטים</div>
-                <div className="w-36 shrink-0">קטגוריה</div>
-                <div className="w-10 shrink-0" />
+              <div className={TRANSACTION_LIST_HEADER_CLASS}>
+                <div className={TXN_COL_AVATAR} aria-hidden />
+                <div className={TXN_COL_CONTENT}>פרטים</div>
+                <div className={cn(TXN_COL_AMOUNT, 'text-muted-foreground')}>סכום</div>
+                <div className={TXN_COL_CATEGORY}>קטגוריה</div>
+                <div className={TXN_COL_ACTIONS} aria-hidden />
               </div>
               {transactions.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">

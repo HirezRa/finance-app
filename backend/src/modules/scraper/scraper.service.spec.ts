@@ -38,6 +38,38 @@ describe('ScraperService.detectCoverageAnomaly', () => {
     nowSpy.mockRestore();
   });
 
+  it('treats bankHistoryTruncated as non-anomalous even when scraper signaled partial', () => {
+    const result = callDetect({
+      companyId: 'yahav',
+      requestedStartDate: new Date(Date.UTC(2025, 10, 19)),
+      accounts: [
+        {
+          txns: Array.from({ length: 28 }, (_, i) => ({
+            date: new Date(Date.UTC(2026, 3, 1 + (i % 28))).toISOString(),
+          })),
+        },
+      ],
+      scraperPartial: false,
+      scraperWarnings: [
+        'Yahav bank history truncated: requestedStartDate=2026-02-18, bankAvailableFrom=2026-04-01.',
+      ],
+      scraperDiagnostics: {
+        requestedStartDate: '2026-02-18',
+        bankAvailableFrom: '2026-04-01',
+        bankHistoryTruncated: true,
+        requestedVsBankGapDays: 42,
+        minTxnDate: '2026-04-01',
+        maxTxnDate: '2026-05-18',
+        txnsCount: 28,
+        coverageGapDays: 0,
+      },
+    }) as { isAnomalous: boolean; stats: { bankHistoryTruncated: boolean; gapDays: number | null } };
+
+    expect(result.isAnomalous).toBe(false);
+    expect(result.stats.bankHistoryTruncated).toBe(true);
+    expect(result.stats.gapDays).toBe(0);
+  });
+
   it('returns anomalous=true when scraper itself reports partial, even on a short window', () => {
     const result = callDetect({
       companyId: 'yahav',

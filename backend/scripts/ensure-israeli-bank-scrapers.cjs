@@ -11,6 +11,14 @@ const dir = join(backendRoot, 'node_modules', 'israeli-bank-scrapers');
 const yahavLib = join(dir, 'lib', 'scrapers', 'yahav.js');
 const stampPath = join(dir, '.finance-app-scraper-ref');
 const overlayPath = join(backendRoot, 'scraper-overlays', 'israeli-bank-scrapers', 'src', 'scrapers', 'yahav.ts');
+const overlayParsePath = join(
+  backendRoot,
+  'scraper-overlays',
+  'israeli-bank-scrapers',
+  'src',
+  'scrapers',
+  'yahav-parse.ts',
+);
 
 function wantedGitRef() {
   const rootPkg = JSON.parse(readFileSync(join(backendRoot, 'package.json'), 'utf8'));
@@ -64,6 +72,20 @@ function applyYahavOverlay() {
 
   console.log('[ensure-israeli-bank-scrapers] applying Yahav overlay + build:js…');
   writeFileSync(targetTs, overlaySrc, 'utf8');
+
+  if (existsSync(overlayParsePath)) {
+    const targetParseTs = join(dir, 'src', 'scrapers', 'yahav-parse.ts');
+    if (existsSync(targetParseTs)) {
+      const overlayParseSrc = readFileSync(overlayParsePath, 'utf8');
+      const currentParse = readFileSync(targetParseTs, 'utf8');
+      if (overlayParseSrc !== currentParse) {
+        writeFileSync(targetParseTs, overlayParseSrc, 'utf8');
+      }
+    } else {
+      console.warn('[ensure-israeli-bank-scrapers] fork src/scrapers/yahav-parse.ts missing — parse overlay skipped');
+    }
+  }
+
   execSync('npm run build:js', {
     cwd: dir,
     stdio: 'inherit',

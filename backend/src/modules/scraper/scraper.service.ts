@@ -41,6 +41,30 @@ import type {
 export class ScraperService {
   private readonly logger = new Logger(ScraperService.name);
 
+  /** Align backend gap math with scraper diagnostics (Yahav uses a shorter effective window). */
+  private resolveEffectiveRequestedStartMs(
+    requestedStartDate: Date,
+    scraperDiagnostics?: Record<string, unknown> | null,
+  ): number {
+    if (scraperDiagnostics?.bankHistoryTruncated === true) {
+      const bankFrom = scraperDiagnostics.bankAvailableFrom;
+      if (typeof bankFrom === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(bankFrom.trim())) {
+        const parsed = Date.parse(`${bankFrom.trim()}T00:00:00.000Z`);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+    }
+    const raw = scraperDiagnostics?.requestedStartDate;
+    if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) {
+      const parsed = Date.parse(`${raw.trim()}T00:00:00.000Z`);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    return requestedStartDate.getTime();
+  }
+
   private resolveSyncStartDate(companyId: string): Date {
     const rawDefault = Number(process.env.SCRAPER_SYNC_DAYS_BACK ?? 120);
     const rawYahav = Number(
@@ -83,10 +107,14 @@ export class ScraperService {
       scraperPartial: boolean;
       scraperWarnings: string[];
       scraperDiagnostics: Record<string, unknown> | null;
+      bankHistoryTruncated: boolean;
     };
   } {
     const nowMs = Date.now();
-    const reqMs = params.requestedStartDate.getTime();
+    const reqMs = this.resolveEffectiveRequestedStartMs(
+      params.requestedStartDate,
+      params.scraperDiagnostics,
+    );
     const requestedDays = Math.max(1, Math.floor((nowMs - reqMs) / 86_400_000) + 1);
     const txDatesMs = params.accounts
       .flatMap((a) => a.txns ?? [])
@@ -95,6 +123,7 @@ export class ScraperService {
     const scraperPartial = !!params.scraperPartial;
     const scraperWarnings = Array.isArray(params.scraperWarnings) ? params.scraperWarnings : [];
     const scraperDiagnostics = params.scraperDiagnostics ?? null;
+    const bankHistoryTruncated = scraperDiagnostics?.bankHistoryTruncated === true;
 
     if (txDatesMs.length === 0) {
       // Empty results are anomalous when the scraper itself signaled `partial` — earlier
@@ -112,6 +141,7 @@ export class ScraperService {
           scraperPartial,
           scraperWarnings,
           scraperDiagnostics,
+          bankHistoryTruncated,
         },
       };
     }
@@ -124,15 +154,22 @@ export class ScraperService {
       params.companyId === 'yahav' && requestedDays >= 45 && txDatesMs.length <= 15 && gapDays >= 20;
     const isGenericSevereGap =
       requestedDays >= 60 && txDatesMs.length <= 10 && gapDays >= Math.floor(requestedDays * 0.5);
+    const diagCoverageGapDays =
+      typeof scraperDiagnostics?.coverageGapDays === 'number' &&
+      Number.isFinite(scraperDiagnostics.coverageGapDays)
+        ? Math.max(0, Math.floor(scraperDiagnostics.coverageGapDays))
+        : gapDays;
     // Trust the scraper when it self-reports partial coverage even on short windows
     // (e.g. probe scrapes with SCRAPE_START_DATE only ~3 weeks back).
-    const isAnomalous = isYahavNarrowWindow || isGenericSevereGap || scraperPartial;
+    // Bank-imposed history limits (bankHistoryTruncated) are informational, not sync failures.
+    const isAnomalous =
+      (isYahavNarrowWindow || isGenericSevereGap || scraperPartial) && !bankHistoryTruncated;
 
     return {
       isAnomalous,
       reason: isAnomalous
         ? scraperPartial && !(isYahavNarrowWindow || isGenericSevereGap)
-          ? `scraper_signaled_partial company=${params.companyId} requestedDays=${requestedDays} txns=${txDatesMs.length} gapDays=${gapDays} warnings=${scraperWarnings.join('; ').slice(0, 240)}`
+          ? `scraper_signaled_partial company=${params.companyId} requestedDays=${requestedDays} txns=${txDatesMs.length} gapDays=${diagCoverageGapDays} warnings=${scraperWarnings.join('; ').slice(0, 240)}`
           : `coverage_gap_detected company=${params.companyId} requestedDays=${requestedDays} txns=${txDatesMs.length} gapDays=${gapDays} coveredDays=${coveredDays}`
         : undefined,
       stats: {
@@ -145,6 +182,7 @@ export class ScraperService {
         scraperPartial,
         scraperWarnings,
         scraperDiagnostics,
+        bankHistoryTruncated,
       },
     };
   }
