@@ -50,6 +50,30 @@ export function normalizeScraperDateFromRaw(
   if (!trimmed) {
     return fallbackScraperDateSemantics('empty', warn);
   }
+  // Prefer explicit DD/MM/YYYY before Date parsing to avoid locale-dependent MM/DD shifts.
+  const dmy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\b|$)/);
+  if (dmy) {
+    const day = Number(dmy[1]);
+    const month = Number(dmy[2]);
+    const year = Number(dmy[3]);
+    if (
+      Number.isInteger(day) &&
+      Number.isInteger(month) &&
+      Number.isInteger(year) &&
+      day >= 1 &&
+      day <= 31 &&
+      month >= 1 &&
+      month <= 12
+    ) {
+      const ymdIso = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      return {
+        ymdIso,
+        dayStart: startOfIsraelCivilDayInUtc(year, month, day),
+        dayEnd: endOfIsraelCivilDayInUtc(year, month, day),
+        dateForRow: startOfIsraelCivilDayInUtc(year, month, day),
+      };
+    }
+  }
   const parsed = new Date(trimmed);
   if (!Number.isNaN(parsed.getTime())) {
     const { year, month, day } = getIsraelYmd(parsed);

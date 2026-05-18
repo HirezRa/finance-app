@@ -133,6 +133,7 @@ export interface SyncLifecycleEventMeta {
   accountsFailed?: number;
   dataWindow?: { from: string; to: string };
   partialSync?: boolean;
+  coverageAnomaly?: Record<string, unknown>;
   queue?: {
     queueName: string;
     enqueueTs?: string;

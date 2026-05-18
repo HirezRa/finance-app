@@ -15,6 +15,12 @@
 - **שימור התנהגות קיימת:** הוצאות שסומנו `isExcludedFromCashFlow=true` ממשיכות להיות מוסתרות מתקציב/דשבורד.
 - פעולת `toggleExcludeFromCashFlow` לא תסמן יותר הכנסות כ־excluded (נכפה ל־`false` עבור income-like).
 
+### Scraper Date Normalize — יום/חודש מול חודש/יום
+
+- **תיקון קריטי:** `normalizeScraperDateFromRaw` נותן עדיפות לפורמט `DD/MM/YYYY` (למשל `01/05/2026`) לפני `new Date(...)`, כדי למנוע היפוך לחודש/יום (ינואר במקום מאי).
+- נוספה בדיקת יחידה: `scraper-date-normalize.spec.ts` עבור `01/05/2026` ⇒ `2026-05-01`.
+- `SyncLifecycleEventMeta` הורחב עם `coverageAnomaly` כדי למנוע כשל Build ב־TypeScript בזמן פריסה.
+
 ## [2.0.68] - 2026-05-17
 
 ### Scraper (Yahav) — `searchByDates` / overlay sync (`hirez-v1.0.24`)
