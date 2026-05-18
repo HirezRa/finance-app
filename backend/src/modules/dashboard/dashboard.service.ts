@@ -34,6 +34,22 @@ export class DashboardService {
 
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Cash-flow visibility rule:
+   * - excluded expense rows stay hidden
+   * - income-like rows (positive amount or income category) stay visible even if excluded by mistake
+   */
+  private isVisibleForCashFlow(t: {
+    amount: unknown;
+    isExcludedFromCashFlow?: boolean | null;
+    category?: { isIncome?: boolean } | null;
+  }): boolean {
+    const amount = Number(t.amount ?? 0);
+    const isIncomeLike = amount > 0 || t.category?.isIncome === true;
+    if (!t.isExcludedFromCashFlow) return true;
+    return isIncomeLike;
+  }
+
   private hebrewMonthName(month: number): string {
     return DashboardService.HEBREW_MONTHS[month] ?? '';
   }
@@ -102,7 +118,6 @@ export class DashboardService {
     const inMonthRows = await this.prisma.transaction.findMany({
       where: {
         accountId: { in: accountIds },
-        isExcludedFromCashFlow: false,
         ...statusWhere,
         OR: [
           { date: { gte: rangeStart, lte: rangeEnd } },
@@ -110,13 +125,17 @@ export class DashboardService {
         ],
       },
       select: {
+        amount: true,
+        isExcludedFromCashFlow: true,
         date: true,
         effectiveDate: true,
         category: { select: { isIncome: true } },
       },
     });
-    const countThisCycle = inMonthRows.filter((r) =>
-      isInBudgetCycle(cashFlowAnchorDateForTxn(r), y, m, cycleStartDay),
+    const countThisCycle = inMonthRows.filter(
+      (r) =>
+        this.isVisibleForCashFlow(r) &&
+        isInBudgetCycle(cashFlowAnchorDateForTxn(r), y, m, cycleStartDay),
     ).length;
 
     if (countThisCycle > 0) {
@@ -217,7 +236,6 @@ export class DashboardService {
     const transactionsRaw = await this.prisma.transaction.findMany({
       where: {
         accountId: { in: accountIds },
-        isExcludedFromCashFlow: false,
         ...dashStatusWhere,
         OR: [
           { date: { gte: rangeStart, lte: rangeEnd } },
@@ -227,8 +245,10 @@ export class DashboardService {
       include: { category: true },
     });
 
-    const transactions = transactionsRaw.filter((t) =>
-      isInBudgetCycle(cashFlowAnchorDateForTxn(t), targetYear, targetMonth, prefs.cycleStartDay),
+    const transactions = transactionsRaw.filter(
+      (t) =>
+        this.isVisibleForCashFlow(t) &&
+        isInBudgetCycle(cashFlowAnchorDateForTxn(t), targetYear, targetMonth, prefs.cycleStartDay),
     );
 
     this.logger.log(
@@ -368,7 +388,6 @@ export class DashboardService {
       where: {
         accountId: { in: accountIds },
         amount: { lt: 0 },
-        isExcludedFromCashFlow: false,
         ...dashStatusWhere,
         OR: [
           { date: { gte: rangeStart, lte: rangeEnd } },
@@ -379,8 +398,10 @@ export class DashboardService {
       orderBy: { date: 'asc' },
     });
 
-    const transactions = transactionsRaw.filter((t) =>
-      isInBudgetCycle(cashFlowAnchorDateForTxn(t), targetYear, targetMonth, prefs.cycleStartDay),
+    const transactions = transactionsRaw.filter(
+      (t) =>
+        this.isVisibleForCashFlow(t) &&
+        isInBudgetCycle(cashFlowAnchorDateForTxn(t), targetYear, targetMonth, prefs.cycleStartDay),
     );
 
     const buckets = buildBudgetCycleWeekBuckets(
@@ -430,7 +451,6 @@ export class DashboardService {
       where: {
         accountId: { in: accountIds },
         amount: { lt: 0 },
-        isExcludedFromCashFlow: false,
         ...dashStatusWhereCat,
         OR: [
           { date: { gte: rangeStart, lte: rangeEnd } },
@@ -440,8 +460,10 @@ export class DashboardService {
       include: { category: true },
     });
 
-    const transactions = transactionsRaw.filter((t) =>
-      isInBudgetCycle(cashFlowAnchorDateForTxn(t), targetYear, targetMonth, prefs.cycleStartDay),
+    const transactions = transactionsRaw.filter(
+      (t) =>
+        this.isVisibleForCashFlow(t) &&
+        isInBudgetCycle(cashFlowAnchorDateForTxn(t), targetYear, targetMonth, prefs.cycleStartDay),
     );
 
     const uncategorized = await this.prisma.category.findFirst({
@@ -527,7 +549,6 @@ export class DashboardService {
     const raw = await this.prisma.transaction.findMany({
       where: {
         accountId: { in: accountIds },
-        isExcludedFromCashFlow: false,
         ...statusWhere,
         OR: [
           { date: { gte: rangeStart, lte: rangeEnd } },
@@ -549,8 +570,10 @@ export class DashboardService {
 
     for (let i = n - 1; i >= 0; i--) {
       const { month, year } = shiftBudgetCycleLabel(cur.month, cur.year, -i);
-      const filtered = raw.filter((t) =>
-        isInBudgetCycle(cashFlowAnchorDateForTxn(t), year, month, cycleStartDay),
+      const filtered = raw.filter(
+        (t) =>
+          this.isVisibleForCashFlow(t) &&
+          isInBudgetCycle(cashFlowAnchorDateForTxn(t), year, month, cycleStartDay),
       );
 
       const income = { total: 0 };

@@ -236,15 +236,20 @@ export class TransactionsService {
   async toggleExcludeFromCashFlow(id: string, userId: string, exclude: boolean) {
     const transaction = await this.prisma.transaction.findFirst({
       where: { id, account: { userId } },
+      include: { category: { select: { isIncome: true } } },
     });
 
     if (!transaction) {
       throw new NotFoundException('עסקה לא נמצאה');
     }
 
+    const amount = Number(transaction.amount);
+    const isIncomeLike = amount > 0 || transaction.category?.isIncome === true;
+    const nextExclude = isIncomeLike ? false : exclude;
+
     return this.prisma.transaction.update({
       where: { id },
-      data: { isExcludedFromCashFlow: exclude },
+      data: { isExcludedFromCashFlow: nextExclude },
       include: {
         category: true,
         account: {

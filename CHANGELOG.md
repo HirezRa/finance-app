@@ -9,6 +9,12 @@
 - **תיקון:** `git pull` נכשל על שרת פריסה ב־detached HEAD / היסטוריה מפוצלת — עבר ל־`git checkout -B main origin/main && git reset --hard origin/main` (כמו `self-update.sh` / `sync-repo-to-origin.sh`).
 - לוג Git כושל נשמר ב־`update-data/build.log` לדיבוג.
 
+### Dashboard — הכנסות/משכורות בדוח חודשי
+
+- **תיקון:** הדשבורד מתעלם כעת מ־`isExcludedFromCashFlow` עבור רשומות הכנסה (סכום חיובי או `category.isIncome=true`) כדי שמשכורות לא ייעלמו מהסיכום אם סומנו בטעות כ״הוצא מתקציב״.
+- **שימור התנהגות קיימת:** הוצאות שסומנו `isExcludedFromCashFlow=true` ממשיכות להיות מוסתרות מתקציב/דשבורד.
+- פעולת `toggleExcludeFromCashFlow` לא תסמן יותר הכנסות כ־excluded (נכפה ל־`false` עבור income-like).
+
 ## [2.0.68] - 2026-05-17
 
 ### Scraper (Yahav) — `searchByDates` / overlay sync (`hirez-v1.0.24`)
