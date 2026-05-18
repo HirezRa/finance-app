@@ -2,6 +2,13 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [Unreleased]
+
+### Ops — עדכון גרסה מהממשק (`safe-update.sh`)
+
+- **תיקון:** `git pull` נכשל על שרת פריסה ב־detached HEAD / היסטוריה מפוצלת — עבר ל־`git checkout -B main origin/main && git reset --hard origin/main` (כמו `self-update.sh` / `sync-repo-to-origin.sh`).
+- לוג Git כושל נשמר ב־`update-data/build.log` לדיבוג.
+
 ## [2.0.68] - 2026-05-17
 
 ### Scraper (Yahav) — `searchByDates` / overlay sync (`hirez-v1.0.24`)

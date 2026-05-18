@@ -16,6 +16,6 @@ SSH_OPTS=(
   -o ServerAliveCountMax=2
   -o "StrictHostKeyChecking=${SSH_STRICT}"
 )
-GUEST="cd ${PROJ} && git fetch origin main && git checkout main --force && git pull origin main && docker compose build --no-cache backend && docker compose down --remove-orphans && docker compose up -d && sleep 8 && curl -s --max-time 10 --connect-timeout 5 http://localhost/api/v1/health"
+GUEST="cd ${PROJ} && git fetch origin main && git checkout -B main origin/main && git reset --hard origin/main && docker compose build --no-cache backend && docker compose down --remove-orphans && docker compose up -d && sleep 8 && curl -s --max-time 10 --connect-timeout 5 http://localhost/api/v1/health"
 ssh "${SSH_OPTS[@]}" "${FINANCE_HYPERVISOR_SSH}" \
   "timeout 2400 bash -c 'pct exec ${FINANCE_GUEST_VMID} -- timeout 2300 bash -c \"${GUEST}\"'"

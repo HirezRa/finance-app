@@ -277,11 +277,16 @@ main(){
 
   log_info "=== שלב: משיכת שינויים מ-Git ==="
   log_debug "מאגר: $(cd "$APP_DIR" && git remote get-url origin 2>/dev/null || echo '?')"
-  log_debug "ענף נוכחי: $(cd "$APP_DIR" && git branch --show-current 2>/dev/null || echo '?')"
+  log_debug "ענף נוכחי: $(cd "$APP_DIR" && git branch --show-current 2>/dev/null || echo 'detached/none')"
+  log_debug "HEAD: $(cd "$APP_DIR" && git rev-parse --short HEAD 2>/dev/null || echo '?')"
 
   write_status "in-progress" "מושך עדכונים..." 20
-  if ! (cd "$APP_DIR" && git fetch origin main); then
+  local git_sync_log
+  git_sync_log=$(mktemp)
+  if ! (cd "$APP_DIR" && git fetch origin main >>"$git_sync_log" 2>&1); then
     log_error "git fetch נכשל"
+    log_debug "$(tail -n 20 "$git_sync_log" 2>/dev/null || true)"
+    rm -f "$git_sync_log"
     rollback "git fetch failed"
     append_history "rolled-back" "Git fetch failed" "$previous_version" "$previous_version" "$start_ts"
     cleanup
@@ -291,14 +296,18 @@ main(){
   behind=$(cd "$APP_DIR" && git rev-list HEAD..origin/main --count 2>/dev/null || echo "0")
   log_info "קומיטים לעדכון: $behind"
 
-  if ! (cd "$APP_DIR" && git checkout main --force && git pull origin main); then
-    log_error "git pull נכשל"
+  # Deploy host must mirror origin/main exactly (detached HEAD / divergent pull breaks git pull).
+  if ! (cd "$APP_DIR" && git checkout -B main origin/main >>"$git_sync_log" 2>&1 && git reset --hard origin/main >>"$git_sync_log" 2>&1); then
+    log_error "סנכרון Git ל-origin/main נכשל"
+    log_debug "$(tail -n 30 "$git_sync_log" 2>/dev/null || true)"
+    rm -f "$git_sync_log"
     rollback "משיכת עדכונים נכשלה"
-    append_history "rolled-back" "Git pull failed" "$previous_version" "$previous_version" "$start_ts"
+    append_history "rolled-back" "Git sync failed" "$previous_version" "$previous_version" "$start_ts"
     cleanup
     exit 1
   fi
-  log_info "Git pull הצליח"
+  rm -f "$git_sync_log"
+  log_info "סנכרון Git ל-origin/main הצליח"
   log_debug "קומיט נוכחי: $(cd "$APP_DIR" && git rev-parse --short HEAD 2>/dev/null || echo '?')"
   check_cancelled
 
