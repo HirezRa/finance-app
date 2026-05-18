@@ -348,7 +348,14 @@ function convertTransactions(txns: YahavScrapedRow[], options?: ScraperOptions):
 type YahavRowEval = { id: string; cellTexts: string[] };
 
 const YAHAV_ROW_SEL = '.list-item-holder .entire-content-ctr';
-const YAHAV_ROW_FALLBACK_SELS = ['.list-item-holder .entire-content-ctr', '.entire-content-ctr'];
+const YAHAV_ROW_FALLBACK_SELS = [
+  '.list-item-holder .entire-content-ctr',
+  '.entire-content-ctr',
+  '.under-line-txn-table tbody tr',
+  '.under-line-txn-table tr',
+  '.account-details table tbody tr',
+  'table tbody tr',
+];
 
 async function captureYahavRowInnerTexts(page: Page): Promise<string[]> {
   return page.evaluate((sels: string[]) => {
@@ -383,6 +390,10 @@ async function collectYahavRowsByDatePatternFallback(page: Page): Promise<YahavR
       '[class*="statement"] [class*="row"]',
       '[class*="transaction"] [class*="row"]',
       '.list-item-holder li',
+      '.under-line-txn-table tbody tr',
+      '.under-line-txn-table tr',
+      '.account-details table tbody tr',
+      'table tbody tr',
     ];
     const seenLine = new Set<string>();
     const out: string[] = [];
@@ -995,7 +1006,14 @@ async function getAccountTransactions(page: Page, options?: ScraperOptions): Pro
   let transactionsDivs = await collectYahavTransactionRowsFromDom(page);
   yahavDebugLog('virtualized collect', { uniqueRows: transactionsDivs.length });
 
-  const rowSelectors = ['.list-item-holder .entire-content-ctr', '.entire-content-ctr'];
+  const rowSelectors = [
+    '.list-item-holder .entire-content-ctr',
+    '.entire-content-ctr',
+    '.under-line-txn-table tbody tr',
+    '.under-line-txn-table tr',
+    '.account-details table tbody tr',
+    'table tbody tr',
+  ];
 
   for (const sel of rowSelectors) {
     await scrollYahavTransactionListFully(page);
