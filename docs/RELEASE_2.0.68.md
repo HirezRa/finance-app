@@ -10,7 +10,17 @@
 | תג Git הצפוי | **v2.0.68** |
 | ענף פיתוח | `fix/yahav-2.0.68-overlay-sync` |
 | תוסף סנכרון (fork) | **hirez-v1.0.24** — `backend/package.json` → `github:HirezRa/israeli-bank-scrapers#hirez-v1.0.24` |
-| Git commit נעול (lockfile) | **ce1b773f8c9dc7d9a0bb36472b74f8b09d7574e1** |
+| Git commit נעול (lockfile) | **11a68da3751f580947e9acb83db8abb3eb54ce05** (= תג GitHub `hirez-v1.0.24`) |
+| קומיט לוגיקת Yahav | **ce1b773** — viewport + `searchByDates` debug (לפני טריגר semantic-release) |
+
+### יישור lockfile ↔ תג סקרייפר
+
+`package.json` מצהיר `#hirez-v1.0.24`. ב-GitHub התג מצביע על **`11a68da`** (לא `ce1b773` המקומי הישן). `package-lock.json` וה-overlay חייבים להתאים ל־`git ls-remote` של התג.
+
+```bash
+node scripts/verify-scraper-lock.cjs   # lockfile SHA === refs/tags/hirez-v* ב-GitHub
+node scripts/verify-version-align.cjs  # VERSION === package.json
+```
 
 ## תקציר שינוי (Yahav)
 
@@ -41,7 +51,7 @@ docker exec -e SCRAPE_START_DATE=2026-04-25 -e SCRAPE_END_DATE=2026-05-13 \
 
 לאחר הדחיפה, workflow **CI Security and Build** אמור לעבור:
 
-- `version-align`, `docs-public-safety`, `secret-scan`, `build`.
+- `version-align`, `scraper-lock`, `docs-public-safety`, `secret-scan`, `build`.
 
 ```bash
 gh run list --workflow="CI Security and Build" --limit 3
@@ -53,6 +63,6 @@ node scripts/verify-version-align.cjs
 אחרי `git pull` על השרת (או `scripts/safe-update.sh` / `deploy_remote_guest`):
 
 - rebuild `backend` (postinstall מריץ overlay).
-- אופציונלי: `SCRAPER_GIT_SHA=ce1b773f8c9dc7d9a0bb36472b74f8b09d7574e1` ב־`.env`.
+- אופציונלי: `SCRAPER_GIT_SHA=11a68da3751f580947e9acb83db8abb3eb54ce05` ב־`.env`.
 
 אימות: גרסת ליבה **2.0.68**, תוסף **hirez-v1.0.24**.

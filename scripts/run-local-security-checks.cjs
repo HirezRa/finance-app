@@ -10,6 +10,7 @@ const checks = [
   'verify-sensitive-repo-patterns.cjs',
   'verify-public-docs-safety.cjs',
   'verify-version-align.cjs',
+  'verify-scraper-lock.cjs',
 ];
 
 for (const file of checks) {

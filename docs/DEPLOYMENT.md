@@ -74,6 +74,7 @@ git reset --hard origin/main
 - **חובה** לעדכן את `VERSION` ב־`main` בכל שחרור (release) כך שיתאים לתג ב-GitHub (למשל `2.0.x` בלי קידומת `v`, זהה ל־`v2.0.x` ב-Git).
 - **מומלץ** באותו קומיט release ליישר גם את השדה `version` ב־`frontend/package.json`, `backend/package.json` ובשורש `package-lock.json` של כל אחד מהם לאותו מספר SemVer כמו ב־`VERSION` — כדי למנוע פערים בכלי פיתוח, בדיקות, ודיווחי תלות. לאחר השינויים: `npm install` ב־`frontend/` ו־`npm install --package-lock-only` ב־`backend/` (או `npm install` מלא) לרענון ה-lockfiles.
 - **אימות לפני push:** `node scripts/verify-version-align.cjs` — אותו בדיקה רצה ב־CI (`version-align` ב־`.github/workflows/ci-security.yml`).
+- **תלות סקרייפר:** `backend/package.json` מצביע על תג Git (`#hirez-v1.0.24` וכו'); `backend/package-lock.json` חייב לנעול את **אותו** commit כמו `git ls-remote` של התג ב-GitHub (התג עשוי להיות מאוחר מקומיט הפיצ'ר, למשל `11a68da` לעומת `ce1b773`). אימות: `node scripts/verify-scraper-lock.cjs` (גם ב־CI).
 - **תיעוד ציבורי:** `node scripts/verify-public-docs-safety.cjs` — בודק שאין דפוסי תשתית ברירת מחדל ב־`docs/`, `README.md` ו־`.github/auto-deploy-setup.md` (גם ב־CI).
 - אם שוחרר release לפני שקומיט של `VERSION` הגיע ל־`main`, עדיין אפשר ש־`git pull` ימשוך קוד חדש בעוד שקובץ `VERSION` נשאר ישן — ואז הממשק יציג "העדכון הושלם" אבל גרסה ישנה. הסקריפט `scripts/safe-update.sh`, אחרי בדיקת בריאות מוצלחת, **מיישר את `VERSION` ל־`targetVersion` מקובץ הטריגר** (שנוצר מ־`POST /version/trigger-update`), כך שהגרסה המוצגת תתאים לעדכון שהמשתמש ביקש.
 

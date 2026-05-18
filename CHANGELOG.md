@@ -12,6 +12,7 @@
 
 - **Overlay** `backend/scraper-overlays/.../yahav.ts` — מסונכרן 1:1 עם fork `src/scrapers/yahav.ts` (כולל `ensureYahavViewport`, `gotoYahavCurrentAccountTransactionsPage`, `enforceYahavStatementLoaded`, לוגי `YAHAV_DEBUG_DOM` לכפתור חיפוש ול-post-search DOM).
 - **תלות** `israeli-bank-scrapers` / `@hirez10/israeli-bank-scrapers` → `#hirez-v1.0.24` (עדכן `package-lock.json` אחרי merge ל-fork ו־`npm install` ב־backend).
+- **Lockfile / overlay** — מיושרים לתג GitHub `hirez-v1.0.24` → commit `11a68da` (קומיט `ce1b773` = לוגיקת Yahav; `11a68da` = אותו קוד + prettier + טריגר release). אימות: `node scripts/verify-scraper-lock.cjs`.
 - **ScraperService** (מ-2.0.67): `detectCoverageAnomaly` קורא `partial/warnings/diagnostics`; `scraper.service.spec.ts`.
 
 ### אימות נדרש על השרת

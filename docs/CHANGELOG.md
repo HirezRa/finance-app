@@ -7,7 +7,7 @@
 ## [2.0.68] - 2026-05-17
 
 - **Yahav overlay** — סנכרון 1:1 עם fork `hirez-v1.0.24` (`searchByDates`, `applyYahavDateFilterOnly`, `enforceYahavStatementLoaded`).
-- תלות `israeli-bank-scrapers` → `#hirez-v1.0.24` (lock: `ce1b773`).
+- תלות `israeli-bank-scrapers` → `#hirez-v1.0.24` (lock + תג GitHub: `11a68da`; `verify-scraper-lock.cjs`).
 - `ScraperService.detectCoverageAnomaly` קורא `partial/warnings/diagnostics`; בדיקות ב־`scraper.service.spec.ts`.
 - ראו `CHANGELOG.md` בשורש ו־`docs/RELEASE_2.0.68.md`.
 
