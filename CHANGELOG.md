@@ -2,11 +2,106 @@
 
 כל השינויים המשמעותיים בפרויקט מתועדים כאן.
 
+## [2.0.68] - 2026-05-17
+
+### Scraper (Yahav) — `searchByDates` / overlay sync (`hirez-v1.0.24`)
+
+**שורש הבעיה (post-2.0.67).** אחרי viewport + diagnostics, הריצה על השרת עדיין החזירה 5 שורות בלבד — ה-overlay (933 שורות) דרס את לוגיקת ה-fork (2067 שורות) שכוללת `searchByDates` → `applyYahavDateFilterOnly` + `enforceYahavStatementLoaded` + ניווט ל־`#/main/accounts/current/`.
+
+### שינויים
+
+- **Overlay** `backend/scraper-overlays/.../yahav.ts` — מסונכרן 1:1 עם fork `src/scrapers/yahav.ts` (כולל `ensureYahavViewport`, `gotoYahavCurrentAccountTransactionsPage`, `enforceYahavStatementLoaded`, לוגי `YAHAV_DEBUG_DOM` לכפתור חיפוש ול-post-search DOM).
+- **תלות** `israeli-bank-scrapers` / `@hirez10/israeli-bank-scrapers` → `#hirez-v1.0.24` (עדכן `package-lock.json` אחרי merge ל-fork ו־`npm install` ב־backend).
+- **ScraperService** (מ-2.0.67): `detectCoverageAnomaly` קורא `partial/warnings/diagnostics`; `scraper.service.spec.ts`.
+
+### אימות נדרש על השרת
+
+```bash
+docker compose build backend && docker compose up -d backend
+docker exec -e SCRAPE_START_DATE=2026-04-25 -e SCRAPE_END_DATE=2026-05-13 \
+  -e YAHAV_DEBUG_DOM=1 -e SCRAPE_ASSERT_MAY1=1 \
+  finance-backend npx ts-node prisma/verify-yahav-config-scrape.ts
+```
+
+צפוי: `DOD_VERDICT.passed=true`, `dateTokenCount` ≥ 18, `SALARY_ROWS` ≥ 2.
+
+## [2.0.67] - 2026-05-17
+
+### Scraper (Yahav) — RCA & תיקון עומק לכיסוי 01/05
+
+**שורש הבעיה שזוהה.** ה־postinstall של ה־backend (`scripts/ensure-israeli-bank-scrapers.cjs`) דורס את `node_modules/israeli-bank-scrapers/src/scrapers/yahav.ts` ב־overlay מקומי מתוך `backend/scraper-overlays/...`. כתוצאה מכך, כל השיפורים שמהדק שוחררו ב־fork `hirez-v1.0.21..1.0.23` (`applyYahavDateFilterOnly`, `enforceYahavStatementLoaded`, `buildYahavCoverageDiagnostics`, `partial/warnings/diagnostics`) **לא רצו בפועל** — הם נמחקו בכל `npm ci`. בנוסף, `ScraperService.detectCoverageAnomaly` לא קרא את ה־`partial/warnings/diagnostics` שהסקרייפר מחזיר. ה־lockfile למעשה תקין: ה־SHA `0e12db58a8acba7afd12e39553ce8bcc4b8c4e41` הוא בדיוק תג `hirez-v1.0.23` — גרסת `package.json` של ה־fork תקועה על "1.0.20" רק כי `@semantic-release/git` הוסר.
+
+### Overlay (`backend/scraper-overlays/israeli-bank-scrapers/src/scrapers/yahav.ts`)
+
+- **viewport מפורש** ב־`fetchData()` (1366×900). בדוקר headless Chromium ברירת המחדל ~800×600 והרשימה הוירטואלית מציגה רק ~5 שורות — מסביר את "5 רשומות בלבד 09–13/05".
+- **`buildYahavCoverageDiagnostics` (יצוא טהור)** — מחשב `requestedStartDate / minTxnDate / maxTxnDate / txnsCount / coverageGapDays / suspiciousCoverage` ב־`Asia/Jerusalem`.
+- **`readYahavListDateFootprint(page)`** — סורק את ה־DOM אחרי הסינון: סופר תאים `DD/MM/YYYY`, מאתר את התאריך הישן/חדש ביותר ומציין אם מילת שכר נראית בעמוד.
+- **`collectYahavRowsByDatePatternFallback(page)`** — נקרא כאשר ה־selector הראשי מחזיר פחות מ־5 שורות; סורק כל אלמנט תחת `.list-item-holder` לפי תבנית תאריך ומוסיף שורות שהפרסר הקיים מצליח לפענח.
+- **החזרה מ־`fetchData`** עכשיו מכילה `partial: boolean`, `warnings: string[]?`, `diagnostics: Record<string, unknown>` (כולל `requestedStartDate / minTxnDate / maxTxnDate / coverageGapDays / suspiciousCoverage / domFootprint / viewport`).
+- **הוסר ה־cap הסמוי** ב־`fetchData`: `moment.max(today−3mo+1d, requestedStart)` קיצר בשקט בקשות שמגיעות מעבר ל־3 חודשים אחורה. עכשיו `startMoment` שווה ל־`requestedStart` (וברירת המחדל = 3 חודשים אחורה רק כש־caller לא העביר ערך).
+
+### Backend ScraperService
+
+- `detectCoverageAnomaly` מקבל עכשיו `scraperPartial / scraperWarnings / scraperDiagnostics` מהסקרייפר וטומן אותם ב־stats. כל `result.partial=true` מסומן כ־anomalous גם בחלון קצר — כך ש־probe scrapes לא יסתירו תקלה.
+- כשהסקרייפר מחזיר `partial=true` (או יש `warnings`/`diagnostics`) — `ScraperService` מוסיף `appLogs.add('WARN','scraper','דיאגנוסטיקת סקרייפר',...)` עם `scraperConfigId`, `companyId`, `partial`, `warnings`, `diagnostics`.
+
+### Verify (`backend/prisma/verify-yahav-config-scrape.ts`)
+
+- מודפס `SCRAPER_DIAGNOSTICS` מלא (`partial / warnings / diagnostics`) בנוסף ל־`SCRAPE_RESULT` הקיים.
+- תחת `SCRAPE_ASSERT_MAY1=1` הסקריפט מאמת `Definition of Done`: ≥18 שורות שיום הבנק שלהן `2026-05-01` (Asia/Jerusalem) **וגם** ≥2 שורות עם `description` המכיל `משכורת`/`שכר`/`salary`. כשל מחזיר exit code `2` ו־`DOD_FAILED`.
+
+### בדיקות
+
+- `backend/src/modules/scraper/scraper.service.spec.ts` — נעילת התנהגות `detectCoverageAnomaly` לכל 5 התרחישים (partial+נתונים דלים, חלון רחב/מעט שורות, כיסוי בריא, אפס נתונים + לא partial, אפס נתונים + partial).
+
+### לא בוצע commit/release — מחכה לאישור המשתמש לפי בקשתו.
+
+## [2.0.66] - 2026-05-17
+
+### Scraper (Yahav) — עדכון 1.0.23 ואימות חוזר
+
+- עודכנו התלויות `israeli-bank-scrapers` וגם `@hirez10/israeli-bank-scrapers` ל־`github:HirezRa/israeli-bank-scrapers#hirez-v1.0.23`.
+- עודכן `backend/package-lock.json` ל־commit החדש של fork (`0e12db58a8acba7afd12e39553ce8bcc4b8c4e41`) לקיבוע Build דטרמיניסטי.
+- בוצע rebuild מלא לשירות `backend` בשרת והרצה חוזרת של `verify-yahav-config-scrape.ts` בשני טווחים:
+  - `2026-05-09..2026-05-13`
+  - `2026-04-25..2026-05-13`
+- בשני המקרים הוחזרו 5 פעולות בלבד בטווח `2026-05-09..2026-05-13`, ללא משכורות `01/05` (`SALARY_ROWS count=0`).
+
+## [2.0.65] - 2026-05-16
+
+### Scraper (Yahav) — עדכון 1.0.22 ואימות חוזר
+
+- עודכנו התלויות `israeli-bank-scrapers` וגם `@hirez10/israeli-bank-scrapers` ל־`github:HirezRa/israeli-bank-scrapers#hirez-v1.0.22`.
+- עודכן `backend/package-lock.json` ל־commit החדש של fork (`51c4f05c6a50f36a320b32f05feac1d2988563ca`) לקיבוע Build דטרמיניסטי.
+- בוצע rebuild מלא לשירות `backend` בשרת והרצה חוזרת של `verify-yahav-config-scrape.ts` בשני טווחים:
+  - `2026-05-09..2026-05-13`
+  - `2026-04-25..2026-05-13`
+- בשני המקרים הוחזרו 5 פעולות בלבד בטווח `2026-05-09..2026-05-13`, ללא משכורות `01/05` (`SALARY_ROWS count=0`).
+
+## [2.0.64] - 2026-05-16
+
+### Scraper (Yahav) — עדכון ואימות
+
+- עודכנה תלות `israeli-bank-scrapers` וגם `@hirez10/israeli-bank-scrapers` ל־`github:HirezRa/israeli-bank-scrapers#hirez-v1.0.21`.
+- עודכן `backend/package-lock.json` ל־commit החדש של fork (`e367ca02924a88f4ce4a04e906c801fbf887692e`) כדי לקבע Build דטרמיניסטי.
+- בוצע rebuild מלא של שירות `backend` על השרת והורצה בדיקת `verify-yahav-config-scrape.ts` עם `SCRAPE_START_DATE=2026-04-25` (וגם `2026-05-09`): בפועל הוחזרו רק 5 פעולות בטווח `2026-05-09..2026-05-13`, ללא משכורות 01/05 (`SALARY_ROWS count=0`).
+
+## [2.0.63] - 2026-05-16
+
+### אבטחה ותפעול (מאגר)
+
+- **פריסה מרחוק:** סקריפטי `deploy_remote_guest` / rebuild / split-bills / Ollama עוברים ל־`FINANCE_DEPLOY_SSH` ואופציונלי `FINANCE_SSH_JUMP_HOST` (OpenSSH `-J`) — ללא פקודות guest-exec ספציפיות לספק וירטואליזציה במאגר.
+- **GitHub Actions:** `deploy-remote.yml` ו־`push-github-deploy-settings.ps1` מעודכנים; מומלץ למחוק משתנים ישנים `FINANCE_DEPLOY_GUEST_VMID` / `FINANCE_DEPLOY_VIA_PCT` מהריפו ב-GitHub.
+- **תיעוד:** `LOGGING_GUIDE.md` — הוראות עדכון מאורח Linux מנוטרלות (SSH גנרי); `docs/DEPLOYMENT.md` ו־`.github/auto-deploy-setup.md` מסונכרנים.
+- **מקומי:** הוסרו סקריפטי SSH/מפתחות לדוגמה שלא היו אמורים להידחף; `.gitignore` מרחיב חסימה לתיקיית כלי MCP מקומית תחת `tools/`.
+- **היסטוריית Git:** `git filter-repo` — הסרת מסמכי עיצוב וסקריפטי פריסה ישנים עם טביעות תשתית; החלפת כתובות IP פנימיות ב־placeholders בכל ההיסטוריה.
+- **סריקה:** `.gitleaks.toml` מורחב (allowlists ממוקדים); `.gitleaksignore` מתחדש דרך `regen-gitleaksignore.cjs`; `verify-gitleaks-clean.cjs` ב־`run-local-security-checks`.
+
 ## [2.0.62] - 2026-05-16
 
 ### ניקוי מאגר
 
-- הוסר תיעוד ואזכורים ל־**Proxmox MCP** — לא חלק מהפרויקט (`docs/PROXMOX_MCP.md`, קישור ב־`README`). גרסה **2.0.61** (תג GitHub) בוטלה לטובת **2.0.62**.
+- הוסר תיעוד ואזכורים לתוסף MCP צד־שלישי — לא חלק מהפרויקט (קובץ תיעוד ייעודי שהוסר, קישור ב־`README`). גרסה **2.0.61** (תג GitHub) בוטלה לטובת **2.0.62**.
 
 ## [2.0.60] - 2026-05-16
 

@@ -41,6 +41,114 @@ import type {
 export class ScraperService {
   private readonly logger = new Logger(ScraperService.name);
 
+  private resolveSyncStartDate(companyId: string): Date {
+    const rawDefault = Number(process.env.SCRAPER_SYNC_DAYS_BACK ?? 120);
+    const rawYahav = Number(
+      process.env.SCRAPER_SYNC_DAYS_BACK_YAHAV ?? Math.max(rawDefault, 180),
+    );
+    const daysBack =
+      companyId === 'yahav'
+        ? Number.isFinite(rawYahav)
+          ? rawYahav
+          : 180
+        : Number.isFinite(rawDefault)
+          ? rawDefault
+          : 120;
+    const boundedDaysBack = Math.max(7, Math.min(365, Math.floor(daysBack)));
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - boundedDaysBack);
+    return startDate;
+  }
+
+  private detectCoverageAnomaly(params: {
+    companyId: string;
+    requestedStartDate: Date;
+    accounts: Array<{ txns?: Array<{ date?: unknown }> }>;
+    /** Optional pass-through from scraper-emitted ScraperScrapingResult.partial */
+    scraperPartial?: boolean;
+    /** Optional pass-through from scraper-emitted ScraperScrapingResult.warnings */
+    scraperWarnings?: string[];
+    /** Optional pass-through from scraper-emitted ScraperScrapingResult.diagnostics */
+    scraperDiagnostics?: Record<string, unknown>;
+  }): {
+    isAnomalous: boolean;
+    reason?: string;
+    stats: {
+      txnsCount: number;
+      requestedDays: number;
+      gapDays: number | null;
+      coveredDays: number | null;
+      minTxnDate: string | null;
+      maxTxnDate: string | null;
+      scraperPartial: boolean;
+      scraperWarnings: string[];
+      scraperDiagnostics: Record<string, unknown> | null;
+    };
+  } {
+    const nowMs = Date.now();
+    const reqMs = params.requestedStartDate.getTime();
+    const requestedDays = Math.max(1, Math.floor((nowMs - reqMs) / 86_400_000) + 1);
+    const txDatesMs = params.accounts
+      .flatMap((a) => a.txns ?? [])
+      .map((t) => (typeof t.date === 'string' ? Date.parse(t.date) : Number.NaN))
+      .filter((n) => Number.isFinite(n));
+    const scraperPartial = !!params.scraperPartial;
+    const scraperWarnings = Array.isArray(params.scraperWarnings) ? params.scraperWarnings : [];
+    const scraperDiagnostics = params.scraperDiagnostics ?? null;
+
+    if (txDatesMs.length === 0) {
+      // Empty results are anomalous when the scraper itself signaled `partial` — earlier
+      // versions returned isAnomalous=false for empty, hiding broken syncs from operators.
+      return {
+        isAnomalous: scraperPartial,
+        reason: scraperPartial ? 'scraper_signaled_partial_with_no_transactions' : undefined,
+        stats: {
+          txnsCount: 0,
+          requestedDays,
+          gapDays: null,
+          coveredDays: null,
+          minTxnDate: null,
+          maxTxnDate: null,
+          scraperPartial,
+          scraperWarnings,
+          scraperDiagnostics,
+        },
+      };
+    }
+
+    const minMs = Math.min(...txDatesMs);
+    const maxMs = Math.max(...txDatesMs);
+    const gapDays = Math.max(0, Math.floor((minMs - reqMs) / 86_400_000));
+    const coveredDays = Math.max(1, Math.floor((maxMs - minMs) / 86_400_000) + 1);
+    const isYahavNarrowWindow =
+      params.companyId === 'yahav' && requestedDays >= 45 && txDatesMs.length <= 15 && gapDays >= 20;
+    const isGenericSevereGap =
+      requestedDays >= 60 && txDatesMs.length <= 10 && gapDays >= Math.floor(requestedDays * 0.5);
+    // Trust the scraper when it self-reports partial coverage even on short windows
+    // (e.g. probe scrapes with SCRAPE_START_DATE only ~3 weeks back).
+    const isAnomalous = isYahavNarrowWindow || isGenericSevereGap || scraperPartial;
+
+    return {
+      isAnomalous,
+      reason: isAnomalous
+        ? scraperPartial && !(isYahavNarrowWindow || isGenericSevereGap)
+          ? `scraper_signaled_partial company=${params.companyId} requestedDays=${requestedDays} txns=${txDatesMs.length} gapDays=${gapDays} warnings=${scraperWarnings.join('; ').slice(0, 240)}`
+          : `coverage_gap_detected company=${params.companyId} requestedDays=${requestedDays} txns=${txDatesMs.length} gapDays=${gapDays} coveredDays=${coveredDays}`
+        : undefined,
+      stats: {
+        txnsCount: txDatesMs.length,
+        requestedDays,
+        gapDays,
+        coveredDays,
+        minTxnDate: new Date(minMs).toISOString(),
+        maxTxnDate: new Date(maxMs).toISOString(),
+        scraperPartial,
+        scraperWarnings,
+        scraperDiagnostics,
+      },
+    };
+  }
+
   private mapInstitutionTypeToProviderType(input: string | undefined): ProviderType {
     if (input === 'bank') return 'bank';
     if (input === 'card') return 'credit_card';
@@ -651,8 +759,7 @@ export class ScraperService {
       queueName: queueMeta?.queueName,
     });
 
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 90);
+    const startDate = this.resolveSyncStartDate(config.companyId);
 
     this.logger.log(
       `Starting scraper for ${config.companyId} (config: ${configId}), startDate: ${startDate.toISOString()}`,
@@ -1287,14 +1394,63 @@ export class ScraperService {
         }
       }
 
-      await this.configService.updateSyncStatus(configId, 'success');
       const partialSync = accountsFailed > 0;
+      const resultExtras = result as unknown as {
+        partial?: boolean;
+        warnings?: string[];
+        diagnostics?: Record<string, unknown>;
+      };
+      const coverageAnomaly = this.detectCoverageAnomaly({
+        companyId: config.companyId,
+        requestedStartDate: startDate,
+        accounts: rawAccounts as Array<{ txns?: Array<{ date?: unknown }> }>,
+        scraperPartial: resultExtras.partial,
+        scraperWarnings: resultExtras.warnings,
+        scraperDiagnostics: resultExtras.diagnostics,
+      });
+      if (
+        resultExtras.partial ||
+        (Array.isArray(resultExtras.warnings) && resultExtras.warnings.length > 0) ||
+        (resultExtras.diagnostics && Object.keys(resultExtras.diagnostics).length > 0)
+      ) {
+        this.appLogs.add(
+          resultExtras.partial ? 'WARN' : 'INFO',
+          'scraper',
+          'דיאגנוסטיקת סקרייפר',
+          {
+            scraperConfigId: configId,
+            companyId: config.companyId,
+            partial: !!resultExtras.partial,
+            warnings: resultExtras.warnings ?? [],
+            diagnostics: resultExtras.diagnostics ?? null,
+          },
+        );
+      }
+      const hasCoverageAnomaly = coverageAnomaly.isAnomalous;
+      const partialWithAnomaly = partialSync || hasCoverageAnomaly;
       const finalStatus: SyncStatus =
-        updatedAccountsCount === 0 && accountsFailed > 0
+        updatedAccountsCount === 0 && (accountsFailed > 0 || hasCoverageAnomaly)
           ? 'failure'
-          : partialSync
+          : partialWithAnomaly
             ? 'partial'
             : 'success';
+      const syncStatusForConfig = finalStatus === 'failure' ? 'error' : finalStatus;
+      const syncStatusError =
+        hasCoverageAnomaly && coverageAnomaly.reason
+          ? `scrape_coverage_anomaly: ${coverageAnomaly.reason}`
+          : undefined;
+      await this.configService.updateSyncStatus(configId, syncStatusForConfig, syncStatusError);
+
+      if (hasCoverageAnomaly && coverageAnomaly.reason) {
+        this.logger.warn(
+          `Scraper coverage anomaly detected for ${config.companyId} (config: ${configId}): ${coverageAnomaly.reason}`,
+        );
+        this.appLogs.add('WARN', 'scraper', 'חריגת כיסוי נתונים מסקרייפר', {
+          scraperConfigId: configId,
+          companyId: config.companyId,
+          coverageAnomaly: coverageAnomaly.stats,
+        });
+      }
 
       this.logger.log(
         `Scraper completed: ${newTransactionsCount} new transactions, ${updatedAccountsCount} accounts`,
@@ -1311,7 +1467,7 @@ export class ScraperService {
         newTransactionsCount,
       );
       this.appLogs.logSyncLifecycle(
-        partialSync ? 'WARN' : 'INFO',
+        partialWithAnomaly ? 'WARN' : 'INFO',
         'provider_end',
         traceBase,
         this.createLifecycle({
@@ -1330,7 +1486,8 @@ export class ScraperService {
             accountsTotal: rawAccounts.length,
             accountsSucceeded: updatedAccountsCount,
             accountsFailed,
-            partialSync,
+            partialSync: partialWithAnomaly,
+            coverageAnomaly: hasCoverageAnomaly ? coverageAnomaly.stats : undefined,
             dataWindow: {
               from: startDate.toISOString(),
               to: new Date().toISOString(),
@@ -1339,7 +1496,7 @@ export class ScraperService {
         }),
       );
       this.appLogs.logSyncLifecycle(
-        partialSync ? 'WARN' : 'INFO',
+        partialWithAnomaly ? 'WARN' : 'INFO',
         'sync_end',
         traceBase,
         this.createLifecycle({
@@ -1358,7 +1515,8 @@ export class ScraperService {
             accountsTotal: rawAccounts.length,
             accountsSucceeded: updatedAccountsCount,
             accountsFailed,
-            partialSync,
+            partialSync: partialWithAnomaly,
+            coverageAnomaly: hasCoverageAnomaly ? coverageAnomaly.stats : undefined,
             dataWindow: {
               from: startDate.toISOString(),
               to: new Date().toISOString(),
@@ -1391,7 +1549,7 @@ export class ScraperService {
         newTransactionsCount,
         updatedAccountsCount,
         accountsFailed,
-        partialSync,
+        partialSync: partialWithAnomaly,
       };
     } catch (error: unknown) {
       if (wasSyncFailureLogged(error)) {
