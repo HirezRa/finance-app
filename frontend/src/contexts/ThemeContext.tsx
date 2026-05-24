@@ -1,7 +1,16 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-type Theme = 'light' | 'dark' | 'system';
-type FontSize = 'small' | 'base' | 'large' | 'xlarge';
+export type Theme = 'light' | 'dark' | 'system';
+export type FontSize = 'small' | 'base' | 'large' | 'xlarge';
+export type Accent = 'indigo' | 'emerald' | 'rose' | 'amber' | 'slate';
+
+const ACCENTS: Accent[] = ['indigo', 'emerald', 'rose', 'amber', 'slate'];
+
+function readAccent(): Accent {
+  if (typeof window === 'undefined') return 'indigo';
+  const stored = localStorage.getItem('accent') as Accent | null;
+  return stored && ACCENTS.includes(stored) ? stored : 'indigo';
+}
 
 interface ThemeContextType {
   theme: Theme;
@@ -9,6 +18,8 @@ interface ThemeContextType {
   effectiveTheme: 'light' | 'dark';
   fontSize: FontSize;
   setFontSize: (size: FontSize) => void;
+  accent: Accent;
+  setAccent: (accent: Accent) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -28,6 +39,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return 'base';
   });
 
+  const [accent, setAccentState] = useState<Accent>(readAccent);
   const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
@@ -62,6 +74,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme, systemTheme]);
 
   useEffect(() => {
+    document.documentElement.setAttribute('data-accent', accent);
+  }, [accent]);
+
+  useEffect(() => {
     document.documentElement.setAttribute('data-font-size', fontSize);
   }, [fontSize]);
 
@@ -75,11 +91,24 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('fontSize', newSize);
   };
 
+  const setAccent = (newAccent: Accent) => {
+    setAccentState(newAccent);
+    localStorage.setItem('accent', newAccent);
+  };
+
   const effectiveTheme = theme === 'system' ? systemTheme : theme;
 
   return (
     <ThemeContext.Provider
-      value={{ theme, setTheme, effectiveTheme, fontSize, setFontSize }}
+      value={{
+        theme,
+        setTheme,
+        effectiveTheme,
+        fontSize,
+        setFontSize,
+        accent,
+        setAccent,
+      }}
     >
       {children}
     </ThemeContext.Provider>
@@ -93,3 +122,11 @@ export function useTheme() {
   }
   return context;
 }
+
+export const ACCENT_OPTIONS: { id: Accent; label: string; color: string }[] = [
+  { id: 'indigo', label: 'Indigo', color: '#5b5bd6' },
+  { id: 'emerald', label: 'Emerald', color: '#059669' },
+  { id: 'rose', label: 'Rose', color: '#e11d48' },
+  { id: 'amber', label: 'Amber', color: '#d97706' },
+  { id: 'slate', label: 'Slate', color: '#475569' },
+];

@@ -1,0 +1,14 @@
+/* Neo-Brutalist mobile tokens */
+
+:root {
+  --brutal-bg: #fdf6c4;
+  --brutal-ink: #0a0a0a;
+  --brutal-yellow: #ffd60a;
+  --brutal-pink: #ff5fa2;
+  --brutal-blue: #3a86ff;
+  --brutal-lime: #b8e90d;
+  --brutal-orange: #ff8500;
+  --brutal-red: #ef233c;
+  --brutal-border: 2.5px solid var(--brutal-ink);
+  --brutal-shadow: 4px 4px 0 0 var(--brutal-ink);
+}

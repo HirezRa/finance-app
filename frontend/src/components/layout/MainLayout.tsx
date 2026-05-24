@@ -7,23 +7,39 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 export default function MainLayout() {
   const location = useLocation();
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isDashboard = location.pathname === '/dashboard';
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const isMobileLayout = useMediaQuery('(max-width: 1023px)');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
-    if (isMobile) {
+    if (isMobileLayout) {
       setSidebarCollapsed(true);
     }
-  }, [location.pathname, isMobile]);
+  }, [location.pathname, isMobileLayout]);
+
+  if (isDashboard) {
+    return (
+      <main className="h-dvh overflow-hidden">
+        <Outlet />
+      </main>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100/80 via-indigo-100/30 to-violet-100/50 dark:from-slate-950 dark:via-indigo-950/50 dark:to-slate-900">
-      {isMobile ? (
+    <div
+      className={
+        isDesktop
+          ? 'app-shell-bento min-h-screen'
+          : 'min-h-screen bg-[var(--brutal-bg)]'
+      }
+    >
+      {isMobileLayout ? (
         <MobileHeader onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)} />
       ) : null}
 
       <div className="flex h-screen">
-        {!isMobile ? (
+        {isDesktop ? (
           <Sidebar
             collapsed={sidebarCollapsed}
             onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -33,18 +49,18 @@ export default function MainLayout() {
         <main
           className={[
             'flex-1 overflow-x-hidden overflow-y-auto',
-            isMobile ? 'pb-20 pt-16' : 'p-6',
+            isMobileLayout ? 'pb-20 pt-16' : 'p-7',
           ].join(' ')}
         >
-          <div className={isMobile ? 'mx-auto px-4' : 'mx-auto max-w-7xl'}>
+          <div className={isMobileLayout ? 'mx-auto px-4' : 'mx-auto max-w-7xl'}>
             <Outlet />
           </div>
         </main>
 
-        {isMobile && !sidebarCollapsed ? (
+        {isMobileLayout && !sidebarCollapsed ? (
           <>
             <div
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+              className="fixed inset-0 z-40 bg-black/40"
               onClick={() => setSidebarCollapsed(true)}
             />
             <div className="fixed right-0 top-0 z-50 h-full w-64">
@@ -57,7 +73,7 @@ export default function MainLayout() {
           </>
         ) : null}
 
-        {isMobile ? <BottomNav /> : null}
+        {isMobileLayout ? <BottomNav /> : null}
       </div>
     </div>
   );

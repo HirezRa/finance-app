@@ -59,6 +59,7 @@ import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { formatCurrency, cn } from '@/lib/utils';
 import { FontSizeSelector } from '@/components/FontSizeSelector';
+import { AccentSwatches } from '@/components/AccentSwatches';
 import { VersionChecker } from '@/components/VersionChecker';
 import { UpdateSection } from '@/components/settings/UpdateSection';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -140,6 +141,11 @@ function DisplaySettings() {
         <Palette className="h-5 w-5" />
         הגדרות תצוגה
       </h2>
+
+      <div className="finance-card space-y-4">
+        <h3 className="font-medium">צבע הדגשה</h3>
+        <AccentSwatches />
+      </div>
 
       <div className="finance-card space-y-4">
         <h3 className="font-medium">ערכת נושא</h3>

@@ -46,18 +46,21 @@ export function Sidebar({ collapsed, onToggle, mobile }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex flex-col border-s border-white/20 bg-sidebar/75 text-sidebar-foreground shadow-[4px_0_32px_rgb(0_0_0_/0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-sidebar/60 dark:shadow-[4px_0_40px_rgb(0_0_0_/0.35)]',
+        'flex flex-col border-s border-[var(--border)] bg-[var(--panel)] text-[var(--fg)] shadow-none',
         !mobile && 'sticky top-0 h-screen shrink-0',
         collapsed && !mobile ? 'w-20' : 'w-64',
         mobile && 'h-full w-64',
         'transition-all duration-300',
       )}
     >
-      <div className="flex items-center justify-between border-b border-white/10 p-4 dark:border-white/10">
+      <div className="flex items-center justify-between border-b border-[var(--border)] p-4">
         {!collapsed || mobile ? (
           <div className="flex min-w-0 items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-indigo-600 shadow-md shadow-primary/30">
-              <span className="text-sm font-bold text-white">₪</span>
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-[7px] text-sm font-bold text-white"
+              style={{ background: 'var(--accent-gradient)' }}
+            >
+              <span>₪</span>
             </div>
             <span className="truncate font-semibold tracking-tight">ניהול פיננסי</span>
           </div>

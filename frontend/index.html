@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
     <title>ניהול פיננסי אישי</title>
@@ -34,6 +34,8 @@
         );
         const fontSize = localStorage.getItem('fontSize') || 'base';
         document.documentElement.setAttribute('data-font-size', fontSize);
+        const accent = localStorage.getItem('accent') || 'indigo';
+        document.documentElement.setAttribute('data-accent', accent);
       })();
     </script>
   </head>

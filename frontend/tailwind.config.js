@@ -66,8 +66,7 @@ export default {
       },
       fontFamily: {
         sans: [
-          'Inter',
-          'Noto Sans Hebrew',
+          'Heebo',
           '-apple-system',
           'BlinkMacSystemFont',
           'Segoe UI',

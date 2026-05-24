@@ -1,0 +1,72 @@
+/* Bento design tokens — exact values from spec */
+
+:root {
+  --bento-blue: #5e9eff;
+  --bento-green: #3ecf8e;
+  --bento-red: #ff5b5b;
+  --bento-amber: #f5a524;
+  --bento-purple: #a78bfa;
+  --bento-pink: #ec4899;
+
+  --bg: #fafafa;
+  --panel: #ffffff;
+  --panel-hi: #f5f5f5;
+  --border: #e5e5e5;
+  --border-hi: #d4d4d4;
+  --fg: #0a0a0a;
+  --dim: #6b7280;
+  --dimmer: #9ca3af;
+
+  --accent-primary: #5b5bd6;
+  --accent-primary-border: #6b6be4;
+  --accent-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  --chart-accent: var(--bento-blue);
+}
+
+.dark {
+  --bg: #08090a;
+  --panel: #0f1011;
+  --panel-hi: #16181a;
+  --border: #1f2123;
+  --border-hi: #2a2d30;
+  --fg: #e6e6e6;
+  --dim: #8b8d91;
+  --dimmer: #5a5d61;
+}
+
+[data-accent='indigo'] {
+  --accent-primary: #5b5bd6;
+  --accent-primary-border: #6b6be4;
+  --accent-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  --chart-accent: #5e9eff;
+}
+
+[data-accent='emerald'] {
+  --accent-primary: #059669;
+  --accent-primary-border: #10b981;
+  --accent-gradient: linear-gradient(135deg, #047857 0%, #10b981 100%);
+  --chart-accent: #3ecf8e;
+}
+
+[data-accent='rose'] {
+  --accent-primary: #e11d48;
+  --accent-primary-border: #f43f5e;
+  --accent-gradient: linear-gradient(135deg, #be123c 0%, #f43f5e 100%);
+  --chart-accent: #ec4899;
+}
+
+[data-accent='amber'] {
+  --accent-primary: #d97706;
+  --accent-primary-border: #f59e0b;
+  --accent-gradient: linear-gradient(135deg, #b45309 0%, #f59e0b 100%);
+  --chart-accent: #f5a524;
+}
+
+[data-accent='slate'] {
+  --accent-primary: #475569;
+  --accent-primary-border: #64748b;
+  --accent-gradient: linear-gradient(135deg, #334155 0%, #64748b 100%);
+  --chart-accent: #94a3b8;
+}
+
+/* App shell uses bento surfaces on desktop via .app-shell-bento */
