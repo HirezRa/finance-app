@@ -30,9 +30,11 @@ export function Sparkline({ stroke, points }: { stroke: string; points: string }
 export function DonutChart({
   values,
   colorKeys,
+  sliceColors,
 }: {
   values: number[];
-  colorKeys: BentoColorKey[];
+  colorKeys?: BentoColorKey[];
+  sliceColors?: string[];
 }) {
   const total = values.reduce((a, c) => a + c, 0);
   let angle = -Math.PI / 2;
@@ -50,7 +52,10 @@ export function DonutChart({
     const large = slice > Math.PI ? 1 : 0;
     const d = `M ${x1} ${y1} A 40 40 0 ${large} 1 ${x2} ${y2} L ${ix1} ${iy1} A 24 24 0 ${large} 0 ${ix2} ${iy2} Z`;
     angle += slice;
-    return { d, fill: bentoColor(colorKeys[i]!) };
+    const fill =
+      sliceColors?.[i] ??
+      (colorKeys?.[i] ? bentoColor(colorKeys[i]) : bentoColor('blue'));
+    return { d, fill };
   });
 
   return (
@@ -62,9 +67,22 @@ export function DonutChart({
   );
 }
 
-export function GaugeHalf() {
+export function GaugeHalf({
+  spent,
+  allowance,
+  pct,
+}: {
+  spent: number;
+  allowance: number;
+  pct: number;
+}) {
+  const arcLen = 150;
+  const filled = Math.round((pct / 100) * arcLen);
+  const needleX = 60 + 16 * Math.cos(Math.PI * (1 - pct / 100));
+  const needleY = 70 - 38 * Math.sin(Math.PI * (pct / 100));
+
   return (
-    <svg viewBox="0 0 120 80" className="h-20 w-[120px] shrink-0">
+    <svg viewBox="0 0 120 80" className="h-20 w-[120px] shrink-0" role="img" aria-label={`קצב יומי ${pct}%`}>
       <path
         d="M 12 70 A 48 48 0 0 1 108 70"
         fill="none"
@@ -78,30 +96,36 @@ export function GaugeHalf() {
         stroke="var(--bento-green)"
         strokeWidth="10"
         strokeLinecap="round"
-        strokeDasharray="80 200"
+        strokeDasharray={`${filled} ${arcLen}`}
       />
       <line
         x1="60"
         y1="70"
-        x2="44"
-        y2="32"
+        x2={needleX}
+        y2={needleY}
         stroke="var(--fg)"
         strokeWidth="2"
         strokeLinecap="round"
       />
       <circle cx="60" cy="70" r="4" fill="var(--fg)" />
       <text x="60" y="58" textAnchor="middle" fontSize="14" fontWeight="600" fill="var(--fg)">
-        ₪181
+        ₪{Math.round(spent).toLocaleString('en-US')}
       </text>
       <text x="60" y="74" textAnchor="middle" fontSize="9" fill="var(--dim)">
-        של ₪513
+        של ₪{Math.round(allowance).toLocaleString('en-US')}
       </text>
     </svg>
   );
 }
 
-export function WeeklyBarChart({ values }: { values: readonly number[] }) {
-  const max = 4500;
+export function WeeklyBarChart({
+  values,
+  maxValue,
+}: {
+  values: readonly number[];
+  maxValue?: number;
+}) {
+  const max = maxValue && maxValue > 0 ? maxValue * 1.15 : Math.max(...values, 1) * 1.15;
   return (
     <svg viewBox="0 0 600 160" className="mt-3.5 h-[170px] w-full">
       <defs>

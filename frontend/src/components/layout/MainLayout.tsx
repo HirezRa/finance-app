@@ -18,14 +18,6 @@ export default function MainLayout() {
     }
   }, [location.pathname, isMobileLayout]);
 
-  if (isDashboard) {
-    return (
-      <main className="h-dvh overflow-hidden">
-        <Outlet />
-      </main>
-    );
-  }
-
   return (
     <div
       className={
@@ -49,10 +41,20 @@ export default function MainLayout() {
         <main
           className={[
             'flex-1 overflow-x-hidden overflow-y-auto',
-            isMobileLayout ? 'pb-20 pt-16' : 'p-7',
+            isMobileLayout ? 'pb-20 pt-16' : isDashboard ? 'p-0' : 'p-7',
           ].join(' ')}
         >
-          <div className={isMobileLayout ? 'mx-auto px-4' : 'mx-auto max-w-7xl'}>
+          <div
+            className={
+              isMobileLayout
+                ? isDashboard
+                  ? 'h-full'
+                  : 'mx-auto px-4'
+                : isDashboard
+                  ? 'h-full max-w-none'
+                  : 'mx-auto max-w-7xl'
+            }
+          >
             <Outlet />
           </div>
         </main>
@@ -62,6 +64,7 @@ export default function MainLayout() {
             <div
               className="fixed inset-0 z-40 bg-black/40"
               onClick={() => setSidebarCollapsed(true)}
+              aria-hidden
             />
             <div className="fixed right-0 top-0 z-50 h-full w-64">
               <Sidebar

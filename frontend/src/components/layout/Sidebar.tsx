@@ -1,11 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Receipt,
-  Wallet,
-  PiggyBank,
-  Tags,
-  Settings,
   ChevronRight,
   ChevronLeft,
   X,
@@ -24,14 +18,9 @@ interface SidebarProps {
   mobile?: boolean;
 }
 
-const navItems = [
-  { path: '/dashboard', label: 'לוח בקרה', icon: LayoutDashboard },
-  { path: '/transactions', label: 'עסקאות', icon: Receipt },
-  { path: '/accounts', label: 'חשבונות', icon: Wallet },
-  { path: '/budgets', label: 'תקציבים', icon: PiggyBank },
-  { path: '/categories', label: 'קטגוריות', icon: Tags },
-  { path: '/settings', label: 'הגדרות', icon: Settings },
-];
+import { APP_NAV_ITEMS } from '@/config/navigation';
+
+const navItems = APP_NAV_ITEMS;
 
 export function Sidebar({ collapsed, onToggle, mobile }: SidebarProps) {
   const location = useLocation();

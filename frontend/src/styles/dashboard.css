@@ -76,15 +76,20 @@
   border: 1px solid transparent;
   background: transparent;
   color: var(--dim);
-  cursor: default;
-  opacity: 0.5;
+  cursor: pointer;
+  opacity: 0.85;
+  text-decoration: none;
+}
+
+.bento-nav-btn:hover {
+  color: var(--fg);
+  opacity: 1;
 }
 
 .bento-nav-btn--active {
   color: var(--fg);
   background: var(--panel-hi);
   border-color: var(--border);
-  cursor: pointer;
   opacity: 1;
 }
 

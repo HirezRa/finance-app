@@ -1,13 +1,15 @@
 {
   "name": "finance-app-frontend",
-  "version": "2.0.70",
+  "version": "2.0.71",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "lint": "tsc --noEmit",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -39,6 +41,8 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
+    "@playwright/test": "^1.52.0",
     "@types/react": "^18.2.57",
     "@types/react-dom": "^18.2.19",
     "@vitejs/plugin-react": "^4.2.1",

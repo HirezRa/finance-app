@@ -6,18 +6,11 @@ interface MobileHeaderProps {
   onMenuClick: () => void;
 }
 
-const pageTitles: Record<string, string> = {
-  '/dashboard': 'לוח בקרה',
-  '/transactions': 'עסקאות',
-  '/accounts': 'חשבונות',
-  '/budgets': 'תקציבים',
-  '/categories': 'קטגוריות',
-  '/settings': 'הגדרות',
-};
+import { PAGE_TITLES } from '@/config/navigation';
 
 export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
   const location = useLocation();
-  const title = pageTitles[location.pathname] || 'ניהול פיננסי';
+  const title = PAGE_TITLES[location.pathname] || 'ניהול פיננסי';
 
   return (
     <header className="safe-area-inset-top fixed inset-x-0 top-0 z-40 border-b border-white/15 bg-white/25 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.08]">

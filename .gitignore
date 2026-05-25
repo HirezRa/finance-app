@@ -40,6 +40,8 @@ node_modules/
 # ========================================
 dist/
 build/
+frontend/test-results/
+frontend/playwright-report/
 .next/
 out/
 *.tsbuildinfo
@@ -76,6 +78,7 @@ lerna-debug.log*
 
 # Local Python venv (optional tooling; not part of app)
 tools/proxmox-mcp-plus-venv/
+tools/proxmox-mcp-plus/proxmox-config/config.json
 
 # Local agent / worktree copies (avoid accidental commits of infra fingerprints)
 .claude/
