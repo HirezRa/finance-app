@@ -30,9 +30,20 @@
 
 **פריסה.** `docker compose build backend && docker compose up -d backend` (אין צורך ב־release חדש של הסקרייפר — שני התיקונים בצד Finance_App: overlay + service).
 
+#### OpenRouter — מודל הסיווג החינמי הוסר (404)
+
+- **שורש הבעיה.** `UserSettings.openrouterModel` הצביע על `google/gemma-3-27b-it:free`, ש‑OpenRouter הסיר מהשכבה החינמית (404: "This model is unavailable for free"). כל סיווג LLM אחרי סנכרון נכשל ורשם שגיאות בלוג (הסנכרון עצמו לא נפגע).
+- **תיקון.** נבדקו מודלים חינמיים זמינים מול ה‑API עם מפתח המשתמש; ההגדרה עודכנה ל‑`openai/gpt-oss-120b:free` (המהיר והיציב מבין המועמדים — 3.7s, תשובת סיווג נכונה בעברית; gemma‑4 ו‑kimi איטיים/עמוסים, llama‑3.3/qwen3 ב‑rate-limit). עדכון דרך DB — ללא שינוי קוד.
+
+#### שגיאות 13:04 (אתחול שרת)
+
+- השגיאות `Can't reach database server at db:5432` ו‑`Protocol error: Target closed` ב‑13:04:37 נגרמו מאתחול השרת באמצע סנכרון רץ (ה‑DB וה‑Chromium נסגרו). ה‑job חזר אוטומטית אחרי העלייה והושלם בהצלחה — לא נדרש תיקון קוד.
+
 **אומת בפרודקשן (10/06/2026, PCT 115).**
 - Yahav (`prisma/verify-yahav-config-scrape.ts`, חלון 11/03→10/06): `success=true`, **46 תנועות**, כיסוי מלא 10/03→02/06, `partial=false`, scope="3 חודשים אחרונים" (64 שורות), 6 שורות משכורת.
 - Isracard (`prisma/verify-isracard-config-scrape.ts`, אותו config שנכשל בלוגים): `success=true`, 2 כרטיסים (4+68 תנועות), 27 שניות — ללא timeout.
+- סנכרון מלא אחרי אתחול (13:05–13:10 UTC): יהב ×2 הושלמו (18 תנועות חדשות), ישראכרט הושלם (2 חשבונות), ויזה כאל הושלם (10 חשבונות) — `accountsFailed=0` בכולם.
+- ‏LLM: `openai/gpt-oss-120b:free` אומת בקריאה אמיתית עם מפתח המשתמש (סיווג "שופרסל דיל" → "מזון").
 
 ## [2.0.69] - 2026-05-18
 

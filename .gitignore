@@ -13,6 +13,9 @@ gitleaks-report.json
 .env.development
 !.env.example
 
+# Logs pulled from the production server (may contain account details)
+server-logs/
+
 # Private keys and certificates
 *.pem
 *.key
