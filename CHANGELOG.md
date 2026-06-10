@@ -30,6 +30,10 @@
 
 **פריסה.** `docker compose build backend && docker compose up -d backend` (אין צורך ב־release חדש של הסקרייפר — שני התיקונים בצד Finance_App: overlay + service).
 
+**אומת בפרודקשן (10/06/2026, PCT 115).**
+- Yahav (`prisma/verify-yahav-config-scrape.ts`, חלון 11/03→10/06): `success=true`, **46 תנועות**, כיסוי מלא 10/03→02/06, `partial=false`, scope="3 חודשים אחרונים" (64 שורות), 6 שורות משכורת.
+- Isracard (`prisma/verify-isracard-config-scrape.ts`, אותו config שנכשל בלוגים): `success=true`, 2 כרטיסים (4+68 תנועות), 27 שניות — ללא timeout.
+
 ## [2.0.69] - 2026-05-18
 
 ### Frontend — מסך עסקאות (RTL + עמודת סכום קבועה)
