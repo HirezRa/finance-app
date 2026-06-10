@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [2.0.73] - 2026-06-10
+
+### יישור קו גרסאות (tag = VERSION = release)
+
+- **תלות סקרייפר:** `israeli-bank-scrapers` / `@hirez10/israeli-bank-scrapers` → **`hirez-v1.0.26`** (commit `163a6b5b`) — כולל את תיקוני ה‑Yahav של 2.0.72 גם בפורק עצמו (PR ‏#48–#49): enforce false-negative, מיון כרונולוגי של `oldestDateToken`, והעדפת scope רחב ("הכל" → "3 חודשים" → "מתחילת החודש").
+- ‏Finance_App: תג `v2.0.72` + release נוצרו בדיעבד; מ‑2.0.73 והלאה — תג, `VERSION` ו‑GitHub Release מיושרים.
+- אין שינויי קוד באפליקציה מעבר לעדכון התלות (ה‑overlay כבר מכיל את התיקונים).
+
 ## [2.0.72] - 2026-06-10
 
 ### Scraper — תיקון שתי תקלות LOG על שרת ה‑LXC (PCT 115)
