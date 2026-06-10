@@ -40,7 +40,7 @@ export const BENTO_HEADER_NAV = APP_NAV_ITEMS.filter((i) =>
   ['/dashboard', '/transactions', '/accounts', '/budgets', '/categories'].includes(i.path),
 ).map((i) => ({
   path: i.path,
-  label: i.labelEn ?? i.label,
+  label: i.label,
 }));
 
 export const PAGE_TITLES: Record<string, string> = Object.fromEntries(

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth.store';
@@ -7,7 +7,6 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { CmdKPalette } from '@/components/dashboard/CmdKPalette';
 import { AddTransactionModal } from '@/components/dashboard/AddTransactionModal';
 import { useInsights, useStreak } from '@/hooks/useInsights';
-import { BENTO_HEADER_NAV } from '@/config/navigation';
 import type { DashboardData } from '@/components/dashboard/hooks/useDashboardData';
 import { getAccountDisplayName } from '@/lib/accountDisplay';
 import { formatShortDate } from '@/lib/utils';
@@ -21,6 +20,22 @@ import {
 } from './BentoViz';
 
 const PERIOD_TABS = ['יום', 'שבוע', 'מחזור', 'שנה', 'הכל'] as const;
+type PeriodTab = (typeof PERIOD_TABS)[number];
+const PERIOD_QUERY_KEY = 'range';
+const PERIOD_FROM_QUERY: Record<string, PeriodTab | undefined> = {
+  day: 'יום',
+  week: 'שבוע',
+  cycle: 'מחזור',
+  year: 'שנה',
+  all: 'הכל',
+};
+const PERIOD_TO_QUERY: Record<PeriodTab, string> = {
+  יום: 'day',
+  שבוע: 'week',
+  מחזור: 'cycle',
+  שנה: 'year',
+  הכל: 'all',
+};
 
 function Tile({
   span,
@@ -55,12 +70,15 @@ function formatTxAmount(amount: number): string {
 
 export function BentoDashboard({ data }: { data: DashboardData }) {
   const user = useAuthStore((s) => s.user);
-  const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: insight } = useInsights();
   const { data: streak, isDemo: streakIsDemo } = useStreak();
   const [cmdOpen, setCmdOpen] = useState(false);
   const [txOpen, setTxOpen] = useState(false);
+  const selectedPeriod =
+    PERIOD_FROM_QUERY[searchParams.get(PERIOD_QUERY_KEY) ?? ''] ?? 'מחזור';
+  const isCyclePeriod = selectedPeriod === 'מחזור';
 
   const syncMutation = useMutation({
     mutationFn: () => scraperApi.syncAll(),
@@ -72,6 +90,12 @@ export function BentoDashboard({ data }: { data: DashboardData }) {
   const spendableParts = data.spendableFormatted.replace('₪', '').split('.');
   const abroad = data.summary?.abroad;
   const installments = data.installments;
+
+  const setPeriod = (period: PeriodTab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set(PERIOD_QUERY_KEY, PERIOD_TO_QUERY[period]);
+    setSearchParams(next, { replace: true });
+  };
 
   return (
     <div className="bento-shell scrollbar-thin">
@@ -87,23 +111,6 @@ export function BentoDashboard({ data }: { data: DashboardData }) {
           <span className="text-xs text-[var(--dim)]">/</span>
           <span className="text-[13px] text-[var(--dim)]">{userName}</span>
         </div>
-
-        <nav className="ms-4 flex gap-1" aria-label="ניווט ראשי">
-          {BENTO_HEADER_NAV.map((n) => {
-            const active =
-              location.pathname === n.path || location.pathname.startsWith(`${n.path}/`);
-            return (
-              <NavLink
-                key={n.path}
-                to={n.path}
-                aria-current={active ? 'page' : undefined}
-                className={active ? 'bento-nav-btn bento-nav-btn--active' : 'bento-nav-btn !cursor-pointer !opacity-100'}
-              >
-                {n.label}
-              </NavLink>
-            );
-          })}
-        </nav>
 
         <div className="ms-auto flex items-center gap-2.5">
           <button
@@ -139,51 +146,65 @@ export function BentoDashboard({ data }: { data: DashboardData }) {
 
       <div className="mb-4 flex flex-wrap items-center gap-3.5">
         <h1 className="text-[22px] font-semibold tracking-tight">סקירה</h1>
-        <div className="flex rounded-lg border border-[var(--border)] bg-[var(--panel)] p-0.5" role="tablist" aria-label="טווח זמן">
+        <div
+          className="flex rounded-lg border border-[var(--border)] bg-[var(--panel)] p-0.5"
+          role="tablist"
+          aria-label="טווח זמן"
+        >
           {PERIOD_TABS.map((tab) => (
             <button
               key={tab}
               type="button"
               role="tab"
-              aria-selected={tab === 'מחזור'}
+              aria-selected={tab === selectedPeriod}
               className={
-                tab === 'מחזור'
+                tab === selectedPeriod
                   ? 'bento-period-tab bento-period-tab--active'
                   : 'bento-period-tab opacity-60'
               }
-              disabled={tab !== 'מחזור'}
-              aria-disabled={tab !== 'מחזור'}
-              title={tab !== 'מחזור' ? 'בקרוב' : undefined}
+              onClick={() => setPeriod(tab)}
             >
               {tab}
             </button>
           ))}
         </div>
         <div className="ms-auto flex items-center gap-2 text-xs text-[var(--dim)]">
-          <button
-            type="button"
-            className="bento-btn-ghost h-6 w-6 p-0 text-sm"
-            onClick={() => data.changeMonth(-1)}
-            aria-label="מחזור קודם"
-          >
-            ›
-          </button>
-          <span>{data.periodTitle}</span>
-          <span className="text-[var(--dimmer)]">·</span>
-          <span>{data.cycleProgress.label}</span>
-          {!data.isCurrentMonth ? (
-            <button type="button" className="bento-btn-ghost px-2 py-0.5 text-[11px]" onClick={data.goToCurrentMonth}>
-              מחזור נוכחי
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="bento-btn-ghost h-6 w-6 p-0 text-sm"
-            onClick={() => data.changeMonth(1)}
-            aria-label="מחזור הבא"
-          >
-            ‹
-          </button>
+          {isCyclePeriod ? (
+            <>
+              <button
+                type="button"
+                className="bento-btn-ghost h-6 w-6 p-0 text-sm"
+                onClick={() => data.changeMonth(-1)}
+                aria-label="מחזור קודם"
+              >
+                ›
+              </button>
+              <span>{data.periodTitle}</span>
+              <span className="text-[var(--dimmer)]">·</span>
+              <span>{data.cycleProgress.label}</span>
+              {!data.isCurrentMonth ? (
+                <button
+                  type="button"
+                  className="bento-btn-ghost px-2 py-0.5 text-[11px]"
+                  onClick={data.goToCurrentMonth}
+                >
+                  מחזור נוכחי
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="bento-btn-ghost h-6 w-6 p-0 text-sm"
+                onClick={() => data.changeMonth(1)}
+                aria-label="מחזור הבא"
+              >
+                ‹
+              </button>
+            </>
+          ) : (
+            <span className="rounded-md border border-[var(--border)] px-2 py-1">
+              טווח נבחר: {selectedPeriod}
+            </span>
+          )}
         </div>
       </div>
 
