@@ -147,8 +147,9 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
+    # Security hardening: keep Bull Board local-only (no LAN exposure).
     ports:
-      - "3001:3000"
+      - "localhost:3001:3000"
     depends_on:
       - redis
     networks:

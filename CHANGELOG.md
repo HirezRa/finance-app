@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## [2.0.75] - 2026-06-10
+
+### אבטחה — הקשחת חשיפה חיצונית וכותרות HTTP
+
+- **Bull Board:** מיפוי הפורט הוחלף ל־`localhost:3001:3000` במקום `0.0.0.0:3001:3000`, כך שממשק התורים אינו נגיש יותר מהרשת (רק לוקאלית על השרת).
+- **Nginx hardening:**
+  - `server_tokens off` (הסתרת גרסת nginx בתשובות שגיאה).
+  - כותרות נוספות לכל התגובות: `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`.
+  - חסימת גישה לקבצים מוסתרים דרך ה־frontend (`location ~ /\.(?!well-known).* { deny all; }`).
+- **בדיקות אימות:** פריסה מחודשת ואימות חי — API תקין דרך nginx, Bull Board לא חשוף חיצונית.
+
 ## [2.0.74] - 2026-06-10
 
 ### תוקן — ויזה כאל: `Unexpected end of JSON input`
