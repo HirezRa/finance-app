@@ -1747,10 +1747,12 @@ async function selectYahavStatementScopeAllIfPresent(page: Page): Promise<void> 
       );
       for (const sel of selects) {
         const options = Array.from(sel.options);
+        // Prefer the widest scope: "all" > "last 3 months" > "current month".
+        // Sync windows are 90-180 days, so current-month-first starved coverage.
         const target =
           options.find(o => /כל|all|תנועות|עו"ש/i.test(norm(o.text))) ||
-          options.find(o => /מתחילת החודש|חודש נוכחי|current month/i.test(norm(o.text))) ||
-          options.find(o => /3 חודשים אחרונים|last 3/i.test(norm(o.text)));
+          options.find(o => /3 חודשים אחרונים|last 3/i.test(norm(o.text))) ||
+          options.find(o => /מתחילת החודש|חודש נוכחי|current month/i.test(norm(o.text)));
         if (target && sel.value !== target.value) {
           sel.value = target.value;
           sel.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1817,10 +1819,11 @@ async function selectYahavStatementScopeAllIfPresent(page: Page): Promise<void> 
         return monthOptions[0]?.el;
       };
 
+      // Same widest-scope preference as the native-select path above.
       const option =
         pickOption(/כל|all|תנועות|עו"ש/i) ||
-        pickOption(/מתחילת החודש|חודש נוכחי|current month/i) ||
         pickOption(/3 חודשים אחרונים|last 3/i) ||
+        pickOption(/מתחילת החודש|חודש נוכחי|current month/i) ||
         oldestMonthOption();
 
       if (option) {

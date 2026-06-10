@@ -21,6 +21,11 @@
 - **תיקון.** הבדיקה מסומנת "לא שלם" רק כאשר סינון ה־from **לא** הוחל בפועל (`fromDateApplied` — השוואת `snap.dateInputs` ל־`formattedFrom`). כשהסינון הוחל ויש מספיק שורות — הסטייטמנט נחשב שלם.
 - **באג משני שתוקן.** `oldestDateToken` חושב במיון לקסיקלי של מחרוזות `dd/MM/yyyy` (`[...dates].sort()`), כך ש־"01/04/2026" קדם בטעות ל־"11/03/2026". עבר למיון כרונולוגי (פירוק dd/MM/yyyy) — משפר גם את `buildYahavCoverageDiagnostics`.
 
+#### Yahav — בחירת טווח (scope) מצומצם מדי בדropdown
+
+- **שורש הבעיה (אומת בריצת verify על השרת).** `selectYahavStatementScopeAllIfPresent` העדיף "מתחילת החודש" על פני "3 חודשים אחרונים" — כשחלון הסנכרון הוא 90–180 יום, נטענו רק תנועות מתחילת החודש הנוכחי (9 תנועות, `coverageGapDays=82`).
+- **תיקון.** סדר ההעדפה הפוך: "הכל" → "3 חודשים אחרונים" → "מתחילת החודש" (בשני המסלולים: native-select ו־menu-option).
+
 **קבצים.** `backend/src/modules/scraper/scraper.service.ts`, `backend/scraper-overlays/israeli-bank-scrapers/src/scrapers/yahav.ts`, וכן סנכרון פורק `Git_Ez_Israeli_Bank_Scraper/src/scrapers/yahav.ts`.
 
 **פריסה.** `docker compose build backend && docker compose up -d backend` (אין צורך ב־release חדש של הסקרייפר — שני התיקונים בצד Finance_App: overlay + service).
