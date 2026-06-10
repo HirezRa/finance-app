@@ -147,9 +147,8 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-    # Security hardening: keep Bull Board local-only (no LAN exposure).
-    ports:
-      - "localhost:3001:3000"
+    # Security hardening: do not publish Bull Board to host network.
+    # Access only from inside Docker network (or via explicit SSH tunnel/proxy).
     depends_on:
       - redis
     networks:
