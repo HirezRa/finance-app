@@ -4,6 +4,27 @@
 
 ## [Unreleased]
 
+## [2.0.72] - 2026-06-10
+
+### Scraper — תיקון שתי תקלות LOG על שרת ה‑LXC (PCT 115)
+
+**רקע.** ניתוח `finance-app-logs-diagnostic-2026-06-10` חשף שתי תקלות חוזרות: (1) Isracard `navigation_timeout` ("תם הזמן - הבנק לא הגיב", `durationMs≈30501`), (2) Yahav `enforce full statement loaded` נכשל למרות 73 שורות ומשכורת.
+
+#### Isracard — `Navigation timeout of 30000 ms exceeded`
+
+- **שורש הבעיה.** `scraper.service.ts` לא העביר `defaultTimeout` ל־`createScraper`, כך ש־`page.goto` השתמש ב־30s ברירת המחדל של Puppeteer. ה־SPA של ישראכרט (`/personalarea/Login`) איטי ולא הספיק לטעון. הערה: ב־`base-scraper-with-browser`, `options.timeout` משפיע **רק** על `puppeteer.launch`, ואילו `setDefaultTimeout` (מ־`defaultTimeout`) הוא שמושל על הניווט.
+- **תיקון.** הוספת `defaultTimeout` (ברירת מחדל 60s) ו־`navigationRetryCount` (ברירת מחדל 2) ל־`ScraperOptions`. ניתן לכוונון דרך `SCRAPER_NAV_TIMEOUT_MS` (טווח 30000–180000) ו־`SCRAPER_NAV_RETRY_COUNT` (0–5).
+
+#### Yahav — סטייטמנט שלם סומן בטעות כחלקי
+
+- **שורש הבעיה.** ב־`enforceYahavStatementLoaded` (overlay + fork), הבדיקה `startDate.isBefore(oldest)` החזירה "לא שלם" כאשר התנועה הישנה ביותר (01/04/2026) חדשה מה־from המבוקש (11/03/2026) — גם כששדות התאריך הציגו את ה־from הנכון, היו 73 שורות, ומשכורת. במציאות פשוט אין תנועות לפני 01/04 — תוצאה תקינה.
+- **תיקון.** הבדיקה מסומנת "לא שלם" רק כאשר סינון ה־from **לא** הוחל בפועל (`fromDateApplied` — השוואת `snap.dateInputs` ל־`formattedFrom`). כשהסינון הוחל ויש מספיק שורות — הסטייטמנט נחשב שלם.
+- **באג משני שתוקן.** `oldestDateToken` חושב במיון לקסיקלי של מחרוזות `dd/MM/yyyy` (`[...dates].sort()`), כך ש־"01/04/2026" קדם בטעות ל־"11/03/2026". עבר למיון כרונולוגי (פירוק dd/MM/yyyy) — משפר גם את `buildYahavCoverageDiagnostics`.
+
+**קבצים.** `backend/src/modules/scraper/scraper.service.ts`, `backend/scraper-overlays/israeli-bank-scrapers/src/scrapers/yahav.ts`, וכן סנכרון פורק `Git_Ez_Israeli_Bank_Scraper/src/scrapers/yahav.ts`.
+
+**פריסה.** `docker compose build backend && docker compose up -d backend` (אין צורך ב־release חדש של הסקרייפר — שני התיקונים בצד Finance_App: overlay + service).
+
 ## [2.0.69] - 2026-05-18
 
 ### Frontend — מסך עסקאות (RTL + עמודת סכום קבועה)

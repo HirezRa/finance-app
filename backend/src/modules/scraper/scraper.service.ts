@@ -65,6 +65,31 @@ export class ScraperService {
     return requestedStartDate.getTime();
   }
 
+  /**
+   * Navigation timeout (ms) for page.goto inside the scraper. Defaults to 60s
+   * (double Puppeteer's 30s default) to absorb slow bank SPAs like Isracard.
+   * Overridable via SCRAPER_NAV_TIMEOUT_MS, clamped to a safe 30s–180s range.
+   */
+  private resolveNavTimeoutMs(): number {
+    const raw = Number(process.env.SCRAPER_NAV_TIMEOUT_MS ?? 60000);
+    if (!Number.isFinite(raw)) {
+      return 60000;
+    }
+    return Math.max(30000, Math.min(180000, Math.floor(raw)));
+  }
+
+  /**
+   * Number of navigation retries on a non-OK HTTP response (does not retry on
+   * timeouts). Defaults to 2, overridable via SCRAPER_NAV_RETRY_COUNT (0–5).
+   */
+  private resolveNavRetryCount(): number {
+    const raw = Number(process.env.SCRAPER_NAV_RETRY_COUNT ?? 2);
+    if (!Number.isFinite(raw)) {
+      return 2;
+    }
+    return Math.max(0, Math.min(5, Math.floor(raw)));
+  }
+
   private resolveSyncStartDate(companyId: string): Date {
     const rawDefault = Number(process.env.SCRAPER_SYNC_DAYS_BACK ?? 120);
     const rawYahav = Number(
@@ -897,12 +922,21 @@ export class ScraperService {
       companyId: config.companyId,
     });
 
+    const navTimeoutMs = this.resolveNavTimeoutMs();
+    const navRetryCount = this.resolveNavRetryCount();
+
     const options: ScraperOptions = {
       companyId: config.companyId as CompanyTypes,
       startDate,
       combineInstallments: false,
       showBrowser: false,
       verbose: true,
+      // Puppeteer's default page navigation timeout is 30s. Heavy bank SPAs
+      // (notably Isracard's login page) frequently need longer, surfacing as
+      // "Navigation timeout of 30000 ms exceeded". setDefaultTimeout governs
+      // page.goto, so raise it with headroom and allow a couple of retries.
+      defaultTimeout: navTimeoutMs,
+      navigationRetryCount: navRetryCount,
       browserArgs: [
         '--no-sandbox',
         '--disable-setuid-sandbox',

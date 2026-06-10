@@ -184,7 +184,15 @@ async function readYahavStatementDomSnapshot(page: Page): Promise<YahavStatement
     const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
     const visibleText = document.body.innerText || '';
     const dates = visibleText.match(/\d{2}\/\d{2}\/20\d{2}/g) || [];
-    const sorted = [...dates].sort();
+    // Sort chronologically (dd/MM/yyyy), not lexically — otherwise "01/04/2026"
+    // would wrongly sort before "11/03/2026" and corrupt oldestDateToken.
+    const dateTokenToMs = (token: string): number => {
+      const m = token.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])).getTime() : Number.NaN;
+    };
+    const sorted = [...dates]
+      .filter(d => Number.isFinite(dateTokenToMs(d)))
+      .sort((a, b) => dateTokenToMs(a) - dateTokenToMs(b));
     const scopeEl =
       document.querySelector('.statement-options .selected-item-top') ||
       document.querySelector('.statement-options .selected-item');
@@ -2051,6 +2059,13 @@ async function enforceYahavStatementLoaded(page: Page, startDate: Moment): Promi
 
   const isIncomplete = (snap: YahavStatementDomSnapshot): boolean => {
     const oldest = parseYahavUiDateToken(snap.oldestDateToken);
+    // Whether the from-date filter is actually reflected in the on-screen inputs.
+    // When it is, an oldest transaction newer than the requested from-date just
+    // means the account has no earlier transactions in the window (a complete
+    // result), not a preview/wrong-period statement.
+    const fromDateApplied = snap.dateInputs.some(
+      di => normalizeYahavUiDate(di.value) === formattedFrom,
+    );
     if (!snap.onCurrentAccountPage) {
       return true;
     }
@@ -2073,7 +2088,11 @@ async function enforceYahavStatementLoaded(page: Page, startDate: Moment): Promi
     if (/^בחר$/.test(snap.scopeSelectedText) && oldest && startDate.isBefore(oldest, 'day')) {
       return false;
     }
-    if (oldest && startDate.isBefore(oldest, 'day')) {
+    // Oldest visible txn newer than the requested from-date is only "incomplete"
+    // when the from-date filter was NOT applied (still on a default/preview
+    // period). With the filter applied and enough rows present, this is a
+    // legitimate complete statement that simply has no earlier transactions.
+    if (oldest && startDate.isBefore(oldest, 'day') && !fromDateApplied) {
       return true;
     }
     return false;
