@@ -79,6 +79,7 @@ export function BentoDashboard({ data }: { data: DashboardData }) {
   const selectedPeriod =
     PERIOD_FROM_QUERY[searchParams.get(PERIOD_QUERY_KEY) ?? ''] ?? 'מחזור';
   const isCyclePeriod = selectedPeriod === 'מחזור';
+  const isCycleData = data.selectedRange === 'cycle';
 
   const syncMutation = useMutation({
     mutationFn: () => scraperApi.syncAll(),
@@ -234,15 +235,18 @@ export function BentoDashboard({ data }: { data: DashboardData }) {
               {data.spendable >= 0 ? '↑ במסלול' : 'חריגה'}
             </span>
             <span className="text-[11px] text-[var(--dim)]">
-              {data.cycleProgress.daysInCycle - data.cycleProgress.dayInCycle} יום, ≈
-              {data.formatCurrency(data.dailyAllowance)}/יום
+              {isCycleData
+                ? `${data.cycleProgress.daysInCycle - data.cycleProgress.dayInCycle} יום, ≈${data.formatCurrency(data.dailyAllowance)}/יום`
+                : `מסונן לפי: ${selectedPeriod}`}
             </span>
           </div>
-          <DayTimeline
-            elapsed={data.cycleProgress.dayInCycle}
-            start={String(data.cycleStartDay).padStart(2, '0')}
-            end={data.periodTitle.slice(-5)}
-          />
+          {isCycleData ? (
+            <DayTimeline
+              elapsed={data.cycleProgress.dayInCycle}
+              start={String(data.cycleStartDay).padStart(2, '0')}
+              end={data.periodTitle.slice(-5)}
+            />
+          ) : null}
         </Tile>
 
         <Tile span={2}>
