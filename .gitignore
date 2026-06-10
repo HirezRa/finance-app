@@ -143,3 +143,14 @@ prisma/migrations/**/migration_lock.toml
 
 # Update data directory
 update-data/
+
+# ========================================
+# Ad-hoc data exports / scratch queries (may contain real transactions — never commit)
+# ========================================
+*.csv
+*.tsv
+*.xlsx
+scripts/tmp-*
+scripts/export-*.sql
+backend/prisma/simulate-*.ts
+**/*-screenshot.cjs

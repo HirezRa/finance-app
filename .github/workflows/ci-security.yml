@@ -107,6 +107,9 @@ jobs:
       - name: Repo pattern scan (keys / private IPs)
         run: node scripts/verify-sensitive-repo-patterns.cjs
 
+      - name: Block tracked data-export files (CSV/SQL dumps)
+        run: node scripts/verify-no-data-exports.cjs
+
       - name: TruffleHog verified secrets scan
         run: |
           docker run --rm -v "$PWD:/repo" trufflesecurity/trufflehog:latest git file:///repo --only-verified --no-update

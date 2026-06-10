@@ -8,6 +8,7 @@ const { spawnSync } = require('child_process');
 const root = path.join(__dirname, '..');
 const checks = [
   'verify-sensitive-repo-patterns.cjs',
+  'verify-no-data-exports.cjs',
   'verify-public-docs-safety.cjs',
   'verify-version-align.cjs',
   'verify-scraper-lock.cjs',
