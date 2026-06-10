@@ -89,13 +89,13 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'profile' as const, label: 'פרופיל', icon: User },
-    { id: 'security' as const, label: 'אבטחה', icon: Shield },
-    { id: 'notifications' as const, label: 'התראות', icon: Bell },
     { id: 'display' as const, label: 'תצוגה', icon: Palette },
-    { id: 'updates' as const, label: 'עדכוני תוכנה', icon: Download },
     { id: 'budget' as const, label: 'תקציב', icon: PieChart },
+    { id: 'notifications' as const, label: 'התראות', icon: Bell },
+    { id: 'security' as const, label: 'אבטחה', icon: Shield },
     { id: 'ai' as const, label: 'AI', icon: Bot },
     { id: 'n8n' as const, label: 'n8n', icon: Webhook },
+    { id: 'updates' as const, label: 'עדכוני תוכנה', icon: Download },
     { id: 'logs' as const, label: 'לוגים', icon: ScrollText },
     { id: 'data' as const, label: 'נתונים', icon: Trash2 },
   ];
